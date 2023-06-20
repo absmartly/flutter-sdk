@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 import 'dart:math';
 
-import 'package:ab_smartly/helper/number_format/string_stack.dart';
+import 'package:absmartly_sdk/helper/number_format/string_stack.dart';
 
 import 'number_symbols.dart';
 import 'number_symbols_data.dart';

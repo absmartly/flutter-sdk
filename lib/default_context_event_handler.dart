@@ -1,4 +1,4 @@
-import 'package:ab_smartly/json/publish_event.dart';
+import 'package:absmartly_sdk/json/publish_event.dart';
 
 import 'context_event_handler.dart';
 import 'client.dart';

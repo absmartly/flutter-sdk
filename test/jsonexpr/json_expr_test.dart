@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:ab_smartly/jsonexpr/json_expr.dart';
+import 'package:absmartly_sdk/jsonexpr/json_expr.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // not working

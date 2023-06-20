@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:ab_smartly/default_http_client.dart';
+import 'package:absmartly_sdk/default_http_client.dart';
 import 'package:flutter/cupertino.dart';
 import 'client_config.dart';
 import 'default_context_data_serializer.dart';

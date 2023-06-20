@@ -1,8 +1,8 @@
 import 'dart:convert';
 
-import 'package:ab_smartly/context.dart';
-import 'package:ab_smartly/context.mocks.dart';
-import 'package:ab_smartly/default_variable_parser.dart';
+import 'package:absmartly_sdk/context.dart';
+import 'package:absmartly_sdk/context.mocks.dart';
+import 'package:absmartly_sdk/default_variable_parser.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 

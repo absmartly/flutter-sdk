@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:ab_smartly/variable_parser.dart';
+import 'package:absmartly_sdk/variable_parser.dart';
 
 import 'context.dart';
 

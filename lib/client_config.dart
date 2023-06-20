@@ -1,6 +1,6 @@
 import 'dart:core';
 
-import 'package:ab_smartly/default_context_data_serializer.dart';
+import 'package:absmartly_sdk/default_context_data_serializer.dart';
 
 import 'context_data_deserializer.dart';
 import 'context_event_serializer.dart';

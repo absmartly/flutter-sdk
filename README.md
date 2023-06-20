@@ -1,10 +1,10 @@
-# A/B Smartly SDK
+# A/B Smartly Flutter SDK
 
-A/B Smartly Dart SDK
+A/B Smartly Flutter SDK
 
 ## Compatibility
 
-The A/B Smartly Dart SDK is compatible with Dart versions
+The A/B Smartly Flutter SDK is compatible with Dart versions
 2.18.6 and later.
 
 ## Getting Started
@@ -15,7 +15,7 @@ The A/B Smartly Dart SDK is compatible with Dart versions
 To install the ABSmartly SDK, place the following in your `pubspec.yaml` and replace version with the latest SDK version available in pub.dev.
 
 ```pubspec.yaml
-    ab_smartly: ^version
+    absmartly_sdk: ^version
 ```
 
 ## Import and Initialize the SDK
@@ -50,7 +50,7 @@ void main() async{
 
 ### Using a Custom Event Logger
 
-The A/B Smartly SDK can be instantiated with an event logger used for all
+The A/B Smartly Flutter SDK can be instantiated with an event logger used for all
 contexts. In addition, an event logger can be specified when creating a
 particular context, in the `[CONTEXT_CONFIG_VARIABLE]`.
 

@@ -1,14 +1,14 @@
 import 'dart:async';
 
-import 'package:ab_smartly/ab_smartly.dart';
-import 'package:ab_smartly/ab_smartly_config.dart';
-import 'package:ab_smartly/client.dart';
-import 'package:ab_smartly/client.mocks.dart';
-import 'package:ab_smartly/context.dart';
-import 'package:ab_smartly/context_config.dart';
-import 'package:ab_smartly/default_context_data_provider.dart';
-import 'package:ab_smartly/default_context_event_handler.dart';
-import 'package:ab_smartly/json/context_data.dart';
+import 'package:absmartly_sdk/absmartly_sdk.dart';
+import 'package:absmartly_sdk/absmartly_sdk_config.dart';
+import 'package:absmartly_sdk/client.dart';
+import 'package:absmartly_sdk/client.mocks.dart';
+import 'package:absmartly_sdk/context.dart';
+import 'package:absmartly_sdk/context_config.dart';
+import 'package:absmartly_sdk/default_context_data_provider.dart';
+import 'package:absmartly_sdk/default_context_event_handler.dart';
+import 'package:absmartly_sdk/json/context_data.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 

@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:core';
 import 'dart:typed_data';
 
-import 'package:ab_smartly/helper/mutex/mutex.dart';
-import 'package:ab_smartly/variable_parser.dart';
+import 'package:absmartly_sdk/helper/mutex/mutex.dart';
+import 'package:absmartly_sdk/variable_parser.dart';
 import 'package:mockito/annotations.dart';
 
 import 'audience_matcher.dart';

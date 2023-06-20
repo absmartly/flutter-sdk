@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:ab_smartly/context_event_serializer.dart';
-import 'package:ab_smartly/default_context_event_serializer.dart';
-import 'package:ab_smartly/json/attribute.dart';
-import 'package:ab_smartly/json/exposure.dart';
-import 'package:ab_smartly/json/goal_achievement.dart';
-import 'package:ab_smartly/json/publish_event.dart';
-import 'package:ab_smartly/json/unit.dart';
+import 'package:absmartly_sdk/context_event_serializer.dart';
+import 'package:absmartly_sdk/default_context_event_serializer.dart';
+import 'package:absmartly_sdk/json/attribute.dart';
+import 'package:absmartly_sdk/json/exposure.dart';
+import 'package:absmartly_sdk/json/goal_achievement.dart';
+import 'package:absmartly_sdk/json/publish_event.dart';
+import 'package:absmartly_sdk/json/unit.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 

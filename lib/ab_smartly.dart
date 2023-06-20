@@ -1,10 +1,10 @@
-library ab_smartly;
+library absmartly_sdk;
 
 import 'dart:async';
 
-import 'package:ab_smartly/variable_parser.dart';
+import 'package:absmartly_sdk/variable_parser.dart';
 
-import 'ab_smartly_config.dart';
+import 'absmartly_sdk_config.dart';
 import 'audience_deserializer.dart';
 import 'audience_matcher.dart';
 import 'context.dart';

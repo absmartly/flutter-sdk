@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:ab_smartly/helper/funtions.dart';
+import 'package:absmartly_sdk/helper/funtions.dart';
 
 import '../buffers.dart';
 

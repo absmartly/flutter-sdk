@@ -1,5 +1,5 @@
 
-import 'package:ab_smartly/helper/mutex/read_write_mutex.dart';
+import 'package:absmartly_sdk/helper/mutex/read_write_mutex.dart';
 
 /// Mutual exclusion.
 ///

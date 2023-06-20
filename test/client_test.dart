@@ -2,15 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:ab_smartly/client.dart';
-import 'package:ab_smartly/client_config.dart';
-import 'package:ab_smartly/context_data_deserializer.mocks.dart';
-import 'package:ab_smartly/context_event_serializer.mocks.dart';
-import 'package:ab_smartly/default_http_client.dart';
-import 'package:ab_smartly/http_client.dart';
-import 'package:ab_smartly/http_client.mocks.dart';
-import 'package:ab_smartly/json/context_data.dart';
-import 'package:ab_smartly/json/publish_event.dart';
+import 'package:absmartly_sdk/client.dart';
+import 'package:absmartly_sdk/client_config.dart';
+import 'package:absmartly_sdk/context_data_deserializer.mocks.dart';
+import 'package:absmartly_sdk/context_event_serializer.mocks.dart';
+import 'package:absmartly_sdk/default_http_client.dart';
+import 'package:absmartly_sdk/http_client.dart';
+import 'package:absmartly_sdk/http_client.mocks.dart';
+import 'package:absmartly_sdk/json/context_data.dart';
+import 'package:absmartly_sdk/json/publish_event.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 

@@ -1,4 +1,4 @@
-import 'package:ab_smartly/jsonexpr/operators/unary_operator.dart';
+import 'package:absmartly_sdk/jsonexpr/operators/unary_operator.dart';
 
 import '../evaluator.dart';
 

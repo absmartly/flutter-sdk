@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:ab_smartly/internal/hashing/hashing.dart';
-import 'package:ab_smartly/internal/variant_assigner.dart';
+import 'package:absmartly_sdk/internal/hashing/hashing.dart';
+import 'package:absmartly_sdk/internal/variant_assigner.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main(){

@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:ab_smartly/json/unit.dart';
+import 'package:absmartly_sdk/json/unit.dart';
 import 'package:flutter/foundation.dart';
 
 import 'attribute.dart';

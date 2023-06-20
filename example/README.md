@@ -1,6 +1,6 @@
 # example
 
-A new Flutter project.
+Example project for A/B Smartly - Flutter SDK.
 
 ## Getting Started
 

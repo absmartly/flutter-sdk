@@ -1,5 +1,5 @@
-import 'package:ab_smartly/default_http_client.dart';
-import 'package:ab_smartly/default_http_client_config.dart';
+import 'package:absmartly_sdk/default_http_client.dart';
+import 'package:absmartly_sdk/default_http_client_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // all working

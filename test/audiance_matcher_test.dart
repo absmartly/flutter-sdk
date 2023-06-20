@@ -1,9 +1,9 @@
 
 import 'dart:convert';
 
-import 'package:ab_smartly/audience_deserializer.dart';
-import 'package:ab_smartly/audience_matcher.dart';
-import 'package:ab_smartly/default_audience_deserializer.dart';
+import 'package:absmartly_sdk/audience_deserializer.dart';
+import 'package:absmartly_sdk/audience_matcher.dart';
+import 'package:absmartly_sdk/default_audience_deserializer.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -1,4 +1,4 @@
-import 'package:ab_smartly/java_system_classes/closeable.dart';
+import 'package:absmartly_sdk/java_system_classes/closeable.dart';
 
 
 

@@ -3,11 +3,11 @@ import 'dart:core';
 import 'dart:io';
 
 
-import 'package:ab_smartly/helper/funtions.dart';
-import 'package:ab_smartly/helper/http/io_client.dart' as http_io;
+import 'package:absmartly_sdk/helper/funtions.dart';
+import 'package:absmartly_sdk/helper/http/io_client.dart' as http_io;
 
-import 'package:ab_smartly/helper/http/http.dart' as http;
-import 'package:ab_smartly/http_client.dart';
+import 'package:absmartly_sdk/helper/http/http.dart' as http;
+import 'package:absmartly_sdk/http_client.dart';
 import 'default_http_client_config.dart';
 
 

@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:ab_smartly/internal/hashing/hashing.dart';
+import 'package:absmartly_sdk/internal/hashing/hashing.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

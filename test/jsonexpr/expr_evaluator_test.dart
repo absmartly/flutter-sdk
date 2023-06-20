@@ -4,11 +4,11 @@ import 'dart:math';
 
 import 'dart:math';
 
-import 'package:ab_smartly/jsonexpr/evaluator.dart';
-import 'package:ab_smartly/jsonexpr/evaluator.mocks.dart';
-import 'package:ab_smartly/jsonexpr/expr_evaluator.dart';
-import 'package:ab_smartly/jsonexpr/operator.dart';
-import 'package:ab_smartly/jsonexpr/operator.mocks.dart';
+import 'package:absmartly_sdk/jsonexpr/evaluator.dart';
+import 'package:absmartly_sdk/jsonexpr/evaluator.mocks.dart';
+import 'package:absmartly_sdk/jsonexpr/expr_evaluator.dart';
+import 'package:absmartly_sdk/jsonexpr/operator.dart';
+import 'package:absmartly_sdk/jsonexpr/operator.mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 

@@ -1,11 +1,11 @@
 import 'dart:typed_data';
 
-import 'package:ab_smartly/context_data_deserializer.dart';
-import 'package:ab_smartly/default_context_data_serializer.dart';
-import 'package:ab_smartly/json/context_data.dart';
-import 'package:ab_smartly/json/experiment.dart';
-import 'package:ab_smartly/json/experiment_varient.dart';
-import 'package:ab_smartly/json/experimet_application.dart';
+import 'package:absmartly_sdk/context_data_deserializer.dart';
+import 'package:absmartly_sdk/default_context_data_serializer.dart';
+import 'package:absmartly_sdk/json/context_data.dart';
+import 'package:absmartly_sdk/json/experiment.dart';
+import 'package:absmartly_sdk/json/experiment_varient.dart';
+import 'package:absmartly_sdk/json/experimet_application.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

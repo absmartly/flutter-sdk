@@ -1,8 +1,8 @@
-import 'package:ab_smartly/client_config.dart';
-import 'package:ab_smartly/context_data_deserializer.dart';
-import 'package:ab_smartly/context_data_deserializer.mocks.dart';
-import 'package:ab_smartly/context_event_serializer.dart';
-import 'package:ab_smartly/context_event_serializer.mocks.dart';
+import 'package:absmartly_sdk/client_config.dart';
+import 'package:absmartly_sdk/context_data_deserializer.dart';
+import 'package:absmartly_sdk/context_data_deserializer.mocks.dart';
+import 'package:absmartly_sdk/context_event_serializer.dart';
+import 'package:absmartly_sdk/context_event_serializer.mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // all working

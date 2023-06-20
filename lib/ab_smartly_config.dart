@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:ab_smartly/variable_parser.dart';
+import 'package:absmartly_sdk/variable_parser.dart';
 
 import 'audience_deserializer.dart';
 import 'client.dart';

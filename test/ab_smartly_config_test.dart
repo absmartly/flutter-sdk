@@ -1,10 +1,10 @@
 import 'dart:async';
 
-import 'package:ab_smartly/ab_smartly_config.dart';
-import 'package:ab_smartly/client.mocks.dart';
-import 'package:ab_smartly/context_data_provider.mocks.dart';
-import 'package:ab_smartly/context_event_handler.mocks.dart';
-import 'package:ab_smartly/variable_parser.mocks.dart';
+import 'package:absmartly_sdk/absmartly_sdk_config.dart';
+import 'package:absmartly_sdk/client.mocks.dart';
+import 'package:absmartly_sdk/context_data_provider.mocks.dart';
+import 'package:absmartly_sdk/context_event_handler.mocks.dart';
+import 'package:absmartly_sdk/variable_parser.mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 

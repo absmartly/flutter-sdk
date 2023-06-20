@@ -1,17 +1,17 @@
-import 'package:ab_smartly/ab_smartly.dart';
-import 'package:ab_smartly/ab_smartly_config.dart';
-import 'package:ab_smartly/client.dart';
-import 'package:ab_smartly/client_config.dart';
-import 'package:ab_smartly/context.dart';
-import 'package:ab_smartly/context_config.dart';
-import 'package:ab_smartly/context_event_logger.dart';
-import 'package:ab_smartly/context_event_logger.dart';
-import 'package:ab_smartly/default_http_client.dart';
-import 'package:ab_smartly/default_http_client_config.dart';
-import 'package:ab_smartly/helper/funtions.dart';
-import 'package:ab_smartly/json/attribute.dart';
-import 'package:ab_smartly/json/exposure.dart';
-import 'package:ab_smartly/json/goal_achievement.dart';
+import 'package:absmartly_sdk/absmartly_sdk.dart';
+import 'package:absmartly_sdk/absmartly_sdk_config.dart';
+import 'package:absmartly_sdk/client.dart';
+import 'package:absmartly_sdk/client_config.dart';
+import 'package:absmartly_sdk/context.dart';
+import 'package:absmartly_sdk/context_config.dart';
+import 'package:absmartly_sdk/context_event_logger.dart';
+import 'package:absmartly_sdk/context_event_logger.dart';
+import 'package:absmartly_sdk/default_http_client.dart';
+import 'package:absmartly_sdk/default_http_client_config.dart';
+import 'package:absmartly_sdk/helper/funtions.dart';
+import 'package:absmartly_sdk/json/attribute.dart';
+import 'package:absmartly_sdk/json/exposure.dart';
+import 'package:absmartly_sdk/json/goal_achievement.dart';
 import 'package:flutter/material.dart';
 
 Future<void> main() async {

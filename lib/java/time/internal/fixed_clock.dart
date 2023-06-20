@@ -1,4 +1,4 @@
-import 'package:ab_smartly/java/time/clock.dart';
+import 'package:absmartly_sdk/java/time/clock.dart';
 
 class FixedClock extends Clock{
 
