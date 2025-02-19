@@ -14,7 +14,7 @@ class ExperimentVariant {
   }
 
   @override
-  int get hashCode => hashValues(name, config);
+  int get hashCode => Object.hash(name, config);
 
   @override
   String toString() {
@@ -33,6 +33,3 @@ class ExperimentVariant {
     };
   }
 }
-
-
-

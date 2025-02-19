@@ -63,7 +63,7 @@ class Experiment {
 
   @override
   int get hashCode {
-    int result = hashValues(id, name, unitType, iteration, seedHi, seedLo,
+    int result = Object.hash(id, name, unitType, iteration, seedHi, seedLo,
         trafficSeedHi, trafficSeedLo, fullOnVariant, audienceStrict, audience);
     result = 31 * result + split.hashCode;
     result = 31 * result + trafficSplit.hashCode;

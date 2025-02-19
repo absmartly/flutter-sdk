@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:absmartly_sdk/absmartly_sdk.dart';
+import 'package:absmartly_sdk/ab_smartly.dart';
 import 'package:absmartly_sdk/absmartly_sdk_config.dart';
 import 'package:absmartly_sdk/client.dart';
 import 'package:absmartly_sdk/client.mocks.dart';

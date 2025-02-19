@@ -9,13 +9,24 @@ class AudienceMatcher {
 
 
   Result? evaluate(String audience, Map<String, dynamic>? attributes) {
-    final bytes = utf8.encode(audience);
-    final audienceMap = deserializer_.deserialize(bytes, 0, bytes.length);
-    if (audienceMap != null) {
-      final filter = audienceMap['filter'];
-      if (filter is Map || filter is List) {
-        return Result(jsonExpr_.evaluateBooleanExpr(filter, attributes ?? {}));
+    if (audience.isEmpty || audience == 'null' || audience == '{}') {
+      return null;
+    }
+
+    try {
+      final bytes = utf8.encode(audience);
+      final audienceMap = deserializer_.deserialize(bytes, 0, bytes.length);
+      if (audienceMap != null) {
+        final filter = audienceMap['filter'];
+        if (filter is Map || filter is List) {
+          return Result(jsonExpr_.evaluateBooleanExpr(filter, attributes ?? {}));
+        }
       }
+    } on FormatException {
+      // Handle invalid JSON
+      return null;
+    } catch (e) {
+      // Silently handle any other errors
     }
 
     return null;
