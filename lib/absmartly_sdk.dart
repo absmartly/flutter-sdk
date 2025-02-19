@@ -1,14 +1,13 @@
 export 'absmartly_sdk_config.dart';
 export 'context.dart';
 export 'client.dart';
-export 'context_data.dart';
+export 'json/context_data.dart';
 export 'context_event_handler.dart';
 export 'context_data_provider.dart';
 export 'default_context_data_provider.dart';
 export 'default_context_event_handler.dart';
 export 'json/attribute.dart';
 export 'json/experiment.dart';
-export 'json/experiment_application.dart';
 export 'json/experiment_varient.dart';
 export 'json/exposure.dart';
 export 'json/goal_achievement.dart';
