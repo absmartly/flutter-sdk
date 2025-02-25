@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -18,7 +17,7 @@ class GoalAchievement {
   }
 
   @override
-  int get hashCode => hashValues(name, achievedAt, properties);
+  int get hashCode => Object.hash(name, achievedAt, properties);
 
   @override
   String toString() {

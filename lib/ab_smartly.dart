@@ -27,36 +27,33 @@ class ABSmartly implements Closeable {
     variableParser_ = config.getVariableParser();
     audienceDeserializer_ = config.getAudienceDeserializer();
     scheduler_ = config.getScheduler();
+    client_ = config.getClient();
+
+    if (client_ == null) {
+      throw Exception("Missing Client instance");
+    }
 
     if ((contextDataProvider_ == null) || (contextEventHandler_ == null)) {
-      client_ = config.getClient();
-      if (client_ == null) {
-        throw Exception("Missing Client instance");
-      }
-
       contextDataProvider_ ??= DefaultContextDataProvider(client_!);
-
       contextEventHandler_ ??= DefaultContextEventHandler(client_!);
     }
 
     variableParser_ ??= DefaultVariableParser();
-
     audienceDeserializer_ ??= DefaultAudienceDeserializer();
-
 
     if (scheduler_ == null) {
       // scheduler_ = new ScheduledThreadPoolExecutor(1);
     }
   }
 
-   Context createContext(ContextConfig config) {
+  Context createContext(ContextConfig config) {
     return Context.create(Clock.systemUTC(), config, scheduler_, contextDataProvider_!.getContextData(),
         contextDataProvider_!, contextEventHandler_!, variableParser_!,
         AudienceMatcher(audienceDeserializer_!));
   }
 
   Context createContextWith(ContextConfig config, ContextData data) {
-    return Context.create(Clock.systemUTC(), config, scheduler_!, Future.value(data),
+    return Context.create(Clock.systemUTC(), config, scheduler_ ?? null, Future.value(data),
         contextDataProvider_!, contextEventHandler_!, variableParser_!,
         AudienceMatcher(audienceDeserializer_!));
   }
@@ -68,20 +65,12 @@ class ABSmartly implements Closeable {
   @override
   Future<void> close() async {
     if (client_ != null) {
+      final client = client_;
       client_!.close();
       client_ = null;
     }
-
-    if (scheduler_ != null) {
-      try {
-
-        await Future.delayed(const Duration(milliseconds: 5000));
-        // scheduler_.awaitTermination(5000, TimeUnit.MILLISECONDS);
-      }
-    catch(e) {}
+    scheduler_?.cancel();
     scheduler_ = null;
-    }
-    client_?.close();
   }
 
   Client? client_;

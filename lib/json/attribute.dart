@@ -17,7 +17,7 @@ class Attribute {
   }
 
   @override
-  int get hashCode => hashValues(name, value, setAt);
+  int get hashCode => Object.hash(name, value, setAt);
 
   @override
   String toString() {

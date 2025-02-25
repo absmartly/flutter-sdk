@@ -13,7 +13,7 @@ class Unit {
   }
 
   @override
-  int get hashCode => hashValues(type, uid);
+  int get hashCode => Object.hash(type, uid);
 
   @override
   String toString() {

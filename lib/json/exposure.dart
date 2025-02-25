@@ -45,7 +45,7 @@ class Exposure {
   }
 
   @override
-  int get hashCode => hashValues(id, name, unit, variant, exposedAt, assigned,
+  int get hashCode => Object.hash(id, name, unit, variant, exposedAt, assigned,
       eligible, overridden, fullOn, custom, audienceMismatch);
 
   @override

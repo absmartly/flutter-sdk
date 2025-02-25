@@ -1,3 +1,4 @@
+import 'package:absmartly_sdk/ab_smartly.dart';
 import 'package:absmartly_sdk/absmartly_sdk.dart';
 import 'package:absmartly_sdk/absmartly_sdk_config.dart';
 import 'package:absmartly_sdk/client.dart';
@@ -74,7 +75,7 @@ class _AbSmartlyScreenState extends State<AbSmartlyScreen> {
     final ClientConfig clientConfig = ClientConfig()
       ..setEndpoint("https://dev-1.absmartly.io/v1")
       ..setAPIKey(
-          "XdDXJsGNk-yfpDS32eUNgA53Di4hIidK6TSxMs8UHiJFwnJLF_toKwPhup34p9l0")
+          "iwT-gtvI46SJCNeHb6SszqqLiAScmkDl4yh0kSZIo8nfFqx35kHrfV41rd9vL6Iq")
       ..setApplication("web")
       ..setEnvironment("prod");
 

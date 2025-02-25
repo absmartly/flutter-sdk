@@ -31,7 +31,7 @@ class PublishEvent {
 
   @override
   int get hashCode {
-    int result = hashValues(hashed, publishedAt);
+    int result = Object.hash(hashed, publishedAt);
     result = 31 * result + units.hashCode;
     result = 31 * result + exposures.hashCode;
     result = 31 * result + goals.hashCode;
