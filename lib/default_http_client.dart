@@ -83,8 +83,6 @@ class DefaultHTTPClient implements HTTPClient {
         return parseHttpResponse(response);
 
       case "PUT":
-        print("MAKE REQUEST PUT");
-        print(headers);
         http.Response response = await client.put(
           Uri.parse(url + queryParams),
           headers: headers,
