@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 class Attribute {
   late String name;
   late dynamic value;
@@ -24,17 +22,16 @@ class Attribute {
     return 'Attribute{name: $name, value: $value, setAt: $setAt}';
   }
 
-  Attribute.fromMap(Map<String, dynamic> data){
+  Attribute.fromMap(Map<String, dynamic> data) {
     name = data["name"];
     value = data["value"];
     setAt = data["setAt"];
   }
-  Map<String, dynamic> toMap(){
-    return{
-      "name" : name,
-      "value" : value,
-      "setAt" : setAt,
+  Map<String, dynamic> toMap() {
+    return {
+      "name": name,
+      "value": value,
+      "setAt": setAt,
     };
   }
-
 }

@@ -11,9 +11,7 @@ import 'package:absmartly_sdk/default_audience_deserializer.dart';
 import 'package:absmartly_sdk/default_context_data_serializer.dart';
 import 'package:absmartly_sdk/default_variable_parser.dart';
 import 'package:absmartly_sdk/java/time/clock.dart';
-import 'package:absmartly_sdk/json/attribute.dart';
 import 'package:absmartly_sdk/json/context_data.dart';
-import 'package:absmartly_sdk/json/experiment.dart';
 import 'package:absmartly_sdk/json/exposure.dart';
 import 'package:absmartly_sdk/json/goal_achievement.dart';
 import 'package:absmartly_sdk/json/publish_event.dart';
@@ -102,19 +100,15 @@ void main() {
 
       List<int> refreshBytes = await getResourceBytes("refreshed.json");
       refreshData = deser.deserialize(refreshBytes, 0, refreshBytes.length)!;
-      debugPrint("resfreshed");
 
       List<int> audienceBytes = await getResourceBytes("audience_context.json");
       audienceData = deser.deserialize(audienceBytes, 0, audienceBytes.length)!;
-      debugPrint("audience_context.json");
 
       List<int> audienceStrictBytes =
           await getResourceBytes("audience_strict_context.json");
-      debugPrint("audience_strict_context.json");
 
       audienceStrictData = deser.deserialize(
           audienceStrictBytes, 0, audienceStrictBytes.length)!;
-      debugPrint("audienceStrictBytes");
       Completer d = Completer();
 
       dataFutureReady = Future<ContextData>.value(data);
@@ -496,7 +490,6 @@ void main() {
       expect(variableExperiments, context.getVariableKeys());
     });
 
-
     test("track", () {
       final Context context = createReadyContext(null);
       context.track("goal1", {"amount": 125, "hours": 245});
@@ -542,7 +535,6 @@ void main() {
       final Set<String> experiments =
           data.experiments.map((x) => x.name).toSet();
 
-      print(variableExperiments);
       for (var entry in variableExperiments.entries) {
         var variable = entry.key;
         var experimentNames = entry.value;
@@ -554,7 +546,6 @@ void main() {
 
         if (!(eligible && experiments.contains(experimentName))) {
           expect(actual, equals(17));
-
         }
       }
 
@@ -574,8 +565,8 @@ void main() {
 
       verify(dataProvider.getContextData()).called(1);
 
-      final experiments = refreshData.experiments.map((x) => x.name).toList()..remove("exp_test_new");
-      print(experiments);
+      final experiments = refreshData.experiments.map((x) => x.name).toList()
+        ..remove("exp_test_new");
       expect(await context.getExperiments(), equals(experiments));
     });
   });

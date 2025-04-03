@@ -12,13 +12,12 @@ import 'package:absmartly_sdk/json/context_data.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 
-
 // all working
 
 void main() {
   group('ABSmartly', () {
     late Client client;
-   late ABSmartlyConfig config;
+    late ABSmartlyConfig config;
     setUp(() {
       client = MockClient();
       config = ABSmartlyConfig.create().setClient(client);
@@ -36,10 +35,9 @@ void main() {
         final config = ABSmartlyConfig.create();
         final absmartly = ABSmartly(config);
       },
-          throwsA(TypeMatcher<Exception>().having((e) => e.toString(),
+          throwsA(const TypeMatcher<Exception>().having((e) => e.toString(),
               'message', contains('Exception: Missing Client instance'))));
     });
-
 
     test('ABSmartly createContext returns a valid Context object', () async {
       // final config = ABSmartlyConfig().setClient(client);
@@ -49,13 +47,19 @@ void main() {
       expect(context, isA<Context>());
     });
 
-    test('ABSmartly constructor creates default contextDataProvider when getContextDataProvider() returns null', () {
+    test(
+        'ABSmartly constructor creates default contextDataProvider when getContextDataProvider() returns null',
+        () {
       // final config = ABSmartlyConfig();
-      expect(ABSmartly(config).contextDataProvider_, isA<DefaultContextDataProvider>());
+      expect(ABSmartly(config).contextDataProvider_,
+          isA<DefaultContextDataProvider>());
     });
 
-    test('ABSmartly constructor creates default contextEventHandler when getContextEventHandler() returns null', () {
-      expect(ABSmartly(config).contextEventHandler_, isA<DefaultContextEventHandler>());
+    test(
+        'ABSmartly constructor creates default contextEventHandler when getContextEventHandler() returns null',
+        () {
+      expect(ABSmartly(config).contextEventHandler_,
+          isA<DefaultContextEventHandler>());
     });
 
     test('ABSmartly createContext returns a valid Context object', () async {
@@ -66,7 +70,8 @@ void main() {
       expect(context, isA<Context>());
     });
 
-    test('ABSmartly createContextWith returns a valid Context object', () async {
+    test('ABSmartly createContextWith returns a valid Context object',
+        () async {
       final schedulerCaptor = Timer(const Duration(seconds: 1), () {});
       config.setScheduler(schedulerCaptor);
       final abSmartly = ABSmartly(config);
@@ -76,8 +81,8 @@ void main() {
       expect(context, isA<Context>());
     });
 
-
-    test('ABSmartly close sets client_ and scheduler_ variables to null', () async {
+    test('ABSmartly close sets client_ and scheduler_ variables to null',
+        () async {
       // final config = ABSmartlyConfig();
       final abSmartly = ABSmartly(config);
       await abSmartly.close();
@@ -93,7 +98,9 @@ void main() {
       verify(mockClient.close()).called(1);
     });
 
-    test('ABSmartly close waits for scheduler_ to complete tasks before setting it to null', () async {
+    test(
+        'ABSmartly close waits for scheduler_ to complete tasks before setting it to null',
+        () async {
       // final config = ABSmartlyConfig();
       final abSmartly = ABSmartly(config);
       abSmartly.scheduleTask();
@@ -101,14 +108,14 @@ void main() {
       expect(abSmartly.scheduler_, isNull);
     });
 
-    test('ABSmartly scheduleTask sets scheduler_ variable to Timer object with duration of 5 seconds', () {
+    test(
+        'ABSmartly scheduleTask sets scheduler_ variable to Timer object with duration of 5 seconds',
+        () {
       // final config = ABSmartlyConfig();
       final schedulerCaptor = Timer(const Duration(seconds: 5), () {});
       final abSmartly = ABSmartly(config);
       abSmartly.scheduleTask();
       expect(abSmartly.scheduler_, isA<Timer>());
     });
-
-
   });
 }

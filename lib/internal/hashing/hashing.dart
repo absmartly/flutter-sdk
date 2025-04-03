@@ -1,14 +1,11 @@
 import 'dart:typed_data';
-import 'package:flutter/widgets.dart';
-import 'dart:io';
 
 import '../buffers.dart';
 import 'md5.dart';
 
 abstract class Hashing {
-
-  static Uint8List threadBuffer = Uint8List.fromList(List.generate(512, (index) => 0  ));
-
+  static Uint8List threadBuffer =
+      Uint8List.fromList(List.generate(512, (index) => 0));
 
   static Uint8List hashUnit(String unit) {
     final int n = unit.length;
@@ -17,7 +14,7 @@ abstract class Hashing {
     Uint8List buffer = threadBuffer;
     if (buffer.length < bufferLen) {
       final int bit = 32 - (32 - (bufferLen - 1).bitLength);
-      buffer = Uint8List.fromList(List.generate(1 << bit, (index) => 0  ));
+      buffer = Uint8List.fromList(List.generate(1 << bit, (index) => 0));
       threadBuffer = buffer;
     }
 

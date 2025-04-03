@@ -1,8 +1,6 @@
-
 import 'package:flutter/services.dart';
 
-Future<List<int>> getResourceBytes(String resourceName) async{
-
+Future<List<int>> getResourceBytes(String resourceName) async {
   String path = "resources/$resourceName";
 
   ByteData byteData = await rootBundle.load(path);

@@ -1,18 +1,9 @@
 import 'package:absmartly_sdk/ab_smartly.dart';
 import 'package:absmartly_sdk/absmartly_sdk.dart';
-import 'package:absmartly_sdk/absmartly_sdk_config.dart';
-import 'package:absmartly_sdk/client.dart';
 import 'package:absmartly_sdk/client_config.dart';
-import 'package:absmartly_sdk/context.dart';
 import 'package:absmartly_sdk/context_config.dart';
 import 'package:absmartly_sdk/context_event_logger.dart';
-import 'package:absmartly_sdk/context_event_logger.dart';
-import 'package:absmartly_sdk/default_http_client.dart';
-import 'package:absmartly_sdk/default_http_client_config.dart';
 import 'package:absmartly_sdk/helper/funtions.dart';
-import 'package:absmartly_sdk/json/attribute.dart';
-import 'package:absmartly_sdk/json/exposure.dart';
-import 'package:absmartly_sdk/json/goal_achievement.dart';
 import 'package:flutter/material.dart';
 
 Future<void> main() async {
@@ -58,12 +49,12 @@ class _AbSmartlyScreenState extends State<AbSmartlyScreen> {
         onPressed: () {
           initData();
         },
-        child: Icon(Icons.send),
+        child: const Icon(Icons.send),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Container(
-            padding: EdgeInsets.all(10),
+            padding: const EdgeInsets.all(10),
             child: Text(res),
           ),
         ),
@@ -72,15 +63,14 @@ class _AbSmartlyScreenState extends State<AbSmartlyScreen> {
   }
 
   initData() async {
+    print(const String.fromEnvironment("ABSMARTLY_ENDPOINT"));
+    print(const String.fromEnvironment("ABSMARTLY_API_KEY"));
     final ClientConfig clientConfig = ClientConfig()
-      ..setEndpoint("https://dev-1.absmartly.io/v1")
-      ..setAPIKey(
-          "iwT-gtvI46SJCNeHb6SszqqLiAScmkDl4yh0kSZIo8nfFqx35kHrfV41rd9vL6Iq")
-      ..setApplication("web")
-      ..setEnvironment("prod");
+      ..setEndpoint(const String.fromEnvironment("ABSMARTLY_ENDPOINT"))
+      ..setAPIKey(const String.fromEnvironment("ABSMARTLY_API_KEY"))
+      ..setApplication(const String.fromEnvironment("ABSMARTLY_APPLICATION"))
+      ..setEnvironment(const String.fromEnvironment("ABSMARTLY_ENVIRONMENT"));
 
-
-    
     final ABSmartlyConfig sdkConfig =
         ABSmartlyConfig.create().setClient(Client.create(clientConfig));
     final ABSmartly sdk = ABSmartly(sdkConfig);
@@ -118,12 +108,11 @@ class _AbSmartlyScreenState extends State<AbSmartlyScreen> {
 
     context.close();
     sdk.close();
-    res = Helper.response ?? "";
+    res = "Variant ${treatment.toString()}";
     setState(() {});
     Helper.response = null;
   }
 }
-
 
 class CustomEventLogger implements ContextEventLogger {
   @override

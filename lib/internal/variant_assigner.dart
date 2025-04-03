@@ -7,13 +7,6 @@ class VariantAssigner {
   static final Uint8List threadBuffer =
       Uint8List.fromList(List.generate(12, (index) => 0));
 
-  // private static final ThreadLocal<byte[]> threadBuffer = new ThreadLocal<byte[]>() {
-  //   @Override
-  //   public byte[] initialValue() {
-  //     return new byte[12];
-  //   }
-  // };
-
   VariantAssigner(Uint8List unitHash) {
     unitHash_ = Murmur3_32.digest(unitHash, 0);
   }

@@ -5,7 +5,7 @@ abstract class BooleanCombinator implements Operator {
   @override
   dynamic evaluate(Evaluator evaluator, dynamic args) {
     if (args is List) {
-      final argsList = args as List<dynamic>;
+      final argsList = args;
       return combine(evaluator, argsList);
     }
     return null;

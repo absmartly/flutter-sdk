@@ -1,6 +1,4 @@
-import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:absmartly_sdk/client.dart';
 import 'package:absmartly_sdk/client_config.dart';
@@ -25,8 +23,8 @@ void main() {
       contentType: 'application/json; charset=utf8',
     );
   }
-  group("Client", () {
 
+  group("Client", () {
     test(
         'create method should return a new instance of Client with a default HTTPClient if httpClient is null',
         () {
@@ -60,7 +58,6 @@ void main() {
           .setAPIKey("test-api-key")
           .setApplication("website")
           .setEnvironment("dev");
-      ;
       final httpClient = MockHTTPClient();
       final client = Client(config, httpClient);
       expect(client.url_, equals('https://example.com/context'));
@@ -154,7 +151,7 @@ void main() {
     };
 
     when(httpClient.get("https://localhost/v1/context", expectedQuery, null))
-        .thenAnswer((_)=> getByteResponse(bytes));
+        .thenAnswer((_) => getByteResponse(bytes));
 
     final ContextData expected = ContextData();
     when(deser.deserialize(bytes, 0, bytes.length)).thenReturn(expected);
@@ -162,13 +159,6 @@ void main() {
     final Future<ContextData?> dataFuture = client.getContextData();
     final ContextData actual = (await dataFuture)!;
 
-    print(expected);
-    print(actual);
     expect(expected, actual);
-    // expect(expected, actual);
   });
-
-
-
-
 }

@@ -81,15 +81,13 @@ class ContextConfig {
     return this;
   }
 
-
-  ContextEventLogger? getContextEventLogger(){
+  ContextEventLogger? getContextEventLogger() {
     return logger_;
   }
 
   void setContextEventLogger(ContextEventLogger logger) {
     logger_ = logger;
   }
-
 
   int getRefreshInterval() => refreshInterval;
 
@@ -100,7 +98,5 @@ class ContextConfig {
   int publishDelay = 100;
   int refreshInterval = 0;
 
-
   ContextEventLogger? logger_;
-
 }

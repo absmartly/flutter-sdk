@@ -7,7 +7,6 @@ class AudienceMatcher {
     jsonExpr_ = JsonExpr();
   }
 
-
   Result? evaluate(String audience, Map<String, dynamic>? attributes) {
     if (audience.isEmpty || audience == 'null' || audience == '{}') {
       return null;
@@ -19,7 +18,8 @@ class AudienceMatcher {
       if (audienceMap != null) {
         final filter = audienceMap['filter'];
         if (filter is Map || filter is List) {
-          return Result(jsonExpr_.evaluateBooleanExpr(filter, attributes ?? {}));
+          return Result(
+              jsonExpr_.evaluateBooleanExpr(filter, attributes ?? {}));
         }
       }
     } on FormatException {

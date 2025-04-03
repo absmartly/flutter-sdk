@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 class ExperimentVariant {
   late String name;
   String? config;
@@ -8,9 +6,10 @@ class ExperimentVariant {
 
   @override
   bool operator ==(Object other) {
-    return identical(this, other) || other is ExperimentVariant &&
-        name == other.name &&
-        config == other.config;
+    return identical(this, other) ||
+        other is ExperimentVariant &&
+            name == other.name &&
+            config == other.config;
   }
 
   @override
@@ -21,15 +20,15 @@ class ExperimentVariant {
     return 'ExperimentVariant{name: $name, config: $config}';
   }
 
-  ExperimentVariant.fromMap(Map<String, dynamic> data){
+  ExperimentVariant.fromMap(Map<String, dynamic> data) {
     name = data["name"];
     config = data["config"];
   }
 
-  Map<String, dynamic> toMap(){
-    return{
-      "name" : name,
-      "config" : config,
+  Map<String, dynamic> toMap() {
+    return {
+      "name": name,
+      "config": config,
     };
   }
 }

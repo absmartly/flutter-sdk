@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:absmartly_sdk/json/unit.dart';
 import 'package:flutter/foundation.dart';
 
@@ -15,7 +13,13 @@ class PublishEvent {
   late List<GoalAchievement> goals;
   List<Attribute> attributes = [];
 
-  PublishEvent({required this.hashed, required this.units, required this.publishedAt, required this.exposures, required this.goals, required this.attributes});
+  PublishEvent(
+      {required this.hashed,
+      required this.units,
+      required this.publishedAt,
+      required this.exposures,
+      required this.goals,
+      required this.attributes});
 
   @override
   bool operator ==(dynamic o) {
@@ -44,35 +48,42 @@ class PublishEvent {
     return "PublishEvent{hashedUnits=$hashed, units=$units, publishedAt=$publishedAt, exposures=$exposures, goals=$goals, attributes=$attributes}";
   }
 
-  PublishEvent.fromMap(Map<String, dynamic> data){
+  PublishEvent.fromMap(Map<String, dynamic> data) {
     hashed = data["hashed"];
 
     List units = data["units"] ?? [];
-    this.units = List.generate(units.length, (index) => Unit.fromMap(units[index]));
+    this.units =
+        List.generate(units.length, (index) => Unit.fromMap(units[index]));
     publishedAt = data["publishedAt"];
     List exposures = data["exposures"] ?? [];
-    this.exposures = List.generate(exposures.length, (index) => Exposure.fromMap(exposures[index]));
+    this.exposures = List.generate(
+        exposures.length, (index) => Exposure.fromMap(exposures[index]));
 
     List goals = data["goals"] ?? [];
-    this.goals = List.generate(goals.length, (index) => GoalAchievement.fromMap(goals[index]));
+    this.goals = List.generate(
+        goals.length, (index) => GoalAchievement.fromMap(goals[index]));
 
     List attributes = data["attributes"] ?? [];
-    this.attributes = List.generate(attributes.length, (index) => Attribute.fromMap(attributes[index]));
+    this.attributes = List.generate(
+        attributes.length, (index) => Attribute.fromMap(attributes[index]));
   }
-  Map<String, dynamic> toMap(){
-
-    List units =  List.generate(this.units.length, (index) => this.units[index].toMap());
-    List exposures = List.generate(this.exposures.length, (index) => this.exposures[index].toMap());
-    List goals = List.generate(this.goals.length, (index) => this.goals[index].toMap());
-    List attributes = List.generate(this.attributes.length, (index) => this.attributes[index].toMap());
+  Map<String, dynamic> toMap() {
+    List units =
+        List.generate(this.units.length, (index) => this.units[index].toMap());
+    List exposures = List.generate(
+        this.exposures.length, (index) => this.exposures[index].toMap());
+    List goals =
+        List.generate(this.goals.length, (index) => this.goals[index].toMap());
+    List attributes = List.generate(
+        this.attributes.length, (index) => this.attributes[index].toMap());
 
     return {
-      "hashed" : hashed,
-      "units" : units,
-      "publishedAt" : publishedAt,
-      "exposures" : exposures,
-      "goals" : goals,
-      "attributes" : attributes,
+      "hashed": hashed,
+      "units": units,
+      "publishedAt": publishedAt,
+      "exposures": exposures,
+      "goals": goals,
+      "attributes": attributes,
     };
   }
 }

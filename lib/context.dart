@@ -66,9 +66,7 @@ class Context implements Closeable {
     units_ = <String, String>{};
 
     final Map<String, String> units = config.getUnits() ?? {};
-    if (units != null) {
-      setUnits(units);
-    }
+    setUnits(units);
 
     assigners_ = <String, VariantAssigner>{};
     hashedUnits_ = <String, Uint8List>{};
@@ -90,7 +88,7 @@ class Context implements Closeable {
 
     if (dataFutureCheck) {
       dataFuture.then((data) {
-        if(data == null){
+        if (data == null) {
           setDataFailed(Exception("No data found"));
 
           logError(Exception("No data found"));
@@ -100,13 +98,12 @@ class Context implements Closeable {
       }).catchError((exception) {
         setDataFailed(exception);
 
-
         logError(exception);
       });
     } else {
       readyFuture_ = Completer<Future<void>?>();
       dataFuture.then((data) {
-        if(data == null){
+        if (data == null) {
           setDataFailed(Exception("No data found"));
           readyFuture_?.complete();
           logError(Exception("No data found"));
@@ -120,7 +117,6 @@ class Context implements Closeable {
           setTimeout();
         }
       }).catchError((exception) {
-
         // setDataFailed(exception);
         // readyFuture_?.complete();
         // logError(exception);
@@ -462,7 +458,7 @@ class Context implements Closeable {
         setData(data!);
         refreshing_ = false;
 
-        refreshFuture_!.complete(null);
+        refreshFuture_!.complete(Future<void>.value());
         logEvent(EventType.Refresh, data);
       }).catchError((error) {
         refreshing_ = false;
@@ -561,9 +557,10 @@ class Context implements Closeable {
         if (eventCount > 0) {
           List<Unit> units = [];
 
-          for(var entry in units_!.entries){
+          for (var entry in units_!.entries) {
             units.add(Unit(
-                type: entry.key, uid: utf8.decode(await getUnitHash(entry.key, entry.value))));
+                type: entry.key,
+                uid: utf8.decode(await getUnitHash(entry.key, entry.value))));
           }
 
           units_?.forEach((key, value) async {
@@ -715,8 +712,7 @@ class Context implements Closeable {
               final VariantAssigner assigner =
                   await getVariantAssigner(unitType, unitHash);
 
-
-              final bool eligible = assigner?.assign(
+              final bool eligible = assigner.assign(
                       experiment.data.trafficSplit,
                       experiment.data.trafficSeedHi,
                       experiment.data.trafficSeedLo) ==
@@ -726,7 +722,7 @@ class Context implements Closeable {
                   assignment.variant = custom;
                   assignment.custom = true;
                 } else {
-                  assignment.variant = assigner?.assign(experiment.data.split,
+                  assignment.variant = assigner.assign(experiment.data.split,
                       experiment.data.seedHi, experiment.data.seedLo);
                 }
               } else {
@@ -893,6 +889,7 @@ class Context implements Closeable {
             experimentVariables.variables.add(<String, dynamic>{});
           }
         }
+        return null;
       });
 
       index[experiment.name] = experimentVariables;
@@ -1000,7 +997,7 @@ class Assignment {
   int? variant;
   bool assigned = false;
   bool overridden = false;
-  bool eligible= false;
+  bool eligible = false;
   bool fullOn = false;
   bool custom = false;
   bool audienceMismatch = false;

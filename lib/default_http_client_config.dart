@@ -1,65 +1,67 @@
 import 'http_version_policy.dart';
 
 class DefaultHTTPClientConfig {
-   static DefaultHTTPClientConfig create() {
+  static DefaultHTTPClientConfig create() {
     return DefaultHTTPClientConfig();
   }
 
+  int getConnectTimeout() => connectTimeout_;
 
-   int getConnectTimeout() => connectTimeout_;
-
-   DefaultHTTPClientConfig setConnectTimeout(final int connectTimeoutMs) {
+  DefaultHTTPClientConfig setConnectTimeout(final int connectTimeoutMs) {
     connectTimeout_ = connectTimeoutMs;
     return this;
   }
 
-   int getConnectionKeepAlive() => connectionKeepAlive_;
+  int getConnectionKeepAlive() => connectionKeepAlive_;
 
-   DefaultHTTPClientConfig setConnectionKeepAlive(final int connectionKeepAliveMs) {
+  DefaultHTTPClientConfig setConnectionKeepAlive(
+      final int connectionKeepAliveMs) {
     connectionKeepAlive_ = connectionKeepAliveMs;
     return this;
   }
 
-   int getConnectionRequestTimeout() {
+  int getConnectionRequestTimeout() {
     return connectionRequestTimeout_;
   }
 
-   DefaultHTTPClientConfig setConnectionRequestTimeout(final int connectionRequestTimeoutMs) {
+  DefaultHTTPClientConfig setConnectionRequestTimeout(
+      final int connectionRequestTimeoutMs) {
     connectionRequestTimeout_ = connectionRequestTimeoutMs;
     return this;
   }
 
-   int getMaxRetries() {
+  int getMaxRetries() {
     return maxRetries_;
   }
 
-   DefaultHTTPClientConfig setMaxRetries(final int maxRetries) {
+  DefaultHTTPClientConfig setMaxRetries(final int maxRetries) {
     maxRetries_ = maxRetries;
     return this;
   }
 
-   int getRetryInterval() {
+  int getRetryInterval() {
     return retryInterval_;
   }
 
-   DefaultHTTPClientConfig setRetryInterval(final int retryIntervalMs) {
+  DefaultHTTPClientConfig setRetryInterval(final int retryIntervalMs) {
     retryInterval_ = retryIntervalMs;
     return this;
   }
 
-   HTTPVersionPolicy getHTTPVersionPolicy() {
+  HTTPVersionPolicy getHTTPVersionPolicy() {
     return httpVersionPolicy_;
   }
 
-   DefaultHTTPClientConfig setHTTPVersionPolicy(final HTTPVersionPolicy httpVersionPolicy) {
+  DefaultHTTPClientConfig setHTTPVersionPolicy(
+      final HTTPVersionPolicy httpVersionPolicy) {
     httpVersionPolicy_ = httpVersionPolicy;
     return this;
   }
 
-   int connectTimeout_ = 3000;
-   int connectionKeepAlive_ = 30000;
-   int connectionRequestTimeout_ = 1000;
-   int retryInterval_ = 333;
-   int maxRetries_ = 5;
-   HTTPVersionPolicy httpVersionPolicy_ = HTTPVersionPolicy.NEGOTIATE;
+  int connectTimeout_ = 3000;
+  int connectionKeepAlive_ = 30000;
+  int connectionRequestTimeout_ = 1000;
+  int retryInterval_ = 333;
+  int maxRetries_ = 5;
+  HTTPVersionPolicy httpVersionPolicy_ = HTTPVersionPolicy.NEGOTIATE;
 }

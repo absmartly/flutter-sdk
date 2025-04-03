@@ -45,14 +45,14 @@ void main() {
       );
 
       final failure = Exception('FAILED');
-      final failedFuture = Future<void>.error(failure) ;
-      when(client.publish(event)).thenAnswer((_){
-       return failedFuture;
+      final failedFuture = Future<void>.error(failure);
+      when(client.publish(event)).thenAnswer((_) {
+        return failedFuture;
       });
 
       final publishFuture = eventHandler.publish(context, event);
       final actual = await expectLater(
-          publishFuture, throwsA(TypeMatcher<Exception>()));
+          publishFuture, throwsA(const TypeMatcher<Exception>()));
       // expect(actual.cause, equals(failure));
 
       verify(client.publish(event)).called(1);

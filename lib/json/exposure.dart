@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 class Exposure {
   late int id;
   late String name;

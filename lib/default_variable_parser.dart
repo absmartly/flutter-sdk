@@ -5,7 +5,6 @@ import 'package:absmartly_sdk/variable_parser.dart';
 import 'context.dart';
 
 class DefaultVariableParser implements VariableParser {
-
   @override
   Map<String, dynamic>? parse(Context context, String experimentName,
       String variantName, final String config) {

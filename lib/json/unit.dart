@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 class Unit {
   late String type;
   late String uid;
@@ -20,14 +18,14 @@ class Unit {
     return 'Unit{type: $type, uid: $uid}';
   }
 
-  Unit.fromMap(Map<String, dynamic> data){
+  Unit.fromMap(Map<String, dynamic> data) {
     type = data["type"];
     uid = data["uid"];
   }
-  Map<String, dynamic> toMap(){
+  Map<String, dynamic> toMap() {
     return {
-      "type" : type,
-      "uid" : uid,
+      "type": type,
+      "uid": uid,
     };
   }
 }

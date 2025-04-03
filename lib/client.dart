@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:absmartly_sdk/default_http_client.dart';
-import 'package:flutter/cupertino.dart';
 import 'client_config.dart';
 import 'default_context_data_serializer.dart';
 import 'default_context_event_serializer.dart';
@@ -15,8 +14,6 @@ import 'json/publish_event.dart';
 import 'package:mockito/annotations.dart';
 
 @GenerateNiceMocks([MockSpec<Client>()])
-
-
 class Client implements Closeable {
   static Client create(ClientConfig config, {HTTPClient? httpClient}) {
     if (httpClient == null) {
@@ -28,8 +25,8 @@ class Client implements Closeable {
   }
 
   Client(ClientConfig config, HTTPClient httpClient) {
-    final String?  endpoint = config.endpoint_;
-    debugPrint("endpoint is ${config.endpoint_}");
+    final String? endpoint = config.endpoint_;
+
     if ((endpoint == null) || endpoint.isEmpty) {
       throw ArgumentError("Missing Endpoint configuration");
     }
@@ -54,7 +51,6 @@ class Client implements Closeable {
     deserializer_ = config.deserializer_;
     serializer_ = config.serializer_;
 
-
     deserializer_ ??= DefaultContextDataDeserializer();
 
     serializer_ ??= DefaultContextEventSerializer();
@@ -74,16 +70,17 @@ class Client implements Closeable {
   }
 
   Future<ContextData?> getContextData() {
-
     Completer<ContextData?> dataFuture = Completer<ContextData?>();
 
     httpClient_.get(url_, query_, null).then((response) {
       final int code = response.getStatusCode() ?? 0;
       if ((code / 100) == 2) {
-
-        final Uint8List content = Uint8List.fromList(response.getContent() ?? []);
-        dataFuture.complete(
-            deserializer_!.deserialize(Uint8List.fromList(response.getContent() ?? []), 0, content.length));
+        final Uint8List content =
+            Uint8List.fromList(response.getContent() ?? []);
+        dataFuture.complete(deserializer_!.deserialize(
+            Uint8List.fromList(response.getContent() ?? []),
+            0,
+            content.length));
       } else {
         dataFuture.completeError(Exception(response.getStatusMessage()));
       }
@@ -99,18 +96,21 @@ class Client implements Closeable {
 
     var content = serializer_?.serialize(event);
 
-    print(event);
     httpClient_.put(url_, null, headers_, content).then((response) {
+      print(headers_);
+
       final int code = response.getStatusCode() ?? 0;
       if ((code / 100) == 2) {
         publishFuture.complete();
       } else {
-        publishFuture.completeError(Exception(response.getStatusMessage() ?? ""));
+        publishFuture
+            .completeError(Exception(response.getStatusMessage() ?? ""));
       }
     }).catchError((exception) {
       publishFuture.completeError(exception);
     });
 
+    print(headers_);
 
     return publishFuture.future;
   }

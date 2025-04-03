@@ -2,7 +2,7 @@ import 'context_data_provider.dart';
 import 'client.dart';
 import 'json/context_data.dart';
 
- class DefaultContextDataProvider implements ContextDataProvider {
+class DefaultContextDataProvider implements ContextDataProvider {
   DefaultContextDataProvider(this.client_);
 
   @override
@@ -10,5 +10,5 @@ import 'json/context_data.dart';
     return client_.getContextData();
   }
 
-   final Client client_;
+  final Client client_;
 }

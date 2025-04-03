@@ -1,13 +1,12 @@
-
 import 'package:absmartly_sdk/context_config.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 
 // all working
 void main() {
   group('ContextConfig', () {
     test('setUnit', () {
-      final config = ContextConfig.create().setUnit('session_id', '0ab1e23f4eee');
+      final config =
+          ContextConfig.create().setUnit('session_id', '0ab1e23f4eee');
       expect(config.getUnit('session_id'), equals('0ab1e23f4eee'));
     });
 

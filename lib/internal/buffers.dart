@@ -11,15 +11,15 @@ abstract class Buffers {
 
   static int getUInt32(Uint8List buf, int offset) {
     return (buf[offset] & 0xff) |
-    ((buf[offset + 1] & 0xff) << 8) |
-    ((buf[offset + 2] & 0xff) << 16) |
-    ((buf[offset + 3] & 0xff) << 24);
+        ((buf[offset + 1] & 0xff) << 8) |
+        ((buf[offset + 2] & 0xff) << 16) |
+        ((buf[offset + 3] & 0xff) << 24);
   }
 
   static int getUInt24(Uint8List buf, int offset) {
     return (buf[offset] & 0xff) |
-    ((buf[offset + 1] & 0xff) << 8) |
-    ((buf[offset + 2] & 0xff) << 16);
+        ((buf[offset + 1] & 0xff) << 8) |
+        ((buf[offset + 2] & 0xff) << 16);
   }
 
   static int getUInt16(Uint8List buf, int offset) {

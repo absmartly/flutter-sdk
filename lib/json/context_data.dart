@@ -23,16 +23,17 @@ class ContextData {
     return "ContextData{experiments=$experiments}";
   }
 
-  ContextData.fromMap(Map<String, dynamic> data){
+  ContextData.fromMap(Map<String, dynamic> data) {
     List experiments = data["experiments"] ?? [];
-    this.experiments = List.generate(experiments.length, (index) => Experiment.fromMap(experiments[index]));
+    this.experiments = List.generate(
+        experiments.length, (index) => Experiment.fromMap(experiments[index]));
   }
 
-  Map<String, dynamic> toMap(){
-    List experiments =  List.generate(this.experiments.length, (index) => this.experiments[index].toMap());
-    return{
-      "experiments" : experiments,
+  Map<String, dynamic> toMap() {
+    List experiments = List.generate(
+        this.experiments.length, (index) => this.experiments[index].toMap());
+    return {
+      "experiments": experiments,
     };
   }
-  
 }

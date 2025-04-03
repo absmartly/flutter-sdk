@@ -6,8 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('DefaultHTTPClient', () {
-
-
     late DefaultHTTPClient client;
 
     setUp(() {
@@ -49,7 +47,6 @@ void main() {
       expect(response.getContent(), isNotNull);
     });
 
-
     test('Closes HTTP client without errors', () {
       expect(() => client.close(), returnsNormally);
     });
@@ -62,8 +59,5 @@ void main() {
           response.getContentType(), equals('application/json; charset=utf-8'));
       expect(response.getContent(), isNotNull);
     });
-
-
-
   });
 }

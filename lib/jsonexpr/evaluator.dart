@@ -1,13 +1,10 @@
 import 'package:mockito/annotations.dart';
-import 'package:mockito/mockito.dart';
 
 @GenerateNiceMocks([MockSpec<Evaluator>()])
-
-
 abstract class Evaluator {
   dynamic evaluate(dynamic expr);
 
-  bool booleanConvert(dynamic x);
+  dynamic booleanConvert(dynamic x);
 
   num? numberConvert(dynamic x);
 

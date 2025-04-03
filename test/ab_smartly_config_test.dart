@@ -7,7 +7,6 @@ import 'package:absmartly_sdk/context_event_handler.mocks.dart';
 import 'package:absmartly_sdk/variable_parser.mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-
 // all working
 
 void main() {
@@ -31,7 +30,7 @@ void main() {
     });
 
     test('setScheduler', () {
-      final scheduler = Timer(const Duration(seconds: 5), () { });
+      final scheduler = Timer(const Duration(seconds: 5), () {});
       final config = ABSmartlyConfig.create().setScheduler(scheduler);
       expect(config.getScheduler(), equals(scheduler));
     });
@@ -40,7 +39,7 @@ void main() {
       final handler = MockContextEventHandler();
       final provider = MockContextDataProvider();
       final parser = MockVariableParser();
-      final scheduler = Timer(const Duration(seconds: 5), () { });
+      final scheduler = Timer(const Duration(seconds: 5), () {});
       final client = MockClient();
       final config = ABSmartlyConfig.create()
           .setVariableParser(parser)

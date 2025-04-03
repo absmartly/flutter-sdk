@@ -1,4 +1,3 @@
-
-abstract class AutoCloseable{
+abstract class AutoCloseable {
   void close();
 }

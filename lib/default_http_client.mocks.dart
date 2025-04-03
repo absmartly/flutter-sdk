@@ -6,7 +6,7 @@
 import 'dart:async' as _i5;
 
 import 'package:absmartly_sdk/default_http_client.dart' as _i4;
-import 'package:absmartly_sdk/helper/http/http.dart' as _i2;
+import 'package:http/http.dart' as _i2;
 import 'package:absmartly_sdk/http_client.dart' as _i3;
 import 'package:mockito/mockito.dart' as _i1;
 

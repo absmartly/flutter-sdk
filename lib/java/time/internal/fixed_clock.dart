@@ -1,7 +1,6 @@
 import 'package:absmartly_sdk/java/time/clock.dart';
 
-class FixedClock extends Clock{
-
+class FixedClock extends Clock {
   int mills;
 
   FixedClock(this.mills);
@@ -10,5 +9,4 @@ class FixedClock extends Clock{
   int millis() {
     return mills;
   }
-
 }

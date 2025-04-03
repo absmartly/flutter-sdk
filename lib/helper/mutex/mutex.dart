@@ -1,4 +1,3 @@
-
 import 'package:absmartly_sdk/helper/mutex/read_write_mutex.dart';
 
 /// Mutual exclusion.
@@ -74,7 +73,7 @@ class Mutex {
   /// the critical section to complete. The lock is released, when those
   /// exceptions occur.
 
-  Future<T> protect<T>(Future<T> criticalSection()) async {
+  Future<T> protect<T>(Future<T> Function() criticalSection) async {
     await acquire();
     try {
       return await criticalSection();

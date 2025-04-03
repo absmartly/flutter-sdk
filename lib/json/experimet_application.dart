@@ -5,8 +5,8 @@ class ExperimentApplication {
 
   @override
   bool operator ==(Object other) {
-    return identical(this, other) || other is ExperimentApplication &&
-        name == other.name;
+    return identical(this, other) ||
+        other is ExperimentApplication && name == other.name;
   }
 
   @override
@@ -17,14 +17,13 @@ class ExperimentApplication {
     return 'ExperimentApplication{name: $name}';
   }
 
-  ExperimentApplication.fromMap(Map<String, dynamic> data){
+  ExperimentApplication.fromMap(Map<String, dynamic> data) {
     name = data["name"];
   }
 
-  Map<String, dynamic> toMap(){
+  Map<String, dynamic> toMap() {
     return {
-      "name" : name,
+      "name": name,
     };
   }
-
 }
