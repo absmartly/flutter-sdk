@@ -14,10 +14,14 @@ import 'package:absmartly_sdk/jsonexpr/operators/or_combinator.dart';
 import 'package:absmartly_sdk/jsonexpr/operators/value_operator.dart';
 import 'package:absmartly_sdk/jsonexpr/operators/var_operator.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 
-class MockEvaluator extends Mock implements Evaluator {}
+import 'operator_test.mocks.dart';
 
+@GenerateNiceMocks([
+  MockSpec<Evaluator>(),
+])
 void main() {
   group('JsonExpr Integration Tests', () {
     test('evaluateExpr() test equals operator', () {

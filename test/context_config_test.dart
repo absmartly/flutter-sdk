@@ -1,7 +1,6 @@
 import 'package:absmartly_sdk/context_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// all working
 void main() {
   group('ContextConfig', () {
     test('setUnit', () {

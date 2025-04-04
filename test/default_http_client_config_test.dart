@@ -2,8 +2,6 @@ import 'package:absmartly_sdk/default_http_client_config.dart';
 import 'package:absmartly_sdk/http_version_policy.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// all working
-
 void main() {
   group('DefaultHTTPClientConfig', () {
     test('setConnectTimeout', () {

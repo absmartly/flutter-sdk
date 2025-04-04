@@ -3,18 +3,23 @@ import 'dart:convert';
 
 import 'package:absmartly_sdk/client.dart';
 import 'package:absmartly_sdk/client_config.dart';
-import 'package:absmartly_sdk/context_data_deserializer.mocks.dart';
-import 'package:absmartly_sdk/context_event_serializer.mocks.dart';
+import 'package:absmartly_sdk/context_data_deserializer.dart';
+import 'package:absmartly_sdk/context_event_serializer.dart';
 import 'package:absmartly_sdk/default_http_client.dart';
 import 'package:absmartly_sdk/http_client.dart';
-import 'package:absmartly_sdk/http_client.mocks.dart';
 import 'package:absmartly_sdk/json/context_data.dart';
 import 'package:absmartly_sdk/json/publish_event.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 
-// some are not working
+import 'client_test.mocks.dart';
 
+@GenerateNiceMocks([
+  MockSpec<HTTPClient>(),
+  MockSpec<ContextDataDeserializer>(),
+  MockSpec<ContextEventSerializer>()
+])
 void main() {
   Future<Response> getByteResponse(List<int> bytes) async {
     return DefaultResponse(

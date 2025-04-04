@@ -1,8 +1,14 @@
 import 'package:absmartly_sdk/jsonexpr/expr_evaluator.dart';
-import 'package:absmartly_sdk/jsonexpr/operator.mocks.dart';
+import 'package:absmartly_sdk/jsonexpr/operator.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 
+import 'expr_evaluator_test.mocks.dart';
+
+@GenerateNiceMocks([
+  MockSpec<Operator>(),
+])
 void main() {
   test('testEvaluateConsidersListAsAndCombinator', () {
     final andOperator = MockOperator();

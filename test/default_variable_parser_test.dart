@@ -1,13 +1,17 @@
 import 'dart:convert';
 
 import 'package:absmartly_sdk/context.dart';
-import 'package:absmartly_sdk/context.mocks.dart';
 import 'package:absmartly_sdk/default_variable_parser.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
-
+import 'package:mockito/annotations.dart';
 import 'test_utils.dart';
 
+import 'default_variable_parser_test.mocks.dart';
+
+@GenerateNiceMocks([
+  MockSpec<Context>(),
+])
 main() {
   test("parse", () async {
     WidgetsFlutterBinding.ensureInitialized();

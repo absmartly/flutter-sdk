@@ -10,8 +10,6 @@ import 'package:absmartly_sdk/json/publish_event.dart';
 import 'package:absmartly_sdk/json/unit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// not working
-
 void main() {
   group("DefaultContextEventSerializerTest", () {
     test("serialize", () {

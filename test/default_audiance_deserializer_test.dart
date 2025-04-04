@@ -3,8 +3,6 @@ import 'dart:convert';
 import 'package:absmartly_sdk/default_audience_deserializer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// all working
-
 void main() {
   test('deserialize', () {
     final DefaultAudienceDeserializer deser = DefaultAudienceDeserializer();

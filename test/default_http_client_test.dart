@@ -2,8 +2,6 @@ import 'package:absmartly_sdk/default_http_client.dart';
 import 'package:absmartly_sdk/default_http_client_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// all working
-
 void main() {
   group('DefaultHTTPClient', () {
     late DefaultHTTPClient client;

@@ -1,14 +1,21 @@
 import 'dart:async';
 
 import 'package:absmartly_sdk/absmartly_sdk_config.dart';
-import 'package:absmartly_sdk/client.mocks.dart';
-import 'package:absmartly_sdk/context_data_provider.mocks.dart';
-import 'package:absmartly_sdk/context_event_handler.mocks.dart';
-import 'package:absmartly_sdk/variable_parser.mocks.dart';
+import 'package:absmartly_sdk/client.dart';
+import 'package:absmartly_sdk/context_data_provider.dart';
+import 'package:absmartly_sdk/context_event_handler.dart';
+import 'package:absmartly_sdk/variable_parser.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mockito/annotations.dart';
 
-// all working
+import 'ab_smartly_config_test.mocks.dart';
 
+@GenerateNiceMocks([
+  MockSpec<ContextDataProvider>(),
+  MockSpec<ContextEventHandler>(),
+  MockSpec<VariableParser>(),
+  MockSpec<Client>(),
+])
 void main() {
   group('ABSmartlyConfig', () {
     test('setContextDataProvider', () {

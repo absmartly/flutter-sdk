@@ -2,8 +2,6 @@ import 'package:absmartly_sdk/audience_matcher.dart';
 import 'package:absmartly_sdk/default_audience_deserializer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// all working
-
 void main() {
   final audienceMatcher = AudienceMatcher(DefaultAudienceDeserializer());
   group('AudienceMatcherTest', () {
