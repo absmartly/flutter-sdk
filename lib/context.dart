@@ -96,7 +96,7 @@ class Context {
     return !closed_ && closing_;
   }
 
-  Future<Context> ready() async {
+  Future<Context> waitUntilReady() async {
     if (isReady()) {
       return Future.value(this);
     }

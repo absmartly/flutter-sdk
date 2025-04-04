@@ -523,14 +523,14 @@ class MockContext extends _i1.Mock implements _i8.Context {
           as bool);
 
   @override
-  _i15.Future<_i8.Context> ready() =>
+  _i15.Future<_i8.Context> waitUntilReady() =>
       (super.noSuchMethod(
-            Invocation.method(#ready, []),
+            Invocation.method(#waitUntilReady, []),
             returnValue: _i15.Future<_i8.Context>.value(
-              _FakeContext_6(this, Invocation.method(#ready, [])),
+              _FakeContext_6(this, Invocation.method(#waitUntilReady, [])),
             ),
             returnValueForMissingStub: _i15.Future<_i8.Context>.value(
-              _FakeContext_6(this, Invocation.method(#ready, [])),
+              _FakeContext_6(this, Invocation.method(#waitUntilReady, [])),
             ),
           )
           as _i15.Future<_i8.Context>);

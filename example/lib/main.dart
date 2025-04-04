@@ -77,7 +77,7 @@ class _AbSmartlyScreenState extends State<AbSmartlyScreen> {
 
     contextConfig.setContextEventLogger(CustomEventLogger());
 
-    final Context context = await sdk.createContext(contextConfig).ready();
+    final Context context = await sdk.createContext(contextConfig).waitUntilReady();
 
     context.refresh();
 
