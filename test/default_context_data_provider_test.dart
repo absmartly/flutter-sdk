@@ -15,7 +15,7 @@ void main() {
       when(client.getContextData()).thenAnswer((_) => Future.value(expected));
 
       final dataFuture = provider.getContextData();
-      final actual = await dataFuture;
+      final actual = dataFuture;
 
       expect(actual, equals(expected));
       expect(identical(expected, actual), isTrue);

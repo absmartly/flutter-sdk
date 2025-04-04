@@ -47,10 +47,6 @@ void main() {
       expect(response.getContent(), isNotNull);
     });
 
-    test('Closes HTTP client without errors', () {
-      expect(() => client.close(), returnsNormally);
-    });
-
     test('Handles null values correctly', () async {
       final response = await client.get(
           'https://jsonplaceholder.typicode.com/posts', null, null);

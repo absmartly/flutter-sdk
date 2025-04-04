@@ -5,15 +5,13 @@ import 'client_config.dart';
 import 'default_context_data_serializer.dart';
 import 'default_context_event_serializer.dart';
 import 'default_http_client_config.dart';
-import 'java_system_classes/closeable.dart';
 import 'context_data_deserializer.dart';
 import 'context_event_serializer.dart';
 import 'http_client.dart';
 import 'json/context_data.dart';
 import 'json/publish_event.dart';
-import 'package:mockito/annotations.dart';
 
-@GenerateNiceMocks([MockSpec<Client>()])
+
 class Client {
   static Client create(ClientConfig config, {HTTPClient? httpClient}) {
     if (httpClient == null) {
@@ -69,8 +67,8 @@ class Client {
     };
   }
 
-  Future<ContextData?> getContextData() {
-    Completer<ContextData?> dataFuture = Completer<ContextData?>();
+  Completer<ContextData> getContextData() {
+    Completer<ContextData> dataFuture = Completer<ContextData>();
 
     httpClient_.get(url_, query_, null).then((response) {
       final int code = response.getStatusCode() ?? 0;
@@ -88,10 +86,10 @@ class Client {
       dataFuture.completeError(exception);
     });
 
-    return dataFuture.future;
+    return dataFuture;
   }
 
-  Future<void> publish(final PublishEvent event) {
+  Completer<void> publish(final PublishEvent event) {
     Completer<void> publishFuture = Completer<void>();
 
     var content = serializer_?.serialize(event);
@@ -108,7 +106,7 @@ class Client {
       publishFuture.completeError(exception);
     });
 
-    return publishFuture.future;
+    return publishFuture;
   }
 
   late final String url_;

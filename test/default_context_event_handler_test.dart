@@ -26,7 +26,7 @@ void main() {
       when(client.publish(event)).thenAnswer((_) => Future.value(null));
 
       final dataFuture = eventHandler.publish(context, event);
-      final actual = await dataFuture;
+      final actual = dataFuture;
 
       // expect(actual, isNull);
     });

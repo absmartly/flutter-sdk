@@ -5,7 +5,6 @@ import 'dart:typed_data';
 
 import 'package:absmartly_sdk/variable_parser.dart';
 import 'package:collection/collection.dart';
-import 'package:mockito/annotations.dart';
 
 import 'audience_matcher.dart';
 import 'context_config.dart';
@@ -24,32 +23,29 @@ import 'json/goal_achievement.dart';
 import 'json/publish_event.dart';
 import 'json/unit.dart';
 
-@GenerateNiceMocks([MockSpec<Context>()])
 class Context {
-  bool dataFutureCheck = false;
-
   factory Context.create(
       Clock clock,
       final ContextConfig config,
-      final Timer scheduler,
-      final Future<ContextData> dataFuture,
+      final Completer<ContextData> dataFuture,
       final ContextDataProvider dataProvider,
       final ContextEventHandler eventHandler,
       final VariableParser variableParser,
-      AudienceMatcher audienceMatcher) {
-    return Context(clock, config, dataFuture, scheduler, dataProvider,
-        eventHandler, variableParser, audienceMatcher);
+      AudienceMatcher audienceMatcher,
+      ContextEventLogger eventLogger) {
+    return Context(clock, config, dataFuture, dataProvider,
+        eventHandler, variableParser, audienceMatcher, eventLogger);
   }
 
   Context(
       Clock clock,
       ContextConfig config,
-      Future<ContextData> dataFuture,
-      Timer scheduler,
+      Completer<ContextData> dataFuture,
       ContextDataProvider dataProvider,
       ContextEventHandler eventHandler,
       VariableParser variableParser,
-      AudienceMatcher audienceMatcher) {
+      AudienceMatcher audienceMatcher,
+      ContextEventLogger eventLogger) {
     clock_ = clock;
 
     publishDelay_ = config.getPublishDelay();
@@ -58,44 +54,30 @@ class Context {
     dataProvider_ = dataProvider;
     variableParser_ = variableParser;
     audienceMatcher_ = audienceMatcher;
-    scheduler_ = scheduler;
+    eventLogger_ = eventLogger;
 
     setUnits(config.getUnits());
     setAttributes(config.getAttributes());
     setOverrides(config.getOverrides());
     setCustomAssignments(config.getCustomAssignments());
 
-    bool dataComplete = false;
-    dataFuture.then((_) => dataComplete = true);
+    readyFuture_ = Completer<void>();
+    dataFuture.future.then((data) {
+      setData(data);
+      readyFuture_!.complete();
+      readyFuture_ = null;
 
-    if (dataComplete) {
-      dataFuture.then((data) {
-        setData(data!);
-        
-        logEvent(EventType.Ready, data);
-      }).catchError((exception) {
-        setDataFailed(exception);
+      logEvent(EventType.Ready, data);
 
-        logError(exception);
-      });
-    } else {
-      readyFuture_ = Completer<Future<void>?>();
-      dataFuture.then((data) {
-        setData(data);
-        readyFuture_?.complete();
-        readyFuture_ = null;
-
-        logEvent(EventType.Ready, data);
-
-        if (getPendingCount() > 0) {
-          setTimeout();
-        }
-      }).catchError((exception) {
-        setDataFailed(exception);
-        readyFuture_?.complete();
-        logError(exception);
-      });
-    }
+      if (getPendingCount() > 0) {
+        setTimeout();
+      }
+    }).catchError((exception) {
+      setDataFailed(exception);
+      readyFuture_!.complete();
+      readyFuture_ = null;
+      logError(exception);
+    });
   }
 
   bool isReady() {
@@ -114,14 +96,14 @@ class Context {
     return !closed_ && closing_;
   }
 
-  Future<Context> ready() {
+  Future<Context> ready() async {
     if (isReady()) {
       return Future.value(this);
-    } else {
-      return readyFuture_!.future.then((_) {
-        return this;
-      });
     }
+
+    return readyFuture_!.future.then((_) {
+      return this;
+    });
   }
 
   List<String> getExperiments() {
@@ -169,13 +151,13 @@ class Context {
   }
 
   String? getUnit(final String unitType) {
-    return units_![unitType];
+    return units_[unitType];
   }
 
   void setUnit(final String unitType, final String uid) {
     checkNotClosed();
 
-    final String? previous = units_![unitType];
+    final String? previous = units_[unitType];
     if ((previous != null) && !(previous == uid)) {
       throw Exception("Unit $unitType already set.");
     }
@@ -185,7 +167,7 @@ class Context {
       throw Exception("Unit $unitType UID must not be blank.");
     }
 
-    units_![unitType] = trimmed;
+    units_[unitType] = trimmed;
   }
 
   Map<String, String> getUnits() {
@@ -278,7 +260,7 @@ class Context {
 
     final Map<String, List<String>> variableKeys = <String, List<String>>{};
 
-      indexVariables_!.forEach((key, value) {
+      indexVariables_.forEach((key, value) {
         final List<ExperimentVariables> keyExperimentVariables = value;
         final List<String> values = List.generate(keyExperimentVariables.length,
             (index) => keyExperimentVariables[index].data.name);
@@ -345,55 +327,51 @@ class Context {
     return pendingCount_;
   }
 
-  Future<void>? refresh() {
+  Future<void> refresh() async {
     checkNotClosed();
 
     if (!refreshing_) {
       refreshing_ = true;
-      refreshFuture_ = Completer<Future<void>>();
+      refreshFuture_ = Completer<void>();
 
-      dataProvider_!.getContextData().then((data) {
-        setData(data!);
+      dataProvider_.getContextData().future.then((data) {
+        setData(data);
         refreshing_ = false;
-
-        refreshFuture_!.complete(Future<void>.value());
+        refreshFuture_!.complete();
         logEvent(EventType.Refresh, data);
       }).catchError((error) {
         refreshing_ = false;
         refreshFuture_!.completeError(error);
         logError(error);
-        return null;
       });
     }
 
-    final Future<void>? future = refreshFuture_?.future;
-    if (future != null) {
-      return future;
+    if (refreshFuture_ != null) {
+      return refreshFuture_!.future;
     }
 
-    return Future.value(null);
+    return Future.value();
   }
 
-  Future<void> finalize() {
+  Future<void> finalize() async {
     if (!closed_) {
       if (closing_ == false) {
         closing_ = true;
         clearRefreshTimer();
 
         if (pendingCount_ > 0) {
-          closingFuture_ = Completer<Future<void>?>();
+          closingFuture_ = Completer<void>();
 
           flush().then((_) {
             closed_ = true;
             closing_ = false;
-            closingFuture_?.complete(null);
+            closingFuture_!.complete();
             logEvent(EventType.Close, null);
           }).catchError((exception) {
             closed_ = true;
             closing_ = false;
             closingFuture_!.completeError(exception);
             // event logger gets this error during publish
-            return null;
           });
 
           return closingFuture_!.future;
@@ -404,13 +382,12 @@ class Context {
         }
       }
 
-      final Future<void>? future = closingFuture_?.future;
-      if (future != null) {
-        return future;
+      if (closingFuture_ != null) {
+        return closingFuture_!.future;
       }
     }
 
-    return Future.value(null);
+    return Future.value();
   }
 
   Future<void> flush() async {
@@ -441,13 +418,13 @@ class Context {
         if (eventCount > 0) {
           List<Unit> units = [];
 
-          for (var entry in units_!.entries) {
+          for (var entry in units_.entries) {
             units.add(Unit(
                 type: entry.key,
                 uid: utf8.decode(getUnitHash(entry.key, entry.value))));
           }
 
-          units_?.forEach((key, value) {
+          units_.forEach((key, value) {
             units.add(Unit(
                 type: key, uid: utf8.decode(getUnitHash(key, value))));
           });
@@ -465,7 +442,7 @@ class Context {
 
           final Completer<void> result = Completer<void>();
 
-          eventHandler_?.publish(this, event).then((_) {
+          eventHandler_.publish(this, event).future.then((_) {
             logEvent(EventType.Publish, event);
             result.complete();
           }).catchError((error) {
@@ -558,7 +535,7 @@ class Context {
               attrs[attr.name] = attr.value;
             }
 
-            final Result? match = audienceMatcher_!.evaluate(experiment.data.audience!, attrs);
+            final Result? match = audienceMatcher_.evaluate(experiment.data.audience!, attrs);
             if (match != null) {
               assignment.audienceMismatch = !match.get();
             }
@@ -567,7 +544,7 @@ class Context {
           if (experiment.data.audienceStrict && assignment.audienceMismatch) {
             assignment.variant = 0;
           } else if (experiment.data.fullOnVariant == 0) {
-            final String? uid = units_![experiment.data.unitType];
+            final String? uid = units_[experiment.data.unitType];
             if (uid != null) {
               final Uint8List unitHash = getUnitHash(unitType, uid);
 
@@ -631,11 +608,11 @@ class Context {
   }
 
   ExperimentVariables? getExperiment(final String experimentName) {
-      return index_![experimentName];
+      return index_[experimentName];
   }
 
   List<ExperimentVariables>? getVariableExperiments(final String key) {
-    return indexVariables_![key];
+    return indexVariables_[key];
   }
 
   Uint8List getUnitHash(final String unitType, final String unitUID) {
@@ -684,11 +661,9 @@ class Context {
     for (Experiment experiment in data.experiments) {
       final ExperimentVariables experimentVariables = ExperimentVariables();
       experimentVariables.data = experiment;
-      experimentVariables.variables =
-          List.generate(experiment.variants.length, (index) {
         for (ExperimentVariant variant in experiment.variants) {
           if ((variant.config != null) && variant.config!.isNotEmpty) {
-            final Map<String, dynamic>? variables = variableParser_!.parse(this, experiment.name, variant.name, variant.config!);
+            final Map<String, dynamic>? variables = variableParser_.parse(this, experiment.name, variant.name, variant.config!);
 
             variables?.forEach((key, value) {
               List<ExperimentVariables>? keyExperimentVariables = indexVariables[key];
@@ -710,16 +685,14 @@ class Context {
             experimentVariables.variables.add({});
           }
         }
-        return null;
-      });
 
       index[experiment.name] = experimentVariables;
     }
 
-      index_ = index;
-      indexVariables_ = indexVariables;
-      data_ = data;
-      setRefreshTimer();
+    index_ = index;
+    indexVariables_ = indexVariables;
+    data_ = data;
+    setRefreshTimer();
   }
 
   void setDataFailed(exception) {
@@ -730,11 +703,11 @@ class Context {
   }
 
   void logEvent(EventType event, dynamic data) {
-    print("${event.toString()}: ${data.toString()}");
+    eventLogger_.handleEvent(this, event, data);
   }
 
   void logError(error) {
-    print("${EventType.Error.toString()}: ${error.toString()}");
+    eventLogger_.handleEvent(this, EventType.Error, error);
   }
 
   late Clock clock_;
@@ -744,6 +717,7 @@ class Context {
   late ContextDataProvider dataProvider_;
   late VariableParser variableParser_;
   late AudienceMatcher audienceMatcher_;
+  late ContextEventLogger eventLogger_;
   final Map<String, String> units_ = {};
   bool failed_ = false;
   ContextData? data_;

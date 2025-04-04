@@ -30,11 +30,6 @@ class DefaultHTTPClient implements HTTPClient {
   }
 
   @override
-  void close() {
-    // TODO: implement close
-  }
-
-  @override
   Future<Response> get(
       String url, Map<String, String>? query, Map<String, String>? headers) {
     return makeRequest(url, query, headers, null, "GET");
@@ -108,8 +103,6 @@ class DefaultHTTPClient implements HTTPClient {
         content: response.bodyBytes);
     return defaultResponse;
   }
-
-// final CloseableHttpAsyncClient httpClient_;
 }
 
 class DefaultResponse implements Response {

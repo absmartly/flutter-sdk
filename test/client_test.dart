@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:absmartly_sdk/client.dart';
@@ -122,7 +123,7 @@ void main() {
               content: [0]));
 
       final publishFuture = client.publish(event);
-      await publishFuture;
+      publishFuture;
 
       verify(ser.serialize(event)).called(1);
       verify(httpClient.put(
@@ -156,8 +157,8 @@ void main() {
     final ContextData expected = ContextData();
     when(deser.deserialize(bytes, 0, bytes.length)).thenReturn(expected);
 
-    final Future<ContextData?> dataFuture = client.getContextData();
-    final ContextData actual = (await dataFuture)!;
+    final Completer<ContextData> dataFuture = client.getContextData();
+    final ContextData actual = await dataFuture.future;
 
     expect(expected, actual);
   });
