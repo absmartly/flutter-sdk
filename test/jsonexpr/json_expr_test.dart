@@ -46,36 +46,14 @@ void main() {
 
     final JsonExpr jsonExpr = JsonExpr();
 
-    final List<dynamic> AgeTwentyAndUS = [
+    final List<dynamic> ageTwentyAndUS = [
       binaryOp("eq", varFor("age"), valueFor(20)),
       binaryOp("eq", varFor("language"), valueFor("en-US"))
     ];
-    final List<dynamic> AgeOverFifty = [
-      binaryOp("gte", varFor("age"), valueFor(50))
-    ];
-
-    final List<dynamic> agetwentyandusOrAgeoverfifty = [
-      {
-        "or": [AgeTwentyAndUS, AgeOverFifty]
-      }
-    ];
-
-    final List<dynamic> Returning = [varFor("returning")];
-
-    final List<dynamic> returningAndAgetwentyandusOrAgeoverfifty = [
-      Returning,
-      agetwentyandusOrAgeoverfifty
-    ];
-
-    final List<dynamic> notreturningAndSpanish = [
-      unaryOp("not", Returning),
-      binaryOp("eq", varFor("language"), valueFor("es-ES"))
-    ];
-
-    expect(jsonExpr.evaluateBooleanExpr(AgeTwentyAndUS, John), equals(true));
-    expect(jsonExpr.evaluateBooleanExpr(AgeTwentyAndUS, Terry), equals(false));
-    expect(jsonExpr.evaluateBooleanExpr(AgeTwentyAndUS, Kate), equals(false));
-    expect(jsonExpr.evaluateBooleanExpr(AgeTwentyAndUS, Maria), equals(false));
+    expect(jsonExpr.evaluateBooleanExpr(ageTwentyAndUS, John), equals(true));
+    expect(jsonExpr.evaluateBooleanExpr(ageTwentyAndUS, Terry), equals(false));
+    expect(jsonExpr.evaluateBooleanExpr(ageTwentyAndUS, Kate), equals(false));
+    expect(jsonExpr.evaluateBooleanExpr(ageTwentyAndUS, Maria), equals(false));
   });
 
   test('testAgeOverFifty', () {

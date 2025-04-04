@@ -52,11 +52,6 @@ void main() {
       expect(client.headers_['X-Agent'], equals('absmartly-dart-sdk'));
       expect(client.httpClient_.runtimeType, equals(DefaultHTTPClient));
     });
-    final config = ClientConfig()
-        .setEndpoint("https://example.com")
-        .setAPIKey("test-api-key")
-        .setApplication("website")
-        .setEnvironment("dev");
 
     test('Client constructor initializes properties correctly', () {
       final config = ClientConfig()
@@ -82,12 +77,6 @@ void main() {
       expect(client.deserializer_, isNotNull);
       expect(client.serializer_, isNotNull);
     });
-
-    // .setEndpoint("https://localhost/v1")
-    //     .setAPIKey("test-api-key")
-    //     .setApplication("website")
-    //     .setEnvironment("dev")
-    //     .setContextEventSerializer(ser), httpClient);
 
     test('publish', () async {
       final httpClient = MockHTTPClient();
