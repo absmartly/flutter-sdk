@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:core';
 import 'dart:typed_data';
 
-import 'package:absmartly_sdk/helper/mutex/mutex.dart';
 import 'package:absmartly_sdk/variable_parser.dart';
+import 'package:collection/collection.dart';
 import 'package:mockito/annotations.dart';
 
 import 'audience_matcher.dart';
@@ -12,12 +12,9 @@ import 'context_config.dart';
 import 'context_data_provider.dart';
 import 'context_event_handler.dart';
 import 'context_event_logger.dart';
-import 'helper/mutex/read_write_mutex.dart';
-import 'internal/concurrency.dart';
 import 'internal/hashing/hashing.dart';
 import 'internal/variant_assigner.dart';
 import 'java/time/clock.dart';
-import 'java_system_classes/closeable.dart';
 import 'json/attribute.dart';
 import 'json/context_data.dart';
 import 'json/experiment.dart';
@@ -28,14 +25,14 @@ import 'json/publish_event.dart';
 import 'json/unit.dart';
 
 @GenerateNiceMocks([MockSpec<Context>()])
-class Context implements Closeable {
+class Context {
   bool dataFutureCheck = false;
 
   factory Context.create(
       Clock clock,
       final ContextConfig config,
-      final Timer? scheduler,
-      final Future<ContextData?> dataFuture,
+      final Timer scheduler,
+      final Future<ContextData> dataFuture,
       final ContextDataProvider dataProvider,
       final ContextEventHandler eventHandler,
       final VariableParser variableParser,
@@ -47,8 +44,8 @@ class Context implements Closeable {
   Context(
       Clock clock,
       ContextConfig config,
-      Future<ContextData?> dataFuture,
-      Timer? scheduler,
+      Future<ContextData> dataFuture,
+      Timer scheduler,
       ContextDataProvider dataProvider,
       ContextEventHandler eventHandler,
       VariableParser variableParser,
@@ -63,37 +60,18 @@ class Context implements Closeable {
     audienceMatcher_ = audienceMatcher;
     scheduler_ = scheduler;
 
-    units_ = <String, String>{};
+    setUnits(config.getUnits());
+    setAttributes(config.getAttributes());
+    setOverrides(config.getOverrides());
+    setCustomAssignments(config.getCustomAssignments());
 
-    final Map<String, String> units = config.getUnits() ?? {};
-    setUnits(units);
+    bool dataComplete = false;
+    dataFuture.then((_) => dataComplete = true);
 
-    assigners_ = <String, VariantAssigner>{};
-    hashedUnits_ = <String, Uint8List>{};
-
-    final Map<String, dynamic>? attributes = config.getAttributes();
-    if (attributes != null) {
-      setAttributes(attributes);
-    }
-
-    final Map<String, int> overrides = config.getOverrides();
-    overrides_ = <String, int>{};
-
-    final Map<String, int>? cassignments = config.getCustomAssignments();
-    cassignments_ = <String, int>{};
-
-    dataFuture.whenComplete(() {
-      dataFutureCheck = true;
-    });
-
-    if (dataFutureCheck) {
+    if (dataComplete) {
       dataFuture.then((data) {
-        if (data == null) {
-          setDataFailed(Exception("No data found"));
-
-          logError(Exception("No data found"));
-        }
         setData(data!);
+        
         logEvent(EventType.Ready, data);
       }).catchError((exception) {
         setDataFailed(exception);
@@ -103,24 +81,19 @@ class Context implements Closeable {
     } else {
       readyFuture_ = Completer<Future<void>?>();
       dataFuture.then((data) {
-        if (data == null) {
-          setDataFailed(Exception("No data found"));
-          readyFuture_?.complete();
-          logError(Exception("No data found"));
-          return;
-        }
         setData(data);
         readyFuture_?.complete();
-        // readyFuture_ = null;
+        readyFuture_ = null;
+
         logEvent(EventType.Ready, data);
+
         if (getPendingCount() > 0) {
           setTimeout();
         }
       }).catchError((exception) {
-        // setDataFailed(exception);
-        // readyFuture_?.complete();
-        // logError(exception);
-        // return null;
+        setDataFailed(exception);
+        readyFuture_?.complete();
+        logError(exception);
       });
     }
   }
@@ -130,70 +103,47 @@ class Context implements Closeable {
   }
 
   bool isFailed() {
-    return failed_ ?? false;
+    return failed_;
   }
 
-  bool isClosed() {
+  bool isFinalized() {
     return closed_;
   }
 
-  bool isClosing() {
+  bool isFinalizing() {
     return !closed_ && closing_;
   }
 
-  Future<Context> waitUntilReadyAsync() {
-    if (data_ != null) {
+  Future<Context> ready() {
+    if (isReady()) {
       return Future.value(this);
     } else {
-      return readyFuture_!.future.then((value) {
-        return Future.value(this);
+      return readyFuture_!.future.then((_) {
+        return this;
       });
     }
   }
 
-  Future<Context> waitUntilReady() async {
-    if (data_ == null) {
-      final Future<void>? future =
-          readyFuture_?.future; // cache here to avoid locking
-      if (future != null) {
-        await future;
-      }
-    }
-    return this;
-  }
-
-  Future<List<String>> getExperiments() async {
+  List<String> getExperiments() {
     checkReady(true);
 
-    try {
-      await dataLock_.acquireRead();
-      final List<String> experimentNames = List.generate(
-          data_!.experiments.length, (index) => data_!.experiments[index].name);
-
-      return experimentNames;
-    } finally {
-      dataLock_.release();
-    }
+    return List.generate(data_!.experiments.length, (index) => data_!.experiments[index].name);
   }
 
   ContextData getData() {
     checkReady(true);
 
-    try {
-      dataLock_.acquireRead();
-      return data_!;
-    } finally {
-      dataLock_.release();
-    }
+    return data_!;
   }
 
   void setOverride(final String experimentName, final int variant) {
     checkNotClosed();
-    Concurrency.putRW(contextLock_, overrides_, experimentName, variant);
+
+    overrides_[experimentName] = variant;
   }
 
-  int getOverride(final String experimentName) {
-    return Concurrency.getRW(contextLock_, overrides_, experimentName);
+  int? getOverride(final String experimentName) {
+    return overrides_[experimentName];
   }
 
   void setOverrides(Map<String, int> overrides) {
@@ -204,11 +154,12 @@ class Context implements Closeable {
 
   void setCustomAssignment(String experimentName, int variant) {
     checkNotClosed();
-    Concurrency.putRW(contextLock_, cassignments_, experimentName, variant);
+
+    cassignments_[experimentName] = variant;
   }
 
-  int getCustomAssignment(String experimentName) {
-    return Concurrency.getRW(contextLock_, cassignments_, experimentName);
+  int? getCustomAssignment(String experimentName) {
+    return cassignments_[experimentName];
   }
 
   void setCustomAssignments(Map<String, int> customAssignments) {
@@ -218,44 +169,27 @@ class Context implements Closeable {
   }
 
   String? getUnit(final String unitType) {
-    try {
-      contextLock_.acquireRead();
-      return units_![unitType];
-    } finally {
-      contextLock_.release();
-    }
+    return units_![unitType];
   }
 
   void setUnit(final String unitType, final String uid) {
     checkNotClosed();
 
-    try {
-      contextLock_.acquireWrite();
-
-      final String? previous = units_![unitType];
-      if ((previous != null) && !(previous == uid)) {
-        throw Exception("Unit $unitType already set.");
-      }
-
-      final String trimmed = uid.trim();
-      if (trimmed.isEmpty) {
-        throw Exception("Unit $unitType UID must not be blank.");
-      }
-
-      units_![unitType] = trimmed;
-    } finally {
-      contextLock_.release();
+    final String? previous = units_![unitType];
+    if ((previous != null) && !(previous == uid)) {
+      throw Exception("Unit $unitType already set.");
     }
+
+    final String trimmed = uid.trim();
+    if (trimmed.isEmpty) {
+      throw Exception("Unit $unitType UID must not be blank.");
+    }
+
+    units_![unitType] = trimmed;
   }
 
   Map<String, String> getUnits() {
-    try {
-      contextLock_.acquireRead();
-
-      return <String, String>{};
-    } finally {
-      contextLock_.release();
-    }
+    return <String, String>{};
   }
 
   void setUnits(Map<String, String> units) {
@@ -265,8 +199,6 @@ class Context implements Closeable {
   }
 
   dynamic getAttribute(final String name) {
-    try {
-      contextLock_.acquireRead();
       for (int i = attributes_.length; i-- > 0;) {
         final Attribute attr = attributes_[i];
         if (name == attr.name) {
@@ -275,30 +207,21 @@ class Context implements Closeable {
       }
 
       return null;
-    } finally {
-      contextLock_.release();
-    }
   }
 
   void setAttribute(String name, dynamic value) {
     checkNotClosed();
 
-    Concurrency.addRW(contextLock_, attributes_,
-        Attribute(name: name, value: value, setAt: clock_.millis()));
+    attributes_.add(Attribute(name: name, value: value, setAt: clock_.millis()));
   }
 
   Map<String, dynamic> getAttributes() {
-    final Map<String, dynamic> result = <String, dynamic>{};
+    final Map<String, dynamic> result = {};
 
-    try {
-      contextLock_.acquireRead();
       for (final Attribute attr in attributes_) {
         result[attr.name] = attr.value;
       }
       return result;
-    } finally {
-      contextLock_.release();
-    }
   }
 
   void setAttributes(final Map<String, dynamic> attributes) {
@@ -307,26 +230,26 @@ class Context implements Closeable {
     });
   }
 
-  Future<int> getTreatment(final String experimentName) async {
+  int getTreatment(final String experimentName) {
     checkReady(true);
 
-    final Assignment assignment = await getAssignment(experimentName);
+    final Assignment assignment = getAssignment(experimentName);
 
     if (!assignment.exposed) {
       queueExposure(assignment);
     }
 
-    return assignment.variant ?? 0;
+    return assignment.variant;
   }
 
   void queueExposure(final Assignment assignment) {
     if (!assignment.exposed) {
       assignment.exposed = true;
       final Exposure exposure = Exposure(
-          id: assignment.id ?? 0,
+          id: assignment.id,
           name: assignment.name,
           unit: assignment.unitType,
-          variant: assignment.variant ?? 0,
+          variant: assignment.variant,
           exposedAt: clock_.millis(),
           assigned: assignment.assigned,
           eligible: assignment.eligible,
@@ -335,13 +258,8 @@ class Context implements Closeable {
           custom: assignment.custom,
           audienceMismatch: assignment.audienceMismatch);
 
-      try {
-        eventLock_.acquire();
         pendingCount_++;
         exposures_.add(exposure);
-      } finally {
-        eventLock_.release();
-      }
 
       logEvent(EventType.Exposure, exposure);
 
@@ -349,10 +267,10 @@ class Context implements Closeable {
     }
   }
 
-  Future<int> peekTreatment(final String experimentName) async {
+  int peekTreatment(final String experimentName) {
     checkReady(true);
 
-    return (await getAssignment(experimentName)).variant ?? 0;
+    return getAssignment(experimentName).variant;
   }
 
   Map<String, List<String>> getVariableKeys() {
@@ -360,49 +278,38 @@ class Context implements Closeable {
 
     final Map<String, List<String>> variableKeys = <String, List<String>>{};
 
-    try {
-      dataLock_.acquireRead();
-
-      // in
       indexVariables_!.forEach((key, value) {
         final List<ExperimentVariables> keyExperimentVariables = value;
         final List<String> values = List.generate(keyExperimentVariables.length,
             (index) => keyExperimentVariables[index].data.name);
         variableKeys[key] = values;
       });
-    } finally {
-      dataLock_.release();
-    }
     return variableKeys;
   }
 
-  dynamic getVariableValue(final String key, final dynamic defaultValue) async {
+  dynamic getVariableValue(final String key, final dynamic defaultValue) {
     checkReady(true);
 
-    final Assignment? assignment = await getVariableAssignment(key);
+    final Assignment? assignment = getVariableAssignment(key);
     if (assignment != null) {
-      if (assignment.variables != null) {
         if (!assignment.exposed) {
           queueExposure(assignment);
         }
-        if (assignment.variables!.containsKey(key)) {
-          return assignment.variables![key];
+        if (assignment.variables.containsKey(key)) {
+          return assignment.variables[key];
         }
-      }
     }
     return defaultValue;
   }
 
-  Future<dynamic> peekVariableValue(
-      final String key, final dynamic defaultValue) async {
+  dynamic peekVariableValue(
+      final String key, final dynamic defaultValue) {
     checkReady(true);
 
-    final Assignment? assignment = await getVariableAssignment(key);
+    final Assignment? assignment = getVariableAssignment(key);
     if (assignment != null) {
-      if (assignment.variables != null) {
-        if (assignment.variables!.containsKey(key)) {
-          return assignment.variables![key];
-        }
+      if (assignment.variables.containsKey(key)) {
+        return assignment.variables[key];
       }
     }
     return defaultValue;
@@ -420,34 +327,25 @@ class Context implements Closeable {
     achievement.name = goalName;
     achievement.properties = properties;
 
-    try {
-      eventLock_.acquire();
       pendingCount_++;
       achievements_.add(achievement);
-    } finally {
-      eventLock_.release();
-    }
 
     logEvent(EventType.Goal, achievement);
 
     setTimeout();
   }
 
-  Future<void> publishAsync() {
+  Future<void> publish() {
     checkNotClosed();
 
     return flush();
-  }
-
-  Future<void> publish() async {
-    await publishAsync();
   }
 
   int getPendingCount() {
     return pendingCount_;
   }
 
-  Future<void>? refreshAsync() {
+  Future<void>? refresh() {
     checkNotClosed();
 
     if (!refreshing_) {
@@ -476,11 +374,7 @@ class Context implements Closeable {
     return Future.value(null);
   }
 
-  Future<void> refresh() async {
-    await refreshAsync();
-  }
-
-  Future<void> closeAsync() {
+  Future<void> finalize() {
     if (!closed_) {
       if (closing_ == false) {
         closing_ = true;
@@ -489,7 +383,7 @@ class Context implements Closeable {
         if (pendingCount_ > 0) {
           closingFuture_ = Completer<Future<void>?>();
 
-          flush().then((x) {
+          flush().then((_) {
             closed_ = true;
             closing_ = false;
             closingFuture_?.complete(null);
@@ -519,22 +413,15 @@ class Context implements Closeable {
     return Future.value(null);
   }
 
-  @override
-  Future<void> close() async {
-    await closeAsync();
-  }
-
-  Future<Future<void>?> flush() async {
+  Future<void> flush() async {
     clearTimeout();
 
-    if (!(failed_ ?? false)) {
+    if (!failed_) {
       if (pendingCount_ > 0) {
         List<Exposure>? exposures;
         List<GoalAchievement>? achievements;
         int eventCount;
 
-        try {
-          eventLock_.acquire();
           eventCount = pendingCount_;
 
           if (eventCount > 0) {
@@ -550,9 +437,6 @@ class Context implements Closeable {
 
             pendingCount_ = 0;
           }
-        } finally {
-          eventLock_.release();
-        }
 
         if (eventCount > 0) {
           List<Unit> units = [];
@@ -560,12 +444,12 @@ class Context implements Closeable {
           for (var entry in units_!.entries) {
             units.add(Unit(
                 type: entry.key,
-                uid: utf8.decode(await getUnitHash(entry.key, entry.value))));
+                uid: utf8.decode(getUnitHash(entry.key, entry.value))));
           }
 
-          units_?.forEach((key, value) async {
+          units_?.forEach((key, value) {
             units.add(Unit(
-                type: key, uid: utf8.decode(await getUnitHash(key, value))));
+                type: key, uid: utf8.decode(getUnitHash(key, value))));
           });
 
           final PublishEvent event = PublishEvent(
@@ -579,11 +463,11 @@ class Context implements Closeable {
           event.hashed = true;
           event.publishedAt = clock_.millis();
 
-          final Completer<Future<void>?> result = Completer<Future<void>?>();
+          final Completer<void> result = Completer<void>();
 
-          eventHandler_?.publish(this, event).then((value) {
+          eventHandler_?.publish(this, event).then((_) {
             logEvent(EventType.Publish, event);
-            result.complete(null);
+            result.complete();
           }).catchError((error) {
             logError(error);
             result.completeError(error);
@@ -593,24 +477,19 @@ class Context implements Closeable {
         }
       }
     } else {
-      try {
-        eventLock_.acquire();
         exposures_.clear();
         achievements_.clear();
         pendingCount_ = 0;
-      } finally {
-        eventLock_.release();
-      }
     }
 
-    return Future.value(null);
+    return Future.value();
   }
 
   void checkNotClosed() {
     if (closed_) {
-      throw Exception("ABSmartly Context is closed");
+      throw Exception("ABSmartly Context is finalized");
     } else if (closing_) {
-      throw Exception("ABSmartly Context is closing");
+      throw Exception("ABSmartly Context is finalized");
     }
   }
 
@@ -628,21 +507,16 @@ class Context implements Closeable {
         experiment.unitType == assignment.unitType &&
         experiment.iteration == assignment.iteration &&
         experiment.fullOnVariant == assignment.fullOnVariant &&
-        areListsEqual(experiment.trafficSplit, assignment.trafficSplit);
-    // Arrays.equals(experiment.trafficSplit, assignment.trafficSplit);
+        const ListEquality().equals(experiment.trafficSplit, assignment.trafficSplit);
   }
 
-  Future<Assignment> getAssignment(final String experimentName) async {
-    try {
-      contextLock_.acquireRead();
-
-      final Assignment? assignment = assignmentCache_[experimentName];
-
-      if (assignment != null) {
+  Assignment getAssignment(final String experimentName) {
+      Assignment? assignment = assignmentCache_[experimentName];
         final int? custom = cassignments_[experimentName];
         final int? override = overrides_[experimentName];
         final ExperimentVariables? experiment = getExperiment(experimentName);
 
+      if (assignment != null) {
         if (override != null) {
           if (assignment.overridden && assignment.variant == override) {
             // override up-to-date
@@ -660,19 +534,9 @@ class Context implements Closeable {
           }
         }
       }
-    } finally {
-      contextLock_.release();
-    }
 
     // cache miss or out-dated
-    try {
-      contextLock_.acquireWrite();
-
-      final int? custom = cassignments_[experimentName];
-      final int? override = overrides_[experimentName];
-      final ExperimentVariables? experiment = getExperiment(experimentName);
-
-      final Assignment assignment = Assignment();
+      assignment = Assignment();
       assignment.name = experimentName;
       assignment.eligible = true;
 
@@ -688,15 +552,13 @@ class Context implements Closeable {
         if (experiment != null) {
           final String unitType = experiment.data.unitType;
 
-          if (experiment.data.audience != null &&
-              experiment.data.audience!.isNotEmpty) {
-            final Map<String, dynamic> attrs = <String, dynamic>{};
+          if (experiment.data.audience != null && experiment.data.audience!.isNotEmpty) {
+            final Map<String, dynamic> attrs = {};
             for (final Attribute attr in attributes_) {
               attrs[attr.name] = attr.value;
             }
 
-            final Result? match =
-                audienceMatcher_!.evaluate(experiment.data.audience!, attrs);
+            final Result? match = audienceMatcher_!.evaluate(experiment.data.audience!, attrs);
             if (match != null) {
               assignment.audienceMismatch = !match.get();
             }
@@ -707,10 +569,9 @@ class Context implements Closeable {
           } else if (experiment.data.fullOnVariant == 0) {
             final String? uid = units_![experiment.data.unitType];
             if (uid != null) {
-              final Uint8List unitHash = await getUnitHash(unitType, uid);
+              final Uint8List unitHash = getUnitHash(unitType, uid);
 
-              final VariantAssigner assigner =
-                  await getVariantAssigner(unitType, unitHash);
+              final VariantAssigner assigner = getVariantAssigner(unitType, unitHash);
 
               final bool eligible = assigner.assign(
                       experiment.data.trafficSplit,
@@ -746,26 +607,21 @@ class Context implements Closeable {
       }
 
       if ((experiment != null) &&
-          ((assignment.variant ?? 0) < experiment.data.variants.length)) {
-        assignment.variables = experiment.variables[assignment.variant ?? 0];
+          (assignment.variant < experiment.data.variants.length)) {
+        assignment.variables = experiment.variables[assignment.variant] ?? {};
       }
 
       assignmentCache_[experimentName] = assignment;
 
       return assignment;
-    } finally {
-      contextLock_.release();
-    }
   }
 
-  Future<Assignment?> getVariableAssignment(final String key) async {
-    final List<ExperimentVariables>? keyExperimentVariables =
-        getVariableExperiments(key);
+  Assignment? getVariableAssignment(final String key) {
+    final List<ExperimentVariables>? keyExperimentVariables = getVariableExperiments(key);
 
     if (keyExperimentVariables != null) {
       for (ExperimentVariables experimentVariables in keyExperimentVariables) {
-        final Assignment assignment =
-            await getAssignment(experimentVariables.data.name);
+        final Assignment assignment = getAssignment(experimentVariables.data.name);
         if (assignment.assigned || assignment.overridden) {
           return assignment;
         }
@@ -775,72 +631,41 @@ class Context implements Closeable {
   }
 
   ExperimentVariables? getExperiment(final String experimentName) {
-    try {
-      dataLock_.acquireRead();
       return index_![experimentName];
-    } finally {
-      dataLock_.release();
-    }
   }
 
   List<ExperimentVariables>? getVariableExperiments(final String key) {
-    return Concurrency.getRW(dataLock_, indexVariables_!, key);
+    return indexVariables_![key];
   }
 
-  Future<Uint8List> getUnitHash(final String unitType, final String unitUID) {
-    return Future.value(Hashing.hashUnit(unitUID));
-    return Concurrency.computeIfAbsentRW(contextLock_, hashedUnits_, unitType,
-        (key) {
-      return Hashing.hashUnit(unitUID);
-    });
+  Uint8List getUnitHash(final String unitType, final String unitUID) {
+    return hashedUnits_[unitType] ?? (hashedUnits_[unitType] = Hashing.hashUnit(unitUID));
   }
 
-  Future<VariantAssigner> getVariantAssigner(
-      final String unitType, final Uint8List unitHash) {
-    return Concurrency.computeIfAbsentRW(
-      contextLock_,
-      assigners_,
-      unitType,
-      (key) {
-        return VariantAssigner(unitHash);
-      },
-    );
+  VariantAssigner getVariantAssigner(final String unitType, final Uint8List unitHash) {
+    return assigners_[unitType] ?? (assigners_[unitType] = VariantAssigner(unitHash));
   }
 
   void setTimeout() {
     if (isReady()) {
-      if (timeout_ == null) {
-        try {
-          timeoutLock_.acquire();
-          timeout_ ??= Timer(Duration(milliseconds: publishDelay_ ?? 0), () {
-            flush();
-          });
-        } finally {
-          timeoutLock_.release();
-        }
-      }
+      timeout_ ??= Timer(Duration(milliseconds: publishDelay_), () {
+          flush();
+        });
     }
   }
 
   void clearTimeout() {
     if (timeout_ != null) {
-      try {
-        timeoutLock_.acquire();
-        if (timeout_ != null) {
           timeout_!.cancel();
           timeout_ = null;
-        }
-      } finally {
-        timeoutLock_.release();
-      }
     }
   }
 
   void setRefreshTimer() {
-    if (((refreshInterval_ ?? 0) > 0) && (refreshTimer_ == null)) {
+    if ((refreshInterval_ > 0) && (refreshTimer_ == null)) {
       refreshTimer_ = Timer.periodic(
-          Duration(milliseconds: refreshInterval_ ?? 0), (timer) {
-        refreshAsync();
+          Duration(milliseconds: refreshInterval_), (timer) {
+        refresh();
       });
     }
   }
@@ -853,10 +678,8 @@ class Context implements Closeable {
   }
 
   void setData(final ContextData data) {
-    final Map<String, ExperimentVariables> index =
-        <String, ExperimentVariables>{};
-    final Map<String, List<ExperimentVariables>> indexVariables =
-        <String, List<ExperimentVariables>>{};
+    final Map<String, ExperimentVariables> index = {};
+    final Map<String, List<ExperimentVariables>> indexVariables = {};
 
     for (Experiment experiment in data.experiments) {
       final ExperimentVariables experimentVariables = ExperimentVariables();
@@ -865,14 +688,12 @@ class Context implements Closeable {
           List.generate(experiment.variants.length, (index) {
         for (ExperimentVariant variant in experiment.variants) {
           if ((variant.config != null) && variant.config!.isNotEmpty) {
-            final Map<String, dynamic>? variables = variableParser_!
-                .parse(this, experiment.name, variant.name, variant.config!);
+            final Map<String, dynamic>? variables = variableParser_!.parse(this, experiment.name, variant.name, variant.config!);
 
             variables?.forEach((key, value) {
-              List<ExperimentVariables>? keyExperimentVariables =
-                  indexVariables[key];
+              List<ExperimentVariables>? keyExperimentVariables = indexVariables[key];
               if (keyExperimentVariables == null) {
-                keyExperimentVariables = <ExperimentVariables>[];
+                keyExperimentVariables = [];
                 indexVariables[key] = keyExperimentVariables;
               }
 
@@ -886,7 +707,7 @@ class Context implements Closeable {
 
             experimentVariables.variables.add(variables);
           } else {
-            experimentVariables.variables.add(<String, dynamic>{});
+            experimentVariables.variables.add({});
           }
         }
         return null;
@@ -895,28 +716,17 @@ class Context implements Closeable {
       index[experiment.name] = experimentVariables;
     }
 
-    try {
-      dataLock_.acquireWrite();
-
       index_ = index;
       indexVariables_ = indexVariables;
       data_ = data;
       setRefreshTimer();
-    } finally {
-      dataLock_.release();
-    }
   }
 
   void setDataFailed(exception) {
-    try {
-      dataLock_.acquireWrite();
-      index_ = <String, ExperimentVariables>{};
-      indexVariables_ = <String, List<ExperimentVariables>>{};
+      index_ = {};
+      indexVariables_ = {};
       data_ = ContextData();
       failed_ = true;
-    } finally {
-      dataLock_.release();
-    }
   }
 
   void logEvent(EventType event, dynamic data) {
@@ -928,30 +738,27 @@ class Context implements Closeable {
   }
 
   late Clock clock_;
-  int? publishDelay_;
-  int? refreshInterval_;
-  ContextEventHandler? eventHandler_;
-  ContextDataProvider? dataProvider_;
-  VariableParser? variableParser_;
-  AudienceMatcher? audienceMatcher_;
-  Map<String, String>? units_;
-  bool? failed_;
-  final ReadWriteMutex dataLock_ = ReadWriteMutex();
+  int publishDelay_ = 100;
+  int refreshInterval_ = 0;
+  late ContextEventHandler eventHandler_;
+  late ContextDataProvider dataProvider_;
+  late VariableParser variableParser_;
+  late AudienceMatcher audienceMatcher_;
+  final Map<String, String> units_ = {};
+  bool failed_ = false;
   ContextData? data_;
-  Map<String, ExperimentVariables>? index_;
-  Map<String, List<ExperimentVariables>>? indexVariables_;
-  final ReadWriteMutex contextLock_ = ReadWriteMutex();
-  late Map<String, Uint8List> hashedUnits_;
-  late Map<String, VariantAssigner> assigners_;
-  final Map<String, Assignment> assignmentCache_ = <String, Assignment>{};
+  Map<String, ExperimentVariables> index_ = {};
+  Map<String, List<ExperimentVariables>> indexVariables_ = {};
+  
+  final Map<String, Uint8List> hashedUnits_ = {};
+  final Map<String, VariantAssigner> assigners_ = {};
+  final Map<String, Assignment> assignmentCache_ = {};
 
-  // final ReentrantLock eventLock_ = new ReentrantLock();
-  final Mutex eventLock_ = Mutex();
   final List<Exposure> exposures_ = [];
   final List<GoalAchievement> achievements_ = [];
   final List<Attribute> attributes_ = [];
-  Map<String, int> overrides_ = {};
-  Map<String, int> cassignments_ = {};
+  final Map<String, int> overrides_ = {};
+  final Map<String, int> cassignments_ = {};
   int pendingCount_ = 0;
   bool closing_ = false;
   bool closed_ = false;
@@ -959,27 +766,9 @@ class Context implements Closeable {
   Completer<void>? readyFuture_;
   Completer<void>? closingFuture_;
   Completer<void>? refreshFuture_;
-  final Mutex timeoutLock_ = Mutex();
   Timer? timeout_;
   Timer? refreshTimer_;
   Timer? scheduler_;
-
-  bool areListsEqual(var list1, var list2) {
-    // check if both are lists
-    if (!(list1 is List && list2 is List)
-        // check if both have same length
-        ||
-        list1.length != list2.length) {
-      return false;
-    }
-    // check if elements are equal
-    for (int i = 0; i < list1.length; i++) {
-      if (list1[i] != list2[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
 }
 
 class ExperimentVariables {
@@ -988,19 +777,19 @@ class ExperimentVariables {
 }
 
 class Assignment {
-  int? id;
+  int id = 0;
   late int iteration;
   late int fullOnVariant;
   late String name;
   String? unitType;
   List<double> trafficSplit = [];
-  int? variant;
+  int variant = 0;
   bool assigned = false;
   bool overridden = false;
   bool eligible = false;
   bool fullOn = false;
   bool custom = false;
   bool audienceMismatch = false;
-  Map<String, dynamic>? variables;
+  Map<String, dynamic> variables = {};
   bool exposed = false;
 }

@@ -16,11 +16,10 @@ import 'default_context_data_provider.dart';
 import 'default_context_event_handler.dart';
 import 'default_variable_parser.dart';
 import 'java/time/clock.dart';
-import 'java_system_classes/closeable.dart';
 import 'client.dart';
 import 'json/context_data.dart';
 
-class ABSmartly implements Closeable {
+class ABSmartly {
   ABSmartly(ABSmartlyConfig config) {
     contextDataProvider_ = config.getContextDataProvider();
     contextEventHandler_ = config.getContextEventHandler();

@@ -14,7 +14,7 @@ import 'json/publish_event.dart';
 import 'package:mockito/annotations.dart';
 
 @GenerateNiceMocks([MockSpec<Client>()])
-class Client implements Closeable {
+class Client {
   static Client create(ClientConfig config, {HTTPClient? httpClient}) {
     if (httpClient == null) {
       return Client(
@@ -111,19 +111,11 @@ class Client implements Closeable {
     return publishFuture.future;
   }
 
-  @override
-  void close() {
-    try {
-      httpClient_.close();
-    } catch (e) {
-      rethrow;
-    }
-  }
-
   late final String url_;
   late final Map<String, String> query_;
   late final Map<String, String> headers_;
   late final HTTPClient httpClient_;
+
   ContextDataDeserializer? deserializer_;
   ContextEventSerializer? serializer_;
 }
