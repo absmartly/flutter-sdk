@@ -63,8 +63,6 @@ class _AbSmartlyScreenState extends State<AbSmartlyScreen> {
   }
 
   initData() async {
-    print(const String.fromEnvironment("ABSMARTLY_ENDPOINT"));
-    print(const String.fromEnvironment("ABSMARTLY_API_KEY"));
     final ClientConfig clientConfig = ClientConfig()
       ..setEndpoint(const String.fromEnvironment("ABSMARTLY_ENDPOINT"))
       ..setAPIKey(const String.fromEnvironment("ABSMARTLY_API_KEY"))
@@ -79,14 +77,11 @@ class _AbSmartlyScreenState extends State<AbSmartlyScreen> {
 
     contextConfig.setContextEventLogger(CustomEventLogger());
 
-    final Context context =
-        await sdk.createContext(contextConfig).waitUntilReady();
+    final Context context = await sdk.createContext(contextConfig).ready();
 
     context.refresh();
-    print(context.units_);
 
-    final int treatment = await context.getTreatment("exp_test_ab");
-    print(treatment);
+    final int treatment = context.getTreatment("exp_test_ab");
 
     final Map<String, dynamic> properties = {};
     properties["value"] = 125;
@@ -106,7 +101,7 @@ class _AbSmartlyScreenState extends State<AbSmartlyScreen> {
 
     context.track("payment", properties);
 
-    context.close();
+    context.finalize();
     sdk.close();
     res = "Variant ${treatment.toString()}";
     setState(() {});

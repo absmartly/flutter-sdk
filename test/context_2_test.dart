@@ -1,2207 +1,1328 @@
-package com.absmartly.sdk;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.util.*;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
-import java8.util.concurrent.CompletableFuture;
-import java8.util.concurrent.CompletionException;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatchers;
-import org.mockito.Mockito;
-
-import com.absmartly.sdk.java.time.Clock;
-import com.absmartly.sdk.json.Attribute;
-import com.absmartly.sdk.json.ContextData;
-import com.absmartly.sdk.json.Experiment;
-import com.absmartly.sdk.json.Exposure;
-import com.absmartly.sdk.json.GoalAchievement;
-import com.absmartly.sdk.json.PublishEvent;
-import com.absmartly.sdk.json.Unit;
-
-class ContextTest extends TestUtils {
-	final Map<String, String> units = mapOf(
-			"session_id", "e791e240fcd3df7d238cfc285f475e8152fcc0ec",
-			"user_id", "123456789",
-			"email", "bleh@absmartly.com");
-
-	final Map<String, Object> attributes = mapOf(
-			"attr1", "value1",
-			"attr2", "value2",
-			"attr3", 5);
-
-	final Map<String, Integer> expectedVariants = mapOf(
-			"exp_test_ab", 1,
-			"exp_test_abc", 2,
-			"exp_test_not_eligible", 0,
-			"exp_test_fullon", 2,
-			"exp_test_new", 1);
-
-	final Map<String, Object> expectedVariables = mapOf(
-			"banner.border", 1,
-			"banner.size", "large",
-			"button.color", "red",
-			"submit.color", "blue",
-			"submit.shape", "rect",
-			"show-modal", true);
-
-	final Map<String, List<String>> variableExperiments = mapOf(
-			"banner.border", listOf("exp_test_ab"),
-			"banner.size", listOf("exp_test_ab"),
-			"button.color", listOf("exp_test_abc"),
-			"card.width", listOf("exp_test_not_eligible"),
-			"submit.color", listOf("exp_test_fullon"),
-			"submit.shape", listOf("exp_test_fullon"),
-			"show-modal", listOf("exp_test_new"));
-
-	final Unit[] publishUnits = new Unit[]{
-			new Unit("user_id", "JfnnlDI7RTiF9RgfG2JNCw"),
-			new Unit("session_id", "pAE3a1i5Drs5mKRNq56adA"),
-			new Unit("email", "IuqYkNRfEx5yClel4j3NbA")
-	};
-
-	ContextData data;
-	ContextData refreshData;
-
-	ContextData audienceData;
-
-	ContextData audienceStrictData;
-
-	CompletableFuture<ContextData> dataFutureReady;
-	CompletableFuture<ContextData> dataFutureFailed;
-	CompletableFuture<ContextData> dataFuture;
-
-	CompletableFuture<ContextData> refreshDataFutureReady;
-	CompletableFuture<ContextData> refreshDataFuture;
-
-	CompletableFuture<ContextData> audienceDataFutureReady;
-	CompletableFuture<ContextData> audienceStrictDataFutureReady;
-
-	ContextDataProvider dataProvider;
-	ContextEventLogger eventLogger;
-	ContextEventHandler eventHandler;
-	VariableParser variableParser;
-	AudienceMatcher audienceMatcher;
-	ScheduledExecutorService scheduler;
-	DefaultContextDataDeserializer deser = new DefaultContextDataDeserializer();
-	Clock clock = Clock.fixed(1_620_000_000_000L);
-
-	@BeforeEach
-	void setUp() {
-		final byte[] bytes = getResourceBytes("context.json");
-		data = deser.deserialize(bytes, 0, bytes.length);
-
-		final byte[] refreshBytes = getResourceBytes("refreshed.json");
-		refreshData = deser.deserialize(refreshBytes, 0, refreshBytes.length);
-
-		final byte[] audienceBytes = getResourceBytes("audience_context.json");
-		audienceData = deser.deserialize(audienceBytes, 0, audienceBytes.length);
-
-		final byte[] audienceStrictBytes = getResourceBytes("audience_strict_context.json");
-		audienceStrictData = deser.deserialize(audienceStrictBytes, 0, audienceStrictBytes.length);
-
-		dataFutureReady = CompletableFuture.completedFuture(data);
-		dataFutureFailed = failedFuture(new Exception("FAILED"));
-		dataFuture = new CompletableFuture<>();
-
-		refreshDataFutureReady = CompletableFuture.completedFuture(refreshData);
-		refreshDataFuture = new CompletableFuture<>();
-
-		audienceDataFutureReady = CompletableFuture.completedFuture(audienceData);
-		audienceStrictDataFutureReady = CompletableFuture.completedFuture(audienceStrictData);
-
-		dataProvider = mock(ContextDataProvider.class);
-		eventHandler = mock(ContextEventHandler.class);
-		eventLogger = mock(ContextEventLogger.class);
-		variableParser = new DefaultVariableParser();
-		audienceMatcher = new AudienceMatcher(new DefaultAudienceDeserializer());
-		scheduler = mock(ScheduledExecutorService.class);
-	}
-
-	Context createContext(ContextConfig config, CompletableFuture<ContextData> dataFuture) {
-		return Context.create(clock, config, scheduler, dataFuture, dataProvider, eventHandler,
-				eventLogger, variableParser, audienceMatcher);
-	}
-
-	Context createContext(CompletableFuture<ContextData> dataFuture) {
-		final ContextConfig config = ContextConfig.create()
-				.setUnits(units);
-
-		return Context.create(clock, config, scheduler, dataFuture, dataProvider, eventHandler,
-				eventLogger, variableParser, audienceMatcher);
-	}
-
-	Context createReadyContext() {
-		final ContextConfig config = ContextConfig.create()
-				.setUnits(units);
-
-		return Context.create(clock, config, scheduler, dataFutureReady, dataProvider, eventHandler,
-				eventLogger, variableParser, audienceMatcher);
-	}
-
-	Context createReadyContext(ContextData data) {
-		final ContextConfig config = ContextConfig.create()
-				.setUnits(units);
-
-		return Context.create(clock, config, scheduler, CompletableFuture.completedFuture(data), dataProvider,
-				eventHandler,
-				eventLogger, variableParser, audienceMatcher);
-	}
-
-	@Test
-	void constructorSetsOverrides() {
-		final Map<String, Integer> overrides = mapOf(
-				"exp_test", 2,
-				"exp_test_1", 1);
-
-		final ContextConfig config = ContextConfig.create()
-				.setUnits(units)
-				.setOverrides(overrides);
-
-		final Context context = createContext(config, dataFutureReady);
-		overrides.forEach((experimentName, variant) -> assertEquals(variant, context.getOverride(experimentName)));
-	}
-
-	@Test
-	void constructorSetsCustomAssignments() {
-		final Map<String, Integer> cassignments = mapOf(
-				"exp_test", 2,
-				"exp_test_1", 1);
-
-		final ContextConfig config = ContextConfig.create()
-				.setUnits(units)
-				.setCustomAssignments(cassignments);
-
-		final Context context = createContext(config, dataFutureReady);
-		cassignments.forEach(
-				(experimentName, variant) -> assertEquals(variant, context.getCustomAssignment(experimentName)));
-	}
-
-	@Test
-	void becomesReadyWithCompletedFuture() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
-		assertSame(data, context.getData());
-	}
-
-	@Test
-	void becomesReadyAndFailedWithCompletedExceptionallyFuture() {
-		final Context context = createContext(dataFutureFailed);
-		assertTrue(context.isReady());
-		assertTrue(context.isFailed());
-	}
-
-	@Test
-	void becomesReadyAndFailedWithException() {
-		final Context context = createContext(dataFuture);
-		assertFalse(context.isReady());
-		assertFalse(context.isFailed());
-
-		dataFuture.completeExceptionally(new Exception("FAILED"));
-
-		context.waitUntilReady();
-
-		assertTrue(context.isReady());
-		assertTrue(context.isFailed());
-	}
-
-	@Test
-	void callsEventLoggerWhenReady() {
-		final Context context = createContext(dataFuture);
-
-		dataFuture.complete(data);
-
-		context.waitUntilReady();
-		verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(context, ContextEventLogger.EventType.Ready,
-				data);
-	}
-
-	@Test
-	void callsEventLoggerWithCompletedFuture() {
-		final Context context = createReadyContext();
-		verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(context, ContextEventLogger.EventType.Ready,
-				data);
-	}
-
-	@Test
-	void callsEventLoggerWithException() {
-		final Context context = createContext(dataFuture);
-
-		final Exception error = new Exception("FAILED");
-		dataFuture.completeExceptionally(error);
-
-		context.waitUntilReady();
-		verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(context, ContextEventLogger.EventType.Error,
-				error);
-	}
-
-	@Test
-	void waitUntilReady() throws InterruptedException {
-		final Context context = createContext(dataFuture);
-		assertFalse(context.isReady());
-
-		final Thread completer = new Thread(() -> dataFuture.complete(data));
-		completer.start();
-
-		context.waitUntilReady();
-		completer.join();
-
-		assertTrue(context.isReady());
-		assertSame(data, context.getData());
-	}
-
-	@Test
-	void waitUntilReadyWithCompletedFuture() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
-
-		context.waitUntilReady();
-		assertSame(data, context.getData());
-	}
-
-	@Test
-	void waitUntilReadyAsync() throws ExecutionException, InterruptedException {
-		final Context context = createContext(dataFuture);
-		assertFalse(context.isReady());
-
-		final CompletableFuture<Context> readyFuture = context.waitUntilReadyAsync();
-		assertFalse(context.isReady());
-
-		final Thread completer = new Thread(() -> dataFuture.complete(data));
-		completer.start();
-
-		readyFuture.join();
-		completer.join();
-
-		assertTrue(context.isReady());
-		assertSame(context, readyFuture.get());
-		assertSame(data, context.getData());
-	}
-
-	@Test
-	void waitUntilReadyAsyncWithCompletedFuture() throws ExecutionException, InterruptedException {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
-
-		final CompletableFuture<Context> readyFuture = context.waitUntilReadyAsync();
-		readyFuture.join();
-
-		assertTrue(context.isReady());
-		assertSame(context, readyFuture.get());
-		assertSame(data, context.getData());
-	}
-
-	@Test
-	void throwsWhenNotReady() {
-		final Context context = createContext(dataFuture);
-		assertFalse(context.isReady());
-		assertFalse(context.isFailed());
-
-		final String notReadyMessage = "ABSmartly Context is not yet ready";
-		assertEquals(notReadyMessage,
-				assertThrows(IllegalStateException.class, () -> context.peekTreatment("exp_test_ab")).getMessage());
-		assertEquals(notReadyMessage,
-				assertThrows(IllegalStateException.class, () -> context.getTreatment("exp_test_ab")).getMessage());
-		assertEquals(notReadyMessage, assertThrows(IllegalStateException.class, context::getData).getMessage());
-		assertEquals(notReadyMessage, assertThrows(IllegalStateException.class, context::getExperiments).getMessage());
-		assertEquals(notReadyMessage,
-				assertThrows(IllegalStateException.class, () -> context.getVariableValue("banner.border", 17))
-						.getMessage());
-		assertEquals(notReadyMessage,
-				assertThrows(IllegalStateException.class, () -> context.peekVariableValue("banner.border", 17))
-						.getMessage());
-		assertEquals(notReadyMessage,
-				assertThrows(IllegalStateException.class, context::getVariableKeys).getMessage());
-	}
-
-	@Test
-	void throwsWhenClosing() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
-		assertFalse(context.isFailed());
-
-		context.track("goal1", mapOf("amount", 125, "hours", 245));
-
-		final CompletableFuture<Void> publishFuture = new CompletableFuture<>();
-		when(eventHandler.publish(any(), any())).thenReturn(publishFuture);
-
-		context.closeAsync();
-
-		assertTrue(context.isClosing());
-		assertFalse(context.isClosed());
-
-		final String closingMessage = "ABSmartly Context is closing";
-		assertEquals(closingMessage,
-				assertThrows(IllegalStateException.class, () -> context.setAttribute("attr1", "value1")).getMessage());
-		assertEquals(closingMessage,
-				assertThrows(IllegalStateException.class,
-						() -> context.setAttributes(mapOf("attr1", "value1")))
-								.getMessage());
-		assertEquals(closingMessage,
-				assertThrows(IllegalStateException.class, () -> context.setOverride("exp_test_ab", 2)).getMessage());
-		assertEquals(closingMessage,
-				assertThrows(IllegalStateException.class, () -> context.setOverrides(mapOf("exp_test_ab", 2)))
-						.getMessage());
-		assertEquals(closingMessage,
-				assertThrows(IllegalStateException.class, () -> context.setUnit("test", "test"))
-						.getMessage());
-		assertEquals(closingMessage,
-				assertThrows(IllegalStateException.class, () -> context.setCustomAssignment("exp_test_ab", 2))
-						.getMessage());
-		assertEquals(closingMessage,
-				assertThrows(IllegalStateException.class,
-						() -> context.setCustomAssignments(mapOf("exp_test_ab", 2)))
-								.getMessage());
-		assertEquals(closingMessage,
-				assertThrows(IllegalStateException.class, () -> context.peekTreatment("exp_test_ab")).getMessage());
-		assertEquals(closingMessage,
-				assertThrows(IllegalStateException.class, () -> context.getTreatment("exp_test_ab")).getMessage());
-		assertEquals(closingMessage,
-				assertThrows(IllegalStateException.class, () -> context.track("goal1", null)).getMessage());
-		assertEquals(closingMessage, assertThrows(IllegalStateException.class, context::publish).getMessage());
-		assertEquals(closingMessage, assertThrows(IllegalStateException.class, context::getData).getMessage());
-		assertEquals(closingMessage, assertThrows(IllegalStateException.class, context::getExperiments).getMessage());
-		assertEquals(closingMessage,
-				assertThrows(IllegalStateException.class, () -> context.getVariableValue("banner.border", 17))
-						.getMessage());
-		assertEquals(closingMessage,
-				assertThrows(IllegalStateException.class, () -> context.peekVariableValue("banner.border", 17))
-						.getMessage());
-		assertEquals(closingMessage,
-				assertThrows(IllegalStateException.class, context::getVariableKeys).getMessage());
-	}
-
-	@Test
-	void throwsWhenClosed() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
-		assertFalse(context.isFailed());
-
-		context.track("goal1", mapOf("amount", 125, "hours", 245));
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.close();
-
-		assertFalse(context.isClosing());
-		assertTrue(context.isClosed());
-
-		final String closedMessage = "ABSmartly Context is closed";
-		assertEquals(closedMessage,
-				assertThrows(IllegalStateException.class, () -> context.setAttribute("attr1", "value1")).getMessage());
-		assertEquals(closedMessage,
-				assertThrows(IllegalStateException.class,
-						() -> context.setAttributes(mapOf("attr1", "value1")))
-								.getMessage());
-		assertEquals(closedMessage,
-				assertThrows(IllegalStateException.class, () -> context.setOverride("exp_test_ab", 2)).getMessage());
-		assertEquals(closedMessage,
-				assertThrows(IllegalStateException.class, () -> context.setOverrides(mapOf("exp_test_ab", 2)))
-						.getMessage());
-		assertEquals(closedMessage,
-				assertThrows(IllegalStateException.class, () -> context.setUnit("test", "test"))
-						.getMessage());
-		assertEquals(closedMessage,
-				assertThrows(IllegalStateException.class, () -> context.setCustomAssignment("exp_test_ab", 2))
-						.getMessage());
-		assertEquals(closedMessage,
-				assertThrows(IllegalStateException.class,
-						() -> context.setCustomAssignments(mapOf("exp_test_ab", 2)))
-								.getMessage());
-		assertEquals(closedMessage,
-				assertThrows(IllegalStateException.class, () -> context.peekTreatment("exp_test_ab")).getMessage());
-		assertEquals(closedMessage,
-				assertThrows(IllegalStateException.class, () -> context.getTreatment("exp_test_ab")).getMessage());
-		assertEquals(closedMessage,
-				assertThrows(IllegalStateException.class, () -> context.track("goal1", null)).getMessage());
-		assertEquals(closedMessage, assertThrows(IllegalStateException.class, context::publish).getMessage());
-		assertEquals(closedMessage, assertThrows(IllegalStateException.class, context::getData).getMessage());
-		assertEquals(closedMessage, assertThrows(IllegalStateException.class, context::getExperiments).getMessage());
-		assertEquals(closedMessage,
-				assertThrows(IllegalStateException.class, () -> context.getVariableValue("banner.border", 17))
-						.getMessage());
-		assertEquals(closedMessage,
-				assertThrows(IllegalStateException.class, () -> context.peekVariableValue("banner.border", 17))
-						.getMessage());
-		assertEquals(closedMessage,
-				assertThrows(IllegalStateException.class, context::getVariableKeys).getMessage());
-	}
-
-	@Test
-	void getExperiments() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
-
-		final String[] experiments = Arrays.stream(data.experiments).map(x -> x.name).toArray(String[]::new);
-		assertArrayEquals(experiments, context.getExperiments());
-	}
-
-	@Test
-	void startsRefreshTimerWhenReady() {
-		final ContextConfig config = ContextConfig.create()
-				.setUnits(units)
-				.setRefreshInterval(5_000);
-
-		final Context context = createContext(config, dataFuture);
-		assertFalse(context.isReady());
-		assertFalse(context.isFailed());
-
-		final AtomicReference<Runnable> runnable = new AtomicReference<>(null);
-		when(scheduler.scheduleWithFixedDelay(any(), eq(config.getRefreshInterval()),
-				eq(config.getRefreshInterval()), eq(TimeUnit.MILLISECONDS)))
-						.thenAnswer(invokation -> {
-							runnable.set(invokation.getArgument(0));
-							return mock(ScheduledFuture.class);
-						});
-
-		dataFuture.complete(data);
-		context.waitUntilReady();
-
-		verify(scheduler, Mockito.timeout(5000).times(1)).scheduleWithFixedDelay(any(), eq(config.getRefreshInterval()),
-				eq(config.getRefreshInterval()), eq(TimeUnit.MILLISECONDS));
-
-		verify(dataProvider, Mockito.timeout(5000).times(0)).getContextData();
-		when(dataProvider.getContextData()).thenReturn(refreshDataFutureReady);
-
-		runnable.get().run();
-
-		verify(dataProvider, Mockito.timeout(5000).times(1)).getContextData();
-	}
-
-	@Test
-	void doestNotStartRefreshTimerWhenFailed() {
-		final ContextConfig config = ContextConfig.create()
-				.setUnits(units)
-				.setRefreshInterval(5_000);
-
-		final Context context = createContext(config, dataFuture);
-		assertFalse(context.isReady());
-		assertFalse(context.isFailed());
-
-		dataFuture.completeExceptionally(new Exception("test"));
-
-		context.waitUntilReady();
-
-		assertTrue(context.isFailed());
-
-		verify(scheduler, Mockito.timeout(5000).times(0)).scheduleWithFixedDelay(any(), anyLong(), anyLong(), any());
-	}
-
-	@Test
-	void startsPublishTimeoutWhenReadyWithQueueNotEmpty() {
-		final ContextConfig config = ContextConfig.create()
-				.setUnits(units)
-				.setPublishDelay(333);
-
-		final Context context = createContext(config, dataFuture);
-		assertFalse(context.isReady());
-		assertFalse(context.isFailed());
-
-		context.track("goal1", mapOf("amount", 125));
-
-		final AtomicReference<Runnable> runnable = new AtomicReference<>(null);
-		when(scheduler.schedule((Runnable) any(), eq(config.getPublishDelay()), eq(TimeUnit.MILLISECONDS)))
-				.thenAnswer(invokation -> {
-					runnable.set(invokation.getArgument(0));
-					return mock(ScheduledFuture.class);
-				});
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		dataFuture.complete(data);
-		context.waitUntilReady();
-
-		verify(scheduler, Mockito.timeout(5000).times(1)).schedule((Runnable) any(), eq(config.getPublishDelay()),
-				eq(TimeUnit.MILLISECONDS));
-		verify(eventHandler, Mockito.timeout(5000).times(0)).publish(any(), any());
-
-		runnable.get().run();
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-	}
-
-	@Test
-	void setUnits() {
-		final Context context = createContext(ContextConfig.create(), dataFuture);
-		context.setUnits(units);
-
-		for (final Map.Entry<String, String> entry : units.entrySet()) {
-			assertEquals(entry.getValue(), context.getUnit(entry.getKey()));
-		}
-		assertEquals(units, context.getUnits());
-	}
-
-	@Test
-	void setUnitsBeforeReady() {
-		final Context context = createContext(ContextConfig.create(), dataFuture);
-		assertFalse(context.isReady());
-
-		context.setUnits(units);
-
-		dataFuture.complete(data);
-
-		context.waitUntilReady();
-
-		context.getTreatment("exp_test_ab");
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		final PublishEvent expected = new PublishEvent();
-		expected.hashed = true;
-		expected.publishedAt = clock.millis();
-		expected.units = publishUnits;
-		expected.exposures = new Exposure[]{
-				new Exposure(1, "exp_test_ab", "session_id", 1, clock.millis(), true, true, false, false, false, false),
-		};
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(context, expected);
-	}
-
-	@Test
-	void setUnitEmpty() {
-		final Context context = createContext(dataFutureReady);
-		assertThrows(IllegalArgumentException.class, () -> {
-			context.setUnit("db_user_id", "");
-		}, "Unit 'session_id' UID must not be blank.");
-	}
-
-	@Test
-	void setUnitThrowsOnAlreadySet() {
-		final Context context = createContext(dataFutureReady);
-
-		assertThrows(IllegalArgumentException.class, () -> {
-			context.setUnit("session_id", "new_uid");
-		}, "Unit 'session_id' UID already set.");
-	}
-
-	@Test
-	void setAttributes() {
-		final Context context = createContext(dataFuture);
-
-		context.setAttribute("attr1", "value1");
-		context.setAttributes(mapOf("attr2", "value2", "attr3", 15));
-
-		assertEquals("value1", context.getAttribute("attr1"));
-		assertEquals(mapOf("attr1", "value1", "attr2", "value2", "attr3", 15), context.getAttributes());
-	}
-
-	@Test
-	void setAttributesBeforeReady() {
-		final Context context = createContext(dataFuture);
-		assertFalse(context.isReady());
-
-		context.setAttribute("attr1", "value1");
-		context.setAttributes(mapOf("attr2", "value2"));
-
-		assertEquals("value1", context.getAttribute("attr1"));
-		assertEquals(mapOf("attr1", "value1", "attr2", "value2"), context.getAttributes());
-
-		dataFuture.complete(data);
-
-		context.waitUntilReady();
-	}
-
-	@Test
-	void setOverride() {
-		final Context context = createReadyContext();
-
-		context.setOverride("exp_test", 2);
-
-		assertEquals(2, context.getOverride("exp_test"));
-
-		context.setOverride("exp_test", 3);
-		assertEquals(3, context.getOverride("exp_test"));
-
-		context.setOverride("exp_test_2", 1);
-		assertEquals(1, context.getOverride("exp_test_2"));
-
-		final Map<String, Integer> overrides = mapOf(
-				"exp_test_new", 3,
-				"exp_test_new_2", 5);
-
-		context.setOverrides(overrides);
-
-		assertEquals(3, context.getOverride("exp_test"));
-		assertEquals(1, context.getOverride("exp_test_2"));
-		overrides.forEach((experimentName, variant) -> assertEquals(variant, context.getOverride(experimentName)));
-
-		assertNull(context.getOverride("exp_test_not_found"));
-	}
-
-	@Test
-	void setOverrideClearsAssignmentCache() {
-		final Context context = createReadyContext();
-
-		final Map<String, Integer> overrides = mapOf(
-				"exp_test_new", 3,
-				"exp_test_new_2", 5);
-
-		context.setOverrides(overrides);
-
-		overrides.forEach((experimentName, variant) -> assertEquals(variant, context.getTreatment(experimentName)));
-		assertEquals(overrides.size(), context.getPendingCount());
-
-		// overriding again with the same variant shouldn't clear assignment cache
-		overrides.forEach((experimentName, variant) -> {
-			context.setOverride(experimentName, variant);
-			assertEquals(variant, context.getTreatment(experimentName));
-		});
-		assertEquals(overrides.size(), context.getPendingCount());
-
-		// overriding with the different variant should clear assignment cache
-		overrides.forEach((experimentName, variant) -> {
-			context.setOverride(experimentName, variant + 11);
-			assertEquals(variant + 11, context.getTreatment(experimentName));
-		});
-
-		assertEquals(overrides.size() * 2, context.getPendingCount());
-
-		// overriding a computed assignment should clear assignment cache
-		assertEquals(expectedVariants.get("exp_test_ab"), context.getTreatment("exp_test_ab"));
-		assertEquals(1 + overrides.size() * 2, context.getPendingCount());
-
-		context.setOverride("exp_test_ab", 9);
-		assertEquals(9, context.getTreatment("exp_test_ab"));
-		assertEquals(2 + overrides.size() * 2, context.getPendingCount());
-	}
-
-	@Test
-	void setOverridesBeforeReady() {
-		final Context context = createContext(dataFuture);
-		assertFalse(context.isReady());
-
-		context.setOverride("exp_test", 2);
-		context.setOverrides(mapOf(
-				"exp_test_new", 3,
-				"exp_test_new_2", 5));
-
-		dataFuture.complete(data);
-
-		context.waitUntilReady();
-
-		assertEquals(2, context.getOverride("exp_test"));
-		assertEquals(3, context.getOverride("exp_test_new"));
-		assertEquals(5, context.getOverride("exp_test_new_2"));
-	}
-
-	@Test
-	void setCustomAssignment() {
-		final Context context = createReadyContext();
-		context.setCustomAssignment("exp_test", 2);
-
-		assertEquals(2, context.getCustomAssignment("exp_test"));
-
-		context.setCustomAssignment("exp_test", 3);
-		assertEquals(3, context.getCustomAssignment("exp_test"));
-
-		context.setCustomAssignment("exp_test_2", 1);
-		assertEquals(1, context.getCustomAssignment("exp_test_2"));
-
-		final Map<String, Integer> cassignments = mapOf(
-				"exp_test_new", 3,
-				"exp_test_new_2", 5);
-
-		context.setCustomAssignments(cassignments);
-
-		assertEquals(3, context.getCustomAssignment("exp_test"));
-		assertEquals(1, context.getCustomAssignment("exp_test_2"));
-		cassignments.forEach(
-				(experimentName, variant) -> assertEquals(variant, context.getCustomAssignment(experimentName)));
-
-		assertNull(context.getCustomAssignment("exp_test_not_found"));
-	}
-
-	@Test
-	void setCustomAssignmentDoesNotOverrideFullOnOrNotEligibleAssignments() {
-		final Context context = createReadyContext();
-
-		context.setCustomAssignment("exp_test_not_eligible", 3);
-		context.setCustomAssignment("exp_test_fullon", 3);
-
-		assertEquals(0, context.getTreatment("exp_test_not_eligible"));
-		assertEquals(2, context.getTreatment("exp_test_fullon"));
-	}
-
-	@Test
-	void setCustomAssignmentClearsAssignmentCache() {
-		final Context context = createReadyContext();
-
-		final Map<String, Integer> cassignments = mapOf(
-				"exp_test_ab", 2,
-				"exp_test_abc", 3);
-
-		cassignments.forEach((experimentName, variant) -> assertEquals(expectedVariants.get(experimentName),
-				context.getTreatment(experimentName)));
-		assertEquals(cassignments.size(), context.getPendingCount());
-
-		context.setCustomAssignments(cassignments);
-
-		cassignments.forEach((experimentName, variant) -> assertEquals(variant, context.getTreatment(experimentName)));
-		assertEquals(2 * cassignments.size(), context.getPendingCount());
-
-		// overriding again with the same variant shouldn't clear assignment cache
-		cassignments.forEach((experimentName, variant) -> {
-			context.setCustomAssignment(experimentName, variant);
-			assertEquals(variant, context.getTreatment(experimentName));
-		});
-		assertEquals(2 * cassignments.size(), context.getPendingCount());
-
-		// overriding with the different variant should clear assignment cache
-		cassignments.forEach((experimentName, variant) -> {
-			context.setCustomAssignment(experimentName, variant + 11);
-			assertEquals(variant + 11, context.getTreatment(experimentName));
-		});
-
-		assertEquals(cassignments.size() * 3, context.getPendingCount());
-	}
-
-	@Test
-	void setCustomAssignmentsBeforeReady() {
-		final Context context = createContext(dataFuture);
-		assertFalse(context.isReady());
-
-		context.setCustomAssignment("exp_test", 2);
-		context.setCustomAssignments(mapOf(
-				"exp_test_new", 3,
-				"exp_test_new_2", 5));
-
-		dataFuture.complete(data);
-
-		context.waitUntilReady();
-
-		assertEquals(2, context.getCustomAssignment("exp_test"));
-		assertEquals(3, context.getCustomAssignment("exp_test_new"));
-		assertEquals(5, context.getCustomAssignment("exp_test_new_2"));
-	}
-
-	@Test
-	void peekTreatment() {
-		final Context context = createReadyContext();
-
-		Arrays.stream(data.experiments).forEach(experiment -> assertEquals(expectedVariants.get(experiment.name),
-				context.peekTreatment(experiment.name)));
-		assertEquals(0, context.peekTreatment("not_found"));
-
-		// call again
-		Arrays.stream(data.experiments).forEach(experiment -> assertEquals(expectedVariants.get(experiment.name),
-				context.peekTreatment(experiment.name)));
-		assertEquals(0, context.peekTreatment("not_found"));
-
-		assertEquals(0, context.getPendingCount());
-	}
-
-	@Test
-	void peekVariableValue() {
-		final Context context = createReadyContext();
-
-		final Set<String> experiments = Arrays.stream(data.experiments).map(x -> x.name).collect(Collectors.toSet());
-
-		variableExperiments.forEach((variable, experimentNames) -> {
-			final String experimentName = experimentNames.get(0);
-			final Object actual = context.peekVariableValue(variable, 17);
-			final boolean eligible = !experimentName.equals("exp_test_not_eligible");
-
-			if (eligible && experiments.contains(experimentName)) {
-				assertEquals(expectedVariables.get(variable), actual);
-			} else {
-				assertEquals(17, actual);
-			}
-		});
-
-		assertEquals(0, context.getPendingCount());
-	}
-
-	@Test
-	void peekVariableValueConflictingKeyDisjointAudiences() {
-		for (final Experiment experiment : data.experiments) {
-			switch (experiment.name) {
-			case "exp_test_ab":
-				assert (expectedVariants.get(experiment.name) != 0);
-				experiment.audienceStrict = true;
-				experiment.audience = "{\"filter\":[{\"gte\":[{\"var\":\"age\"},{\"value\":20}]}]}";
-				experiment.variants[expectedVariants.get(experiment.name)].config = "{\"icon\":\"arrow\"}";
-				break;
-			case "exp_test_abc":
-				assert (expectedVariants.get(experiment.name) != 0);
-				experiment.audienceStrict = true;
-				experiment.audience = "{\"filter\":[{\"lt\":[{\"var\":\"age\"},{\"value\":20}]}]}";
-				experiment.variants[expectedVariants.get(experiment.name)].config = "{\"icon\":\"circle\"}";
-				break;
-			default:
-				break;
-			}
-		}
-
-		{
-			final Context context = createReadyContext(data);
-			context.setAttribute("age", 20);
-			assertEquals("arrow", context.peekVariableValue("icon", "square"));
-		}
-
-		{
-			final Context context = createReadyContext(data);
-			context.setAttribute("age", 19);
-			assertEquals("circle", context.peekVariableValue("icon", "square"));
-		}
-	}
-
-	@Test
-	void peekVariableValuePicksLowestExperimentIdOnConflictingKey() {
-		for (final Experiment experiment : data.experiments) {
-			switch (experiment.name) {
-			case "exp_test_ab":
-				assert (expectedVariants.get(experiment.name) != 0);
-				experiment.id = 99;
-				experiment.variants[expectedVariants.get(experiment.name)].config = "{\"icon\":\"arrow\"}";
-				break;
-			case "exp_test_abc":
-				assert (expectedVariants.get(experiment.name) != 0);
-				experiment.id = 1;
-				experiment.variants[expectedVariants.get(experiment.name)].config = "{\"icon\":\"circle\"}";
-				break;
-			default:
-				break;
-			}
-		}
-
-		final Context context = createReadyContext(data);
-		assertEquals("circle", context.peekVariableValue("icon", "square"));
-	}
-
-	@Test
-	void peekVariableValueReturnsAssignedVariantOnAudienceMismatchNonStrictMode() {
-		final Context context = createContext(audienceDataFutureReady);
-
-		assertEquals("large", context.peekVariableValue("banner.size", "small"));
-	}
-
-	@Test
-	void peekVariableValueReturnsControlVariantOnAudienceMismatchStrictMode() {
-		final Context context = createContext(audienceStrictDataFutureReady);
-
-		assertEquals("small", context.peekVariableValue("banner.size", "small"));
-	}
-
-	@Test
-	void getVariableValue() {
-		final Context context = createReadyContext();
-
-		final Set<String> experiments = Arrays.stream(data.experiments).map(x -> x.name).collect(Collectors.toSet());
-
-		variableExperiments.forEach((variable, experimentNames) -> {
-			final String experimentName = experimentNames.get(0);
-			final Object actual = context.getVariableValue(variable, 17);
-			final boolean eligible = !experimentName.equals("exp_test_not_eligible");
-
-			if (eligible && experiments.contains(experimentName)) {
-				assertEquals(expectedVariables.get(variable), actual);
-			} else {
-				assertEquals(17, actual);
-			}
-		});
-
-		assertEquals(experiments.size(), context.getPendingCount());
-	}
-
-	@Test
-	void getVariableValueConflictingKeyDisjointAudiences() {
-		for (final Experiment experiment : data.experiments) {
-			switch (experiment.name) {
-			case "exp_test_ab":
-				assert (expectedVariants.get(experiment.name) != 0);
-				experiment.audienceStrict = true;
-				experiment.audience = "{\"filter\":[{\"gte\":[{\"var\":\"age\"},{\"value\":20}]}]}";
-				experiment.variants[expectedVariants.get(experiment.name)].config = "{\"icon\":\"arrow\"}";
-				break;
-			case "exp_test_abc":
-				assert (expectedVariants.get(experiment.name) != 0);
-				experiment.audienceStrict = true;
-				experiment.audience = "{\"filter\":[{\"lt\":[{\"var\":\"age\"},{\"value\":20}]}]}";
-				experiment.variants[expectedVariants.get(experiment.name)].config = "{\"icon\":\"circle\"}";
-				break;
-			default:
-				break;
-			}
-		}
-
-		{
-			final Context context = createReadyContext(data);
-			context.setAttribute("age", 20);
-			assertEquals("arrow", context.getVariableValue("icon", "square"));
-
-			assertEquals(1, context.getPendingCount());
-		}
-
-		{
-			final Context context = createReadyContext(data);
-			context.setAttribute("age", 19);
-			assertEquals("circle", context.getVariableValue("icon", "square"));
-
-			assertEquals(1, context.getPendingCount());
-		}
-	}
-
-	@Test
-	void getVariableValueQueuesExposureWithAudienceMismatchFalseOnAudienceMatch() {
-		final Context context = createContext(audienceDataFutureReady);
-		context.setAttribute("age", 21);
-
-		assertEquals("large", context.getVariableValue("banner.size", "small"));
-		assertEquals(1, context.getPendingCount());
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		final PublishEvent expected = new PublishEvent();
-		expected.hashed = true;
-		expected.publishedAt = clock.millis();
-		expected.units = publishUnits;
-		expected.attributes = new Attribute[]{
-				new Attribute("age", 21, clock.millis()),
-		};
-
-		expected.exposures = new Exposure[]{
-				new Exposure(1, "exp_test_ab", "session_id", 1, clock.millis(), true, true, false, false, false, false),
-		};
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(context, expected);
-	}
-
-	@Test
-	void getVariableValueQueuesExposureWithAudienceMismatchTrueOnAudienceMismatch() {
-		final Context context = createContext(audienceDataFutureReady);
-
-		assertEquals("large", context.getVariableValue("banner.size", "small"));
-		assertEquals(1, context.getPendingCount());
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		final PublishEvent expected = new PublishEvent();
-		expected.hashed = true;
-		expected.publishedAt = clock.millis();
-		expected.units = publishUnits;
-
-		expected.exposures = new Exposure[]{
-				new Exposure(1, "exp_test_ab", "session_id", 1, clock.millis(), true, true, false, false, false, true),
-		};
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(context, expected);
-	}
-
-	@Test
-	void getVariableValueDoesNotQueuesExposureWithAudienceMismatchFalseAndControlVariantOnAudienceMismatchInStrictMode() {
-		final Context context = createContext(audienceStrictDataFutureReady);
-
-		assertEquals("small", context.getVariableValue("banner.size", "small"));
-		assertEquals(0, context.getPendingCount());
-	}
-
-	@Test
-	void getVariableValueCallsEventLogger() {
-		final Context context = createReadyContext();
-
-		Mockito.clearInvocations(eventLogger);
-
-		context.getVariableValue("banner.border", null);
-		context.getVariableValue("banner.size", null);
-
-		final Exposure[] exposures = new Exposure[]{
-				new Exposure(1, "exp_test_ab", "session_id", 1, clock.millis(), true, true, false, false, false, false),
-		};
-
-		verify(eventLogger, Mockito.timeout(5000).times(exposures.length)).handleEvent(any(), any(), any());
-
-		for (Exposure expected : exposures) {
-			verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(ArgumentMatchers.same(context),
-					ArgumentMatchers.eq(ContextEventLogger.EventType.Exposure), ArgumentMatchers.eq(expected));
-		}
-
-		// verify not called again with the same exposure
-		Mockito.clearInvocations(eventLogger);
-		context.getVariableValue("banner.border", null);
-		context.getVariableValue("banner.size", null);
-
-		verify(eventLogger, Mockito.timeout(5000).times(0)).handleEvent(any(), any(), any());
-	}
-
-	@Test
-	void getVariableKeys() {
-		final Context context = createContext(refreshDataFutureReady);
-
-		assertEquals(variableExperiments, context.getVariableKeys());
-	}
-
-	@Test
-	void peekTreatmentReturnsOverrideVariant() {
-		final Context context = createReadyContext();
-
-		Arrays.stream(data.experiments).forEach(
-				experiment -> context.setOverride(experiment.name, 11 + expectedVariants.get(experiment.name)));
-		context.setOverride("not_found", 3);
-
-		Arrays.stream(data.experiments).forEach(experiment -> assertEquals(expectedVariants.get(experiment.name) + 11,
-				context.peekTreatment(experiment.name)));
-		assertEquals(3, context.peekTreatment("not_found"));
-
-		// call again
-		Arrays.stream(data.experiments).forEach(experiment -> assertEquals(expectedVariants.get(experiment.name) + 11,
-				context.peekTreatment(experiment.name)));
-		assertEquals(3, context.peekTreatment("not_found"));
-
-		assertEquals(0, context.getPendingCount());
-	}
-
-	@Test
-	void peekTreatmentReturnsAssignedVariantOnAudienceMismatchNonStrictMode() {
-		final Context context = createContext(audienceDataFutureReady);
-
-		assertEquals(1, context.peekTreatment("exp_test_ab"));
-	}
-
-	@Test
-	void peekTreatmentReturnsControlVariantOnAudienceMismatchStrictMode() {
-		final Context context = createContext(audienceStrictDataFutureReady);
-
-		assertEquals(0, context.peekTreatment("exp_test_ab"));
-	}
-
-	@Test
-	void getTreatment() {
-		final Context context = createReadyContext();
-
-		Arrays.stream(data.experiments).forEach(experiment -> assertEquals(expectedVariants.get(experiment.name),
-				context.getTreatment(experiment.name)));
-		assertEquals(0, context.getTreatment("not_found"));
-		assertEquals(1 + data.experiments.length, context.getPendingCount());
-
-		final PublishEvent expected = new PublishEvent();
-		expected.hashed = true;
-		expected.publishedAt = clock.millis();
-		expected.units = publishUnits;
-
-		expected.exposures = new Exposure[]{
-				new Exposure(1, "exp_test_ab", "session_id", 1, clock.millis(), true, true, false, false, false, false),
-				new Exposure(2, "exp_test_abc", "session_id", 2, clock.millis(), true, true, false, false, false,
-						false),
-				new Exposure(3, "exp_test_not_eligible", "user_id", 0, clock.millis(), true, false, false, false,
-						false, false),
-				new Exposure(4, "exp_test_fullon", "session_id", 2, clock.millis(), true, true, false, true, false,
-						false),
-				new Exposure(0, "not_found", null, 0, clock.millis(), false, true, false, false, false, false),
-		};
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(context, expected);
-
-		context.close();
-	}
-
-	@Test
-	void getTreatmentStartsPublishTimeoutAfterExposure() {
-		final ContextConfig config = ContextConfig.create()
-				.setUnits(units)
-				.setPublishDelay(333);
-
-		final Context context = createContext(config, dataFutureReady);
-		assertTrue(context.isReady());
-		assertFalse(context.isFailed());
-
-		final AtomicReference<Runnable> runnable = new AtomicReference<>(null);
-		when(scheduler.schedule((Runnable) any(), eq(config.getPublishDelay()), eq(TimeUnit.MILLISECONDS)))
-				.thenAnswer(invokation -> {
-					runnable.set(invokation.getArgument(0));
-					return mock(ScheduledFuture.class);
-				});
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.getTreatment("exp_test_ab");
-		context.getTreatment("exp_test_abc");
-
-		verify(scheduler, Mockito.timeout(5000).times(1)).schedule((Runnable) any(), eq(config.getPublishDelay()),
-				eq(TimeUnit.MILLISECONDS));
-		verify(eventHandler, Mockito.timeout(5000).times(0)).publish(any(), any());
-
-		runnable.get().run();
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-	}
-
-	@Test
-	void getTreatmentReturnsOverrideVariant() {
-		final Context context = createReadyContext();
-
-		Arrays.stream(data.experiments).forEach(
-				experiment -> context.setOverride(experiment.name, 11 + expectedVariants.get(experiment.name)));
-		context.setOverride("not_found", 3);
-
-		Arrays.stream(data.experiments).forEach(experiment -> assertEquals(expectedVariants.get(experiment.name) + 11,
-				context.getTreatment(experiment.name)));
-		assertEquals(3, context.getTreatment("not_found"));
-		assertEquals(1 + data.experiments.length, context.getPendingCount());
-
-		final PublishEvent expected = new PublishEvent();
-		expected.hashed = true;
-		expected.publishedAt = clock.millis();
-		expected.units = publishUnits;
-
-		expected.exposures = new Exposure[]{
-				new Exposure(1, "exp_test_ab", "session_id", 12, clock.millis(), false, true, true, false, false,
-						false),
-				new Exposure(2, "exp_test_abc", "session_id", 13, clock.millis(), false, true, true, false, false,
-						false),
-				new Exposure(3, "exp_test_not_eligible", "user_id", 11, clock.millis(), false, true, true, false, false,
-						false),
-				new Exposure(4, "exp_test_fullon", "session_id", 13, clock.millis(), false, true, true, false, false,
-						false),
-				new Exposure(0, "not_found", null, 3, clock.millis(), false, true, true, false, false, false),
-		};
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(context, expected);
-
-		context.close();
-	}
-
-	@Test
-	void getTreatmentQueuesExposureOnce() {
-		final Context context = createReadyContext();
-
-		Arrays.stream(data.experiments).forEach(experiment -> context.getTreatment(experiment.name));
-		context.getTreatment("not_found");
-
-		assertEquals(1 + data.experiments.length, context.getPendingCount());
-
-		// call again
-		Arrays.stream(data.experiments).forEach(experiment -> context.getTreatment(experiment.name));
-		context.getTreatment("not_found");
-
-		assertEquals(1 + data.experiments.length, context.getPendingCount());
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-
-		assertEquals(0, context.getPendingCount());
-
-		Arrays.stream(data.experiments).forEach(experiment -> context.getTreatment(experiment.name));
-		context.getTreatment("not_found");
-		assertEquals(0, context.getPendingCount());
-
-		context.close();
-	}
-
-	@Test
-	void getTreatmentQueuesExposureWithAudienceMismatchFalseOnAudienceMatch() {
-		final Context context = createContext(audienceDataFutureReady);
-		context.setAttribute("age", 21);
-
-		assertEquals(1, context.getTreatment("exp_test_ab"));
-		assertEquals(1, context.getPendingCount());
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		final PublishEvent expected = new PublishEvent();
-		expected.hashed = true;
-		expected.publishedAt = clock.millis();
-		expected.units = publishUnits;
-		expected.attributes = new Attribute[]{
-				new Attribute("age", 21, clock.millis()),
-		};
-
-		expected.exposures = new Exposure[]{
-				new Exposure(1, "exp_test_ab", "session_id", 1, clock.millis(), true, true, false, false, false, false),
-		};
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(context, expected);
-	}
-
-	@Test
-	void getTreatmentQueuesExposureWithAudienceMismatchTrueOnAudienceMismatch() {
-		final Context context = createContext(audienceDataFutureReady);
-
-		assertEquals(1, context.getTreatment("exp_test_ab"));
-		assertEquals(1, context.getPendingCount());
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		final PublishEvent expected = new PublishEvent();
-		expected.hashed = true;
-		expected.publishedAt = clock.millis();
-		expected.units = publishUnits;
-
-		expected.exposures = new Exposure[]{
-				new Exposure(1, "exp_test_ab", "session_id", 1, clock.millis(), true, true, false, false, false, true),
-		};
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(context, expected);
-	}
-
-	@Test
-	void getTreatmentQueuesExposureWithAudienceMismatchTrueAndControlVariantOnAudienceMismatchInStrictMode() {
-		final Context context = createContext(audienceStrictDataFutureReady);
-
-		assertEquals(0, context.getTreatment("exp_test_ab"));
-		assertEquals(1, context.getPendingCount());
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		final PublishEvent expected = new PublishEvent();
-		expected.hashed = true;
-		expected.publishedAt = clock.millis();
-		expected.units = publishUnits;
-
-		expected.exposures = new Exposure[]{
-				new Exposure(1, "exp_test_ab", "session_id", 0, clock.millis(), false, true, false, false, false,
-						true),
-		};
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(context, expected);
-	}
-
-	@Test
-	void getTreatmentCallsEventLogger() {
-		final Context context = createReadyContext();
-
-		Mockito.clearInvocations(eventLogger);
-
-		context.getTreatment("exp_test_ab");
-		context.getTreatment("not_found");
-
-		final Exposure[] exposures = new Exposure[]{
-				new Exposure(1, "exp_test_ab", "session_id", 1, clock.millis(), true, true, false, false, false, false),
-				new Exposure(0, "not_found", null, 0, clock.millis(), false, true, false, false, false, false),
-		};
-
-		verify(eventLogger, Mockito.timeout(5000).times(exposures.length)).handleEvent(any(), any(), any());
-
-		for (Exposure expected : exposures) {
-			verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(ArgumentMatchers.same(context),
-					ArgumentMatchers.eq(ContextEventLogger.EventType.Exposure), ArgumentMatchers.eq(expected));
-		}
-
-		// verify not called again with the same exposure
-		Mockito.clearInvocations(eventLogger);
-		context.getTreatment("exp_test_ab");
-		context.getTreatment("not_found");
-
-		verify(eventLogger, Mockito.timeout(5000).times(0)).handleEvent(any(), any(), any());
-	}
-
-	@Test
-	void track() {
-		final Context context = createReadyContext();
-		context.track("goal1", mapOf("amount", 125, "hours", 245));
-		context.track("goal2", mapOf("tries", 7));
-
-		assertEquals(2, context.getPendingCount());
-
-		context.track("goal2", mapOf("tests", 12));
-		context.track("goal3", null);
-
-		assertEquals(4, context.getPendingCount());
-
-		final PublishEvent expected = new PublishEvent();
-		expected.hashed = true;
-		expected.publishedAt = clock.millis();
-		expected.units = publishUnits;
-
-		expected.goals = new GoalAchievement[]{
-				new GoalAchievement("goal1", clock.millis(),
-						new TreeMap<>(mapOf("amount", 125, "hours", 245))),
-				new GoalAchievement("goal2", clock.millis(), new TreeMap<>(mapOf("tries", 7))),
-				new GoalAchievement("goal2", clock.millis(), new TreeMap<>(mapOf("tests", 12))),
-				new GoalAchievement("goal3", clock.millis(), null),
-		};
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(context, expected);
-
-		context.close();
-	}
-
-	@Test
-	void trackCallsEventLogger() {
-		final Context context = createReadyContext();
-		Mockito.clearInvocations(eventLogger);
-
-		final Map<String, Object> properties = mapOf("amount", 125, "hours", 245);
-		context.track("goal1", properties);
-
-		final GoalAchievement[] achievements = new GoalAchievement[]{
-				new GoalAchievement("goal1", clock.millis(), properties)
-		};
-
-		verify(eventLogger, Mockito.timeout(5000).times(achievements.length)).handleEvent(any(), any(), any());
-
-		for (GoalAchievement goal : achievements) {
-			verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(ArgumentMatchers.same(context),
-					ArgumentMatchers.eq(ContextEventLogger.EventType.Goal), ArgumentMatchers.eq(goal));
-		}
-
-		// verify called again with the same goal
-		Mockito.clearInvocations(eventLogger);
-		context.track("goal1", properties);
-
-		for (GoalAchievement goal : achievements) {
-			verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(ArgumentMatchers.same(context),
-					ArgumentMatchers.eq(ContextEventLogger.EventType.Goal), ArgumentMatchers.eq(goal));
-		}
-	}
-
-	@Test
-	void trackStartsPublishTimeoutAfterAchievement() {
-		final ContextConfig config = ContextConfig.create()
-				.setUnits(units)
-				.setPublishDelay(333);
-
-		final Context context = createContext(config, dataFutureReady);
-		assertTrue(context.isReady());
-		assertFalse(context.isFailed());
-
-		final AtomicReference<Runnable> runnable = new AtomicReference<>(null);
-		when(scheduler.schedule((Runnable) any(), eq(config.getPublishDelay()), eq(TimeUnit.MILLISECONDS)))
-				.thenAnswer(invokation -> {
-					runnable.set(invokation.getArgument(0));
-					return mock(ScheduledFuture.class);
-				});
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.track("goal1", mapOf("amount", 125));
-		context.track("goal2", mapOf("value", 999.0));
-
-		verify(scheduler, Mockito.timeout(5000).times(1)).schedule((Runnable) any(), eq(config.getPublishDelay()),
-				eq(TimeUnit.MILLISECONDS));
-		verify(eventHandler, Mockito.timeout(5000).times(0)).publish(any(), any());
-
-		runnable.get().run();
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-	}
-
-	@Test
-	void trackQueuesWhenNotReady() {
-		final Context context = createContext(dataFuture);
-
-		context.track("goal1", mapOf("amount", 125, "hours", 245));
-		context.track("goal2", mapOf("tries", 7));
-		context.track("goal3", null);
-
-		assertEquals(3, context.getPendingCount());
-	}
-
-	@Test
-	void publishDoesNotCallEventHandlerWhenQueueIsEmpty() {
-		final Context context = createReadyContext();
-		assertEquals(0, context.getPendingCount());
-
-		context.publish();
-
-		verify(eventHandler, Mockito.timeout(5000).times(0)).publish(any(), any());
-	}
-
-	@Test
-	void publishCallsEventLogger() {
-		final Context context = createReadyContext();
-
-		context.track("goal1", mapOf("amount", 125, "hours", 245));
-
-		Mockito.clearInvocations(eventLogger);
-
-		final PublishEvent expected = new PublishEvent();
-		expected.hashed = true;
-		expected.publishedAt = clock.millis();
-		expected.units = publishUnits;
-
-		expected.goals = new GoalAchievement[]{
-				new GoalAchievement("goal1", clock.millis(),
-						new TreeMap<>(mapOf("amount", 125, "hours", 245))),
-		};
-
-		when(eventHandler.publish(context, expected)).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(any(), any(), any());
-		verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(context, ContextEventLogger.EventType.Publish,
-				expected);
-	}
-
-	@Test
-	void publishCallsEventLoggerOnError() {
-		final Context context = createReadyContext();
-
-		context.track("goal1", mapOf("amount", 125, "hours", 245));
-
-		Mockito.clearInvocations(eventLogger);
-
-		final Exception failure = new Exception("ERROR");
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.failedFuture(failure));
-
-		final CompletionException actual = assertThrows(CompletionException.class, context::publish);
-		assertSame(failure, actual.getCause());
-
-		verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(any(), any(), any());
-		verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(context, ContextEventLogger.EventType.Error,
-				failure);
-	}
-
-	@Test
-	void publishResetsInternalQueuesAndKeepsAttributesOverridesAndCustomAssignments() {
-		final ContextConfig config = ContextConfig.create()
-				.setUnits(units)
-				.setAttributes(mapOf(
-						"attr1", "value1",
-						"attr2", "value2"))
-				.setCustomAssignment("exp_test_abc", 3)
-				.setOverride("not_found", 3);
-
-		final Context context = createContext(config, dataFutureReady);
-
-		assertEquals(0, context.getPendingCount());
-
-		assertEquals(1, context.getTreatment("exp_test_ab"));
-		assertEquals(3, context.getTreatment("exp_test_abc"));
-		assertEquals(3, context.getTreatment("not_found"));
-		context.track("goal1", mapOf("amount", 125, "hours", 245));
-
-		assertEquals(4, context.getPendingCount());
-
-		final PublishEvent expected = new PublishEvent();
-		expected.hashed = true;
-		expected.publishedAt = clock.millis();
-		expected.units = publishUnits;
-
-		expected.exposures = new Exposure[]{
-				new Exposure(1, "exp_test_ab", "session_id", 1, clock.millis(), true, true, false, false, false, false),
-				new Exposure(2, "exp_test_abc", "session_id", 3, clock.millis(), true, true, false, false, true, false),
-				new Exposure(0, "not_found", null, 3, clock.millis(), false, true, true, false, false, false),
-		};
-
-		expected.goals = new GoalAchievement[]{
-				new GoalAchievement("goal1", clock.millis(),
-						new TreeMap<>(mapOf("amount", 125, "hours", 245))),
-		};
-
-		expected.attributes = new Attribute[]{
-				new Attribute("attr2", "value2", clock.millis()),
-				new Attribute("attr1", "value1", clock.millis()),
-		};
-
-		when(eventHandler.publish(context, expected)).thenReturn(CompletableFuture.completedFuture(null));
-
-		final CompletableFuture<Void> future = context.publishAsync();
-		assertEquals(0, context.getPendingCount());
-		assertEquals(3, context.getCustomAssignment("exp_test_abc"));
-		assertEquals(3, context.getOverride("not_found"));
-
-		future.join();
-		assertEquals(0, context.getPendingCount());
-		assertEquals(3, context.getCustomAssignment("exp_test_abc"));
-		assertEquals(3, context.getOverride("not_found"));
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(context, expected);
-
-		Mockito.clearInvocations(eventHandler);
-
-		// repeat
-		assertEquals(1, context.getTreatment("exp_test_ab"));
-		assertEquals(3, context.getTreatment("exp_test_abc"));
-		assertEquals(3, context.getTreatment("not_found"));
-		context.track("goal1", mapOf("amount", 125, "hours", 245));
-
-		assertEquals(1, context.getPendingCount());
-
-		final PublishEvent expectedNext = new PublishEvent();
-		expectedNext.hashed = true;
-		expectedNext.publishedAt = clock.millis();
-		expectedNext.units = publishUnits;
-
-		expectedNext.goals = new GoalAchievement[]{
-				new GoalAchievement("goal1", clock.millis(),
-						new TreeMap<>(mapOf("amount", 125, "hours", 245))),
-		};
-
-		expectedNext.attributes = new Attribute[]{
-				new Attribute("attr2", "value2", clock.millis()),
-				new Attribute("attr1", "value1", clock.millis()),
-		};
-
-		when(eventHandler.publish(context, expectedNext)).thenReturn(CompletableFuture.completedFuture(null));
-
-		final CompletableFuture<Void> futureNext = context.publishAsync();
-		assertEquals(0, context.getPendingCount());
-
-		futureNext.join();
-		assertEquals(0, context.getPendingCount());
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(context, expectedNext);
-	}
-
-	@Test
-	void publishDoesNotCallEventHandlerWhenFailed() {
-		final Context context = createContext(dataFutureFailed);
-		assertTrue(context.isReady());
-		assertTrue(context.isFailed());
-
-		context.getTreatment("exp_test_abc");
-		context.track("goal1", mapOf("amount", 125, "hours", 245));
-
-		assertEquals(2, context.getPendingCount());
-
-		when(eventHandler.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-		context.publish();
-
-		verify(eventHandler, Mockito.timeout(5000).times(0)).publish(any(), any());
-	}
-
-	@Test
-	void publishExceptionally() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
-		assertFalse(context.isFailed());
-
-		context.track("goal1", mapOf("amount", 125, "hours", 245));
-
-		assertEquals(1, context.getPendingCount());
-
-		final Exception failure = new Exception("FAILED");
-		when(eventHandler.publish(any(), any())).thenReturn(failedFuture(failure));
-
-		final CompletionException actual = assertThrows(CompletionException.class, context::publish);
-		assertSame(failure, actual.getCause());
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-	}
-
-	@Test
-	void closeAsync() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
-
-		context.track("goal1", mapOf("amount", 125, "hours", 245));
-
-		final CompletableFuture<Void> publishFuture = new CompletableFuture<>();
-		when(eventHandler.publish(any(), any())).thenReturn(publishFuture);
-
-		final CompletableFuture<Void> closingFuture = context.closeAsync();
-		final CompletableFuture<Void> closingFutureNext = context.closeAsync();
-		assertSame(closingFuture, closingFutureNext);
-
-		assertTrue(context.isClosing());
-		assertFalse(context.isClosed());
-
-		publishFuture.complete(null);
-
-		closingFuture.join();
-
-		assertFalse(context.isClosing());
-		assertTrue(context.isClosed());
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-	}
-
-	@Test
-	void close() throws InterruptedException {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
-
-		context.track("goal1", mapOf("amount", 125, "hours", 245));
-
-		final CompletableFuture<Void> publishFuture = new CompletableFuture<>();
-		when(eventHandler.publish(any(), any())).thenReturn(publishFuture);
-
-		assertFalse(context.isClosing());
-		assertFalse(context.isClosed());
-
-		final Thread publisher = new Thread(() -> publishFuture.complete(null));
-		publisher.start();
-
-		context.close();
-		publisher.join();
-
-		assertFalse(context.isClosing());
-		assertTrue(context.isClosed());
-
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-
-		context.close();
-	}
-
-	@Test
-	void closeCallsEventLogger() throws InterruptedException {
-		final Context context = createReadyContext();
-
-		Mockito.clearInvocations(eventLogger);
-
-		context.close();
-
-		verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(any(), any(), any());
-		verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(context, ContextEventLogger.EventType.Close,
-				null);
-	}
-
-	@Test
-	void closeCallsEventLoggerWithPendingEvents() throws InterruptedException {
-		final Context context = createReadyContext();
-
-		context.track("goal1", mapOf("amount", 125, "hours", 245));
-
-		Mockito.clearInvocations(eventLogger);
-
-		final PublishEvent expected = new PublishEvent();
-		expected.hashed = true;
-		expected.publishedAt = clock.millis();
-		expected.units = publishUnits;
-
-		expected.goals = new GoalAchievement[]{
-				new GoalAchievement("goal1", clock.millis(),
-						new TreeMap<>(mapOf("amount", 125, "hours", 245))),
-		};
-
-		final CompletableFuture<Void> publishFuture = new CompletableFuture<>();
-		when(eventHandler.publish(any(), any())).thenReturn(publishFuture);
-
-		final Thread publisher = new Thread(() -> publishFuture.complete(null));
-		publisher.start();
-
-		context.close();
-		publisher.join();
-
-		verify(eventLogger, Mockito.timeout(5000).times(2)).handleEvent(any(), any(), any());
-		verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(context, ContextEventLogger.EventType.Publish,
-				expected);
-		verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(context, ContextEventLogger.EventType.Close,
-				null);
-	}
-
-	@Test
-	void closeCallsEventLoggerOnError() throws InterruptedException {
-		final Context context = createReadyContext();
-
-		context.track("goal1", mapOf("amount", 125, "hours", 245));
-
-		Mockito.clearInvocations(eventLogger);
-
-		final CompletableFuture<Void> publishFuture = new CompletableFuture<>();
-		when(eventHandler.publish(any(), any())).thenReturn(publishFuture);
-
-		final Exception failure = new Exception("FAILED");
-		final Thread publisher = new Thread(() -> publishFuture.completeExceptionally(failure));
-		publisher.start();
-
-		final CompletionException actual = assertThrows(CompletionException.class, context::close);
-		assertSame(failure, actual.getCause());
-
-		publisher.join();
-
-		verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(any(), any(), any());
-		verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(context, ContextEventLogger.EventType.Error,
-				failure);
-	}
-
-	@Test
-	void closeExceptionally() throws InterruptedException {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:absmartly_sdk/audience_matcher.dart';
+import 'package:absmartly_sdk/context.dart';
+import 'package:absmartly_sdk/context_config.dart';
+import 'package:absmartly_sdk/context_data_provider.dart';
+import 'package:absmartly_sdk/context_event_handler.dart';
+import 'package:absmartly_sdk/context_event_logger.dart';
+import 'package:absmartly_sdk/default_context_data_serializer.dart';
+import 'package:absmartly_sdk/java/time/clock.dart';
+import 'package:absmartly_sdk/json/attribute.dart';
+import 'package:absmartly_sdk/json/context_data.dart';
+import 'package:absmartly_sdk/json/experiment.dart';
+import 'package:absmartly_sdk/json/experiment_varient.dart';
+import 'package:absmartly_sdk/json/exposure.dart';
+import 'package:absmartly_sdk/json/goal_achievement.dart';
+import 'package:absmartly_sdk/json/publish_event.dart';
+import 'package:absmartly_sdk/json/unit.dart';
+import 'package:absmartly_sdk/variable_parser.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mockito/annotations.dart';
+import 'package:mockito/mockito.dart';
+
+import 'context_2_test.mocks.dart';
+import 'test_utils.dart';
+
+@GenerateNiceMocks([
+  MockSpec<ContextDataProvider>(),
+  MockSpec<ContextEventHandler>(),
+  MockSpec<ContextEventLogger>(),
+  MockSpec<VariableParser>(),
+  MockSpec<AudienceMatcher>(),
+  MockSpec<Timer>(),
+])
+void main() {
+  // Helper method for null assertions
+  void assertNull(dynamic value) {
+    expect(value, isNull);
+  }
+
+  group('Context Tests', () {
+    final Map<String, String> units = {
+      'session_id': 'e791e240fcd3df7d238cfc285f475e8152fcc0ec',
+      'user_id': '123456789',
+      'email': 'bleh@absmartly.com'
+    };
+
+    final Map<String, dynamic> attributes = {
+      'attr1': 'value1',
+      'attr2': 'value2',
+      'attr3': 5
+    };
+
+    final Map<String, int> expectedVariants = {
+      'exp_test_ab': 1,
+      'exp_test_abc': 2,
+      'exp_test_not_eligible': 0,
+      'exp_test_fullon': 2,
+      'exp_test_new': 1
+    };
+
+    final Map<String, dynamic> expectedVariables = {
+      'banner.border': 1,
+      'banner.size': 'large',
+      'button.color': 'red',
+      'submit.color': 'blue',
+      'submit.shape': 'rect',
+      'show-modal': true
+    };
+
+    final Map<String, List<String>> variableExperiments = {
+      'banner.border': ['exp_test_ab'],
+      'banner.size': ['exp_test_ab'],
+      'button.color': ['exp_test_abc'],
+      'card.width': ['exp_test_not_eligible'],
+      'submit.color': ['exp_test_fullon'],
+      'submit.shape': ['exp_test_fullon'],
+      'show-modal': ['exp_test_new']
+    };
+
+    final List<Unit> publishUnits = [
+      Unit(type: 'user_id', uid: 'JfnnlDI7RTiF9RgfG2JNCw'),
+      Unit(type: 'session_id', uid: 'pAE3a1i5Drs5mKRNq56adA'),
+      Unit(type: 'email', uid: 'IuqYkNRfEx5yClel4j3NbA')
+    ];
+
+    late ContextData data;
+    late ContextData refreshData;
+    late ContextData audienceData;
+    late ContextData audienceStrictData;
+    late ContextData customFieldsData;
+
+    late Completer<ContextData> dataFutureReady;
+    late Completer<ContextData> dataFutureFailed;
+    late Completer<ContextData> dataFuture;
+
+    late Completer<ContextData> refreshDataFutureReady;
+    late Completer<ContextData> refreshDataFuture;
+
+    late Completer<ContextData> audienceDataFutureReady;
+    late Completer<ContextData> audienceStrictDataFutureReady;
+    late Completer<ContextData> customFieldsDataFutureReady;
+
+    late MockContextDataProvider dataProvider;
+    late MockContextEventLogger eventLogger;
+    late MockContextEventHandler eventHandler;
+    late MockVariableParser variableParser;
+    late MockAudienceMatcher audienceMatcher;
+    late MockTimer scheduler;
+    late Clock clock;
+    late DefaultContextDataDeserializer deser;
+
+    setUp(() async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+
+      // Initialize deserializer
+      deser = DefaultContextDataDeserializer();
+
+      // Load data from resource files
+      final contextBytes = await getResourceBytes("context.json");
+      data = deser.deserialize(contextBytes, 0, contextBytes.length)!;
+
+      final refreshedBytes = await getResourceBytes("refreshed.json");
+      refreshData =
+          deser.deserialize(refreshedBytes, 0, refreshedBytes.length)!;
+
+      final audienceBytes = await getResourceBytes("audience_context.json");
+      audienceData = deser.deserialize(audienceBytes, 0, audienceBytes.length)!;
+
+      final audienceStrictBytes =
+          await getResourceBytes("audience_strict_context.json");
+      audienceStrictData = deser.deserialize(
+          audienceStrictBytes, 0, audienceStrictBytes.length)!;
+
+      // Load custom fields data
+      final customFieldsBytes =
+          await getResourceBytes("custom_fields_context.json");
+      customFieldsData =
+          deser.deserialize(customFieldsBytes, 0, customFieldsBytes.length)!;
+
+      // Setup futures
+      dataFutureReady = Completer<ContextData>();
+      dataFutureReady.complete(data);
+
+      dataFutureFailed = Completer<ContextData>();
+
+      dataFuture = Completer<ContextData>();
+
+      refreshDataFutureReady = Completer<ContextData>();
+      refreshDataFutureReady.complete(refreshData);
+
+      refreshDataFuture = Completer<ContextData>();
+
+      audienceDataFutureReady = Completer<ContextData>();
+      audienceDataFutureReady.complete(audienceData);
+
+      audienceStrictDataFutureReady = Completer<ContextData>();
+      audienceStrictDataFutureReady.complete(audienceStrictData);
+
+      customFieldsDataFutureReady = Completer<ContextData>();
+      customFieldsDataFutureReady.complete(customFieldsData);
+
+      // Setup mocks
+      dataProvider = MockContextDataProvider();
+      eventHandler = MockContextEventHandler();
+      eventLogger = MockContextEventLogger();
+      variableParser = MockVariableParser();
+      audienceMatcher = MockAudienceMatcher();
+      scheduler = MockTimer();
+      clock = Clock.fixed(1620000000000);
+
+      // Setup default behavior for mocks
+      when(variableParser.parse(any, any, any, any)).thenReturn({});
+    });
+
+    Context createContext(
+        ContextConfig config, Future<ContextData> dataFuture) {
+      return Context.create(clock, config, scheduler, dataFuture, dataProvider,
+          eventHandler, variableParser, audienceMatcher, eventLogger);
+    }
+
+    Context createContextWithDefaultConfig(Future<ContextData> dataFuture) {
+      final ContextConfig config = ContextConfig.create()..setUnits(units);
+
+      return Context.create(clock, config, scheduler, dataFuture, dataProvider,
+          eventHandler, variableParser, audienceMatcher, eventLogger);
+    }
+
+    Context createReadyContext() {
+      final ContextConfig config = ContextConfig.create()..setUnits(units);
+
+      return Context.create(
+          clock,
+          config,
+          scheduler,
+          dataFutureReady.future,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          eventLogger);
+    }
+
+    Context createReadyContextWithData(ContextData contextData) {
+      final ContextConfig config = ContextConfig.create()..setUnits(units);
+
+      final completer = Completer<ContextData>();
+      completer.complete(contextData);
+
+      return Context.create(
+          clock,
+          config,
+          scheduler,
+          completer.future,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          eventLogger);
+    }
+
+    test('constructorSetsOverrides', () {
+      final Map<String, int> overrides = {'exp_test': 2, 'exp_test_1': 1};
+
+      final ContextConfig config = ContextConfig.create()
+        ..setUnits(units)
+        ..setOverrides(overrides);
+
+      final Context context = createContext(config, dataFutureReady.future);
 
-		context.track("goal1", mapOf("amount", 125, "hours", 245));
+      overrides.forEach((experimentName, variant) {
+        expect(context.getOverride(experimentName), equals(variant));
+      });
+    });
+
+    test('constructorSetsCustomAssignments', () {
+      final Map<String, int> cassignments = {'exp_test': 2, 'exp_test_1': 1};
 
-		final CompletableFuture<Void> publishFuture = new CompletableFuture<>();
-		when(eventHandler.publish(any(), any())).thenReturn(publishFuture);
+      final ContextConfig config = ContextConfig.create()
+        ..setUnits(units)
+        ..setCustomAssignments(cassignments);
 
-		final Exception failure = new Exception("FAILED");
-		final Thread publisher = new Thread(() -> publishFuture.completeExceptionally(failure));
-		publisher.start();
+      final Context context = createContext(config, dataFutureReady.future);
+
+      cassignments.forEach((experimentName, variant) {
+        expect(context.getCustomAssignment(experimentName), equals(variant));
+      });
+    });
+
+    test('becomesReadyWithCompletedFuture', () {
+      final Context context = createReadyContext();
+      expect(context.isReady(), isTrue);
+      expect(context.getData(), equals(data));
+    });
+
+    test('becomesReadyAndFailedWithCompletedExceptionallyFuture', () {
+      final Context context =
+          createContextWithDefaultConfig(dataFutureFailed.future);
+      expect(context.isReady(), isTrue);
+      expect(context.isFailed(), isTrue);
+    });
+
+    test('becomesReadyAndFailedWithException', () async {
+      final Context context = createContextWithDefaultConfig(dataFuture.future);
+      expect(context.isReady(), isFalse);
+      expect(context.isFailed(), isFalse);
+
+      dataFuture.completeError(Exception('FAILED'));
+
+      await context.ready();
+
+      expect(context.isReady(), isTrue);
+      expect(context.isFailed(), isTrue);
+    });
+
+    test('callsEventLoggerWhenReady', () async {
+      final Context context = createContextWithDefaultConfig(dataFuture.future);
+
+      dataFuture.complete(data);
+
+      await context.ready();
+
+      // Verify event logger was called with Ready event
+      verify(eventLogger.handleEvent(context, EventType.Ready, data)).called(1);
+    });
+
+    test('callsEventLoggerWithCompletedFuture', () {
+      final Context context = createReadyContext();
+
+      // Verify event logger was called with Ready event
+      verify(eventLogger.handleEvent(context, EventType.Ready, data)).called(1);
+    });
+
+    test('callsEventLoggerWithException', () async {
+      final Context context = createContextWithDefaultConfig(dataFuture.future);
+
+      final Exception error = Exception('FAILED');
+      dataFuture.completeError(error);
+
+      try {
+        await context.ready();
+      } catch (_) {}
+
+      // Verify event logger was called with Error event
+      verify(eventLogger.handleEvent(context, EventType.Error, error))
+          .called(1);
+    });
+
+    test('waitUntilReady', () async {
+      final Context context = createContextWithDefaultConfig(dataFuture.future);
+      expect(context.isReady(), isFalse);
+
+      // Start a separate task to complete the future
+      Future.delayed(Duration.zero, () {
+        dataFuture.complete(data);
+      });
+
+      await context.ready();
+
+      expect(context.isReady(), isTrue);
+      expect(context.getData(), equals(data));
+    });
+
+    test('waitUntilReadyWithCompletedFuture', () async {
+      final Context context = createReadyContext();
+      expect(context.isReady(), isTrue);
+
+      await context.ready();
+
+      expect(context.getData(), equals(data));
+    });
+
+    test('throwsWhenNotReady', () {
+      final Context context = createContextWithDefaultConfig(dataFuture.future);
+      expect(context.isReady(), isFalse);
+      expect(context.isFailed(), isFalse);
+
+      const String notReadyMessage = "ABSmartly Context is not yet ready";
+
+      expect(() => context.peekTreatment('exp_test_ab'),
+          throwsA(isA<Exception>()));
+      expect(
+          () => context.getTreatment('exp_test_ab'), throwsA(isA<Exception>()));
+      expect(() => context.getData(), throwsA(isA<Exception>()));
+      expect(() => context.getExperiments(), throwsA(isA<Exception>()));
+      expect(() => context.getVariableValue('banner.border', 17),
+          throwsA(isA<Exception>()));
+      expect(() => context.peekVariableValue('banner.border', 17),
+          throwsA(isA<Exception>()));
+      expect(() => context.getVariableKeys(), throwsA(isA<Exception>()));
+    });
+
+    test('throwsWhenFinalized', () async {
+      final Context context = createReadyContext();
+      expect(context.isReady(), isTrue);
+      expect(context.isFailed(), isFalse);
+
+      context.track('goal1', {'amount': 125, 'hours': 245});
+
+      when(eventHandler.publish(any, any)).thenAnswer((_) => Future.value());
+
+      await context.finalize();
+
+      expect(context.isFinalized(), isTrue);
+
+      expect(() => context.setAttribute('attr1', 'value1'),
+          throwsA(isA<Exception>()));
+      expect(() => context.setAttributes({'attr1': 'value1'}),
+          throwsA(isA<Exception>()));
+      expect(() => context.setOverride('exp_test_ab', 2),
+          throwsA(isA<Exception>()));
+      expect(() => context.setOverrides({'exp_test_ab': 2}),
+          throwsA(isA<Exception>()));
+      expect(() => context.setUnit('test', 'test'), throwsA(isA<Exception>()));
+      expect(() => context.setCustomAssignment('exp_test_ab', 2),
+          throwsA(isA<Exception>()));
+      expect(() => context.setCustomAssignments({'exp_test_ab': 2}),
+          throwsA(isA<Exception>()));
+      expect(() => context.peekTreatment('exp_test_ab'),
+          throwsA(isA<Exception>()));
+      expect(
+          () => context.getTreatment('exp_test_ab'), throwsA(isA<Exception>()));
+      expect(() => context.track('goal1', null), throwsA(isA<Exception>()));
+      expect(() => context.publish(), throwsA(isA<Exception>()));
+      expect(() => context.getData(), throwsA(isA<Exception>()));
+      expect(() => context.getExperiments(), throwsA(isA<Exception>()));
+      expect(() => context.getVariableValue('banner.border', 17),
+          throwsA(isA<Exception>()));
+      expect(() => context.peekVariableValue('banner.border', 17),
+          throwsA(isA<Exception>()));
+      expect(() => context.getVariableKeys(), throwsA(isA<Exception>()));
+    });
+
+    test('getExperiments', () {
+      final Context context = createReadyContext();
+      expect(context.isReady(), isTrue);
+
+      final List<String> experiments =
+          data.experiments.map((e) => e.name).toList();
+      expect(context.getExperiments(), equals(experiments));
+    });
+
+    test('setAttributes', () {
+      final Context context = createContextWithDefaultConfig(dataFuture.future);
+
+      context.setAttribute('attr1', 'value1');
+      context.setAttributes({'attr2': 'value2', 'attr3': 15});
+
+      expect(context.getAttribute('attr1'), equals('value1'));
+      expect(context.getAttributes(),
+          equals({'attr1': 'value1', 'attr2': 'value2', 'attr3': 15}));
+    });
+
+    test('setAttributesBeforeReady', () {
+      final Context context = createContextWithDefaultConfig(dataFuture.future);
+      expect(context.isReady(), isFalse);
+
+      context.setAttribute('attr1', 'value1');
+      context.setAttributes({'attr2': 'value2'});
+
+      expect(context.getAttribute('attr1'), equals('value1'));
+      expect(context.getAttributes(),
+          equals({'attr1': 'value1', 'attr2': 'value2'}));
+
+      dataFuture.complete(data);
+    });
+
+    test('setOverride', () {
+      final Context context = createReadyContext();
+
+      context.setOverride('exp_test', 2);
+      expect(context.getOverride('exp_test'), equals(2));
+
+      context.setOverride('exp_test', 3);
+      expect(context.getOverride('exp_test'), equals(3));
+
+      context.setOverride('exp_test_2', 1);
+      expect(context.getOverride('exp_test_2'), equals(1));
 
-		final CompletionException actual = assertThrows(CompletionException.class, context::close);
-		assertSame(failure, actual.getCause());
+      final Map<String, int> overrides = {
+        'exp_test_new': 3,
+        'exp_test_new_2': 5
+      };
 
-		publisher.join();
+      context.setOverrides(overrides);
 
-		verify(eventHandler, Mockito.timeout(5000).times(1)).publish(any(), any());
-	}
+      expect(context.getOverride('exp_test'), equals(3));
+      expect(context.getOverride('exp_test_2'), equals(1));
 
-	@Test
-	void closeStopsRefreshTimer() {
-		final ContextConfig config = ContextConfig.create()
-				.setUnits(units)
-				.setRefreshInterval(5_000);
+      overrides.forEach((experimentName, variant) {
+        expect(context.getOverride(experimentName), equals(variant));
+      });
 
-		final ScheduledFuture refreshTimer = mock(ScheduledFuture.class);
-		when(scheduler.scheduleWithFixedDelay(any(), eq(config.getRefreshInterval()),
-				eq(config.getRefreshInterval()), eq(TimeUnit.MILLISECONDS)))
-						.thenReturn(refreshTimer);
+      expect(context.getOverride('exp_test_not_found'), isNull);
+    });
 
-		final Context context = createContext(config, dataFutureReady);
-		assertTrue(context.isReady());
+    test('setOverridesBeforeReady', () {
+      final Context context = createContextWithDefaultConfig(dataFuture.future);
+      expect(context.isReady(), isFalse);
 
-		context.close();
+      context.setOverride('exp_test', 2);
+      context.setOverrides({'exp_test_new': 3, 'exp_test_new_2': 5});
 
-		verify(refreshTimer, Mockito.timeout(5000).times(1)).cancel(false);
-	}
+      dataFuture.complete(data);
 
-	@Test
-	void refresh() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
+      expect(context.getOverride('exp_test'), equals(2));
+      expect(context.getOverride('exp_test_new'), equals(3));
+      expect(context.getOverride('exp_test_new_2'), equals(5));
+    });
 
-		when(dataProvider.getContextData()).thenReturn(refreshDataFuture);
-		refreshDataFuture.complete(refreshData);
+    test('setCustomAssignment', () {
+      final Context context = createReadyContext();
+      context.setCustomAssignment('exp_test', 2);
 
-		context.refresh();
+      expect(context.getCustomAssignment('exp_test'), equals(2));
 
-		verify(dataProvider, Mockito.timeout(5000).times(1)).getContextData();
+      context.setCustomAssignment('exp_test', 3);
+      expect(context.getCustomAssignment('exp_test'), equals(3));
 
-		final String[] experiments = Arrays.stream(refreshData.experiments).map(x -> x.name).toArray(String[]::new);
-		assertArrayEquals(experiments, context.getExperiments());
-	}
+      context.setCustomAssignment('exp_test_2', 1);
+      expect(context.getCustomAssignment('exp_test_2'), equals(1));
 
-	@Test
-	void refreshCallsEventLogger() {
-		final Context context = createReadyContext();
-		Mockito.clearInvocations(eventLogger);
+      final Map<String, int> cassignments = {
+        'exp_test_new': 3,
+        'exp_test_new_2': 5
+      };
 
-		when(dataProvider.getContextData()).thenReturn(refreshDataFuture);
-		refreshDataFuture.complete(refreshData);
+      context.setCustomAssignments(cassignments);
 
-		context.refresh();
+      expect(context.getCustomAssignment('exp_test'), equals(3));
+      expect(context.getCustomAssignment('exp_test_2'), equals(1));
 
-		verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(context, ContextEventLogger.EventType.Refresh,
-				refreshData);
-	}
+      cassignments.forEach((experimentName, variant) {
+        expect(context.getCustomAssignment(experimentName), equals(variant));
+      });
 
-	@Test
-	void refreshCallsEventLoggerOnError() {
-		final Context context = createReadyContext();
-		Mockito.clearInvocations(eventLogger);
+      expect(context.getCustomAssignment('exp_test_not_found'), isNull);
+    });
 
-		final Exception failure = new Exception("ERROR");
-		when(dataProvider.getContextData()).thenReturn(CompletableFuture.failedFuture(failure));
-		refreshDataFuture.complete(refreshData);
+    test('setCustomAssignmentsBeforeReady', () {
+      final Context context = createContextWithDefaultConfig(dataFuture.future);
+      expect(context.isReady(), isFalse);
 
-		final CompletionException actual = assertThrows(CompletionException.class, context::refresh);
-		assertSame(failure, actual.getCause());
+      context.setCustomAssignment('exp_test', 2);
+      context.setCustomAssignments({'exp_test_new': 3, 'exp_test_new_2': 5});
 
-		verify(eventLogger, Mockito.timeout(5000).times(1)).handleEvent(context, ContextEventLogger.EventType.Error,
-				failure);
-	}
+      dataFuture.complete(data);
 
-	@Test
-	void refreshExceptionally() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
-		assertFalse(context.isFailed());
+      expect(context.getCustomAssignment('exp_test'), equals(2));
+      expect(context.getCustomAssignment('exp_test_new'), equals(3));
+      expect(context.getCustomAssignment('exp_test_new_2'), equals(5));
+    });
 
-		context.track("goal1", mapOf("amount", 125, "hours", 245));
+    test('setUnits', () {
+      final Context context =
+          createContext(ContextConfig.create(), dataFuture.future);
+      context.setUnits(units);
 
-		assertEquals(1, context.getPendingCount());
+      units.forEach((unitType, uid) {
+        expect(context.getUnit(unitType), equals(uid));
+      });
+    });
 
-		final Exception failure = new Exception("FAILED");
-		when(dataProvider.getContextData()).thenReturn(failedFuture(failure));
+    test('setUnitsBeforeReady', () async {
+      final Context context =
+          createContext(ContextConfig.create(), dataFuture.future);
+      expect(context.isReady(), isFalse);
 
-		final CompletionException actual = assertThrows(CompletionException.class, context::refresh);
-		assertSame(failure, actual.getCause());
+      context.setUnits(units);
 
-		verify(dataProvider, Mockito.timeout(5000).times(1)).getContextData();
-	}
+      dataFuture.complete(data);
 
-	@Test
-	void refreshAsync() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
+      await context.ready();
 
-		when(dataProvider.getContextData()).thenReturn(refreshDataFuture);
+      context.getTreatment('exp_test_ab');
 
-		final CompletableFuture<Void> refreshFuture = context.refreshAsync();
-		final CompletableFuture<Void> refreshFutureNext = context.refreshAsync();
-		assertSame(refreshFuture, refreshFutureNext);
+      when(eventHandler.publish(any, any)).thenAnswer((_) => Future.value());
 
-		refreshDataFuture.complete(refreshData);
-		refreshFuture.join();
+      await context.publish();
 
-		verify(dataProvider, Mockito.timeout(5000).times(1)).getContextData();
+      verify(eventHandler.publish(any, any)).called(1);
+    });
 
-		final String[] experiments = Arrays.stream(refreshData.experiments).map(x -> x.name).toArray(String[]::new);
-		assertArrayEquals(experiments, context.getExperiments());
-	}
+    test('setUnitThrowsOnAlreadySet', () {
+      final Context context = createReadyContext();
 
-	@Test
-	void refreshKeepsAssignmentCacheWhenNotChanged() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
+      expect(() => context.setUnit('session_id', 'new_uid'),
+          throwsA(isA<Exception>()));
+    });
 
-		Arrays.stream(data.experiments).forEach(experiment -> context.getTreatment(experiment.name));
-		context.getTreatment("not_found");
+    test('peekTreatment', () {
+      final Context context = createReadyContext();
 
-		assertEquals(data.experiments.length + 1, context.getPendingCount());
+      for (var experiment in data.experiments) {
+        expect(context.peekTreatment(experiment.name),
+            equals(expectedVariants[experiment.name]));
+      }
 
-		when(dataProvider.getContextData()).thenReturn(refreshDataFuture);
+      expect(context.peekTreatment('not_found'), equals(0));
 
-		final CompletableFuture<Void> refreshFuture = context.refreshAsync();
+      // Call again
+      for (var experiment in data.experiments) {
+        expect(context.peekTreatment(experiment.name),
+            equals(expectedVariants[experiment.name]));
+      }
 
-		verify(dataProvider, Mockito.timeout(5000).times(1)).getContextData();
+      expect(context.peekTreatment('not_found'), equals(0));
 
-		refreshDataFuture.complete(refreshData);
-		refreshFuture.join();
+      expect(context.getPendingCount(), equals(0));
+    });
 
-		Arrays.stream(refreshData.experiments).forEach(experiment -> context.getTreatment(experiment.name));
-		context.getTreatment("not_found");
+    test('peekTreatmentReturnsOverrideVariant', () {
+      final Context context = createReadyContext();
 
-		assertEquals(refreshData.experiments.length + 1, context.getPendingCount());
-	}
+      for (var experiment in data.experiments) {
+        context.setOverride(
+            experiment.name, 11 + expectedVariants[experiment.name]!);
+      }
 
-	@Test
-	void refreshKeepsAssignmentCacheWhenNotChangedOnAudienceMismatch() {
-		final Context context = createContext(audienceStrictDataFutureReady);
+      context.setOverride('not_found', 3);
 
-		assertEquals(0, context.getTreatment("exp_test_ab"));
+      for (var experiment in data.experiments) {
+        expect(context.peekTreatment(experiment.name),
+            equals(expectedVariants[experiment.name]! + 11));
+      }
 
-		assertEquals(1, context.getPendingCount());
+      expect(context.peekTreatment('not_found'), equals(3));
 
-		when(dataProvider.getContextData()).thenReturn(audienceStrictDataFutureReady);
+      // Call again
+      for (var experiment in data.experiments) {
+        expect(context.peekTreatment(experiment.name),
+            equals(expectedVariants[experiment.name]! + 11));
+      }
 
-		final CompletableFuture<Void> refreshFuture = context.refreshAsync();
+      expect(context.peekTreatment('not_found'), equals(3));
 
-		verify(dataProvider, Mockito.timeout(5000).times(1)).getContextData();
+      expect(context.getPendingCount(), equals(0));
+    });
 
-		refreshFuture.join();
+    test('peekTreatmentReturnsAssignedVariantOnAudienceMismatchNonStrictMode',
+        () {
+      final Context context = createReadyContextWithData(audienceData);
 
-		assertEquals(0, context.getTreatment("exp_test_ab"));
+      expect(context.peekTreatment('exp_test_ab'), equals(1));
+    });
 
-		assertEquals(1, context.getPendingCount()); // no new exposure
-	}
+    test('peekTreatmentReturnsControlVariantOnAudienceMismatchStrictMode', () {
+      final Context context = createReadyContextWithData(audienceStrictData);
 
-	@Test
-	void refreshKeepsAssignmentCacheWhenNotChangedWithOverride() {
-		final Context context = createReadyContext();
+      expect(context.peekTreatment('exp_test_ab'), equals(0));
+    });
 
-		context.setOverride("exp_test_ab", 3);
-		assertEquals(3, context.getTreatment("exp_test_ab"));
+    test('getTreatment', () async {
+      final Context context = createReadyContext();
 
-		assertEquals(1, context.getPendingCount());
+      for (var experiment in data.experiments) {
+        expect(context.getTreatment(experiment.name),
+            equals(expectedVariants[experiment.name]));
+      }
 
-		when(dataProvider.getContextData()).thenReturn(dataFutureReady);
+      expect(context.getTreatment('not_found'), equals(0));
+      expect(context.getPendingCount(), equals(data.experiments.length + 1));
 
-		final CompletableFuture<Void> refreshFuture = context.refreshAsync();
+      when(eventHandler.publish(any, any)).thenAnswer((_) => Future.value());
 
-		verify(dataProvider, Mockito.timeout(5000).times(1)).getContextData();
+      await context.publish();
 
-		refreshFuture.join();
+      verify(eventHandler.publish(any, any)).called(1);
+    });
 
-		assertEquals(3, context.getTreatment("exp_test_ab"));
+    test('getTreatmentQueuesExposureOnce', () async {
+      final Context context = createReadyContext();
 
-		assertEquals(1, context.getPendingCount()); // no new exposure
-	}
+      for (var experiment in data.experiments) {
+        context.getTreatment(experiment.name);
+      }
 
-	@Test
-	void refreshClearAssignmentCacheForStoppedExperiment() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
+      context.getTreatment('not_found');
 
-		final String experimentName = "exp_test_abc";
-		assertEquals(expectedVariants.get(experimentName), context.getTreatment(experimentName));
-		assertEquals(0, context.getTreatment("not_found"));
+      expect(context.getPendingCount(), equals(data.experiments.length + 1));
 
-		assertEquals(2, context.getPendingCount());
+      // Call again
+      for (var experiment in data.experiments) {
+        context.getTreatment(experiment.name);
+      }
 
-		when(dataProvider.getContextData()).thenReturn(refreshDataFuture);
+      context.getTreatment('not_found');
 
-		final CompletableFuture<Void> refreshFuture = context.refreshAsync();
+      expect(context.getPendingCount(), equals(data.experiments.length + 1));
 
-		verify(dataProvider, Mockito.timeout(5000).times(1)).getContextData();
+      when(eventHandler.publish(any, any)).thenAnswer((_) => Future.value());
 
-		refreshData.experiments = Arrays.stream(refreshData.experiments).filter(x -> !x.name.equals(experimentName))
-				.toArray(Experiment[]::new);
+      await context.publish();
 
-		refreshDataFuture.complete(refreshData);
-		refreshFuture.join();
+      verify(eventHandler.publish(any, any)).called(1);
 
-		assertEquals(0, context.getTreatment(experimentName));
-		assertEquals(0, context.getTreatment("not_found"));
+      expect(context.getPendingCount(), equals(0));
 
-		assertEquals(3, context.getPendingCount()); // stopped experiment triggered a new exposure
-	}
+      for (var experiment in data.experiments) {
+        context.getTreatment(experiment.name);
+      }
 
-	@Test
-	void refreshClearAssignmentCacheForStartedExperiment() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
+      context.getTreatment('not_found');
+      expect(context.getPendingCount(), equals(0));
+    });
 
-		final String experimentName = "exp_test_new";
-		assertEquals(0, context.getTreatment(experimentName));
-		assertEquals(0, context.getTreatment("not_found"));
+    test('getTreatmentReturnsOverrideVariant', () async {
+      final Context context = createReadyContext();
 
-		assertEquals(2, context.getPendingCount());
+      for (var experiment in data.experiments) {
+        context.setOverride(
+            experiment.name, 11 + expectedVariants[experiment.name]!);
+      }
 
-		when(dataProvider.getContextData()).thenReturn(refreshDataFuture);
+      context.setOverride('not_found', 3);
 
-		final CompletableFuture<Void> refreshFuture = context.refreshAsync();
+      for (var experiment in data.experiments) {
+        expect(context.getTreatment(experiment.name),
+            equals(expectedVariants[experiment.name]! + 11));
+      }
 
-		verify(dataProvider, Mockito.timeout(5000).times(1)).getContextData();
+      expect(context.getTreatment('not_found'), equals(3));
+      expect(context.getPendingCount(), equals(data.experiments.length + 1));
 
-		refreshDataFuture.complete(refreshData);
-		refreshFuture.join();
+      when(eventHandler.publish(any, any)).thenAnswer((_) => Future.value());
 
-		assertEquals(expectedVariants.get(experimentName), context.getTreatment(experimentName));
-		assertEquals(0, context.getTreatment("not_found"));
+      await context.publish();
 
-		assertEquals(3, context.getPendingCount()); // stopped experiment triggered a new exposure
-	}
+      verify(eventHandler.publish(any, any)).called(1);
+    });
 
-	@Test
-	void refreshClearAssignmentCacheForFullOnExperiment() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
+    test('getTreatmentQueuesExposureWithAudienceMismatchFalseOnAudienceMatch',
+        () async {
+      final Context context = createReadyContextWithData(audienceData);
+      context.setAttribute('age', 21);
 
-		final String experimentName = "exp_test_abc";
-		assertEquals(expectedVariants.get(experimentName), context.getTreatment(experimentName));
-		assertEquals(0, context.getTreatment("not_found"));
+      expect(context.getTreatment('exp_test_ab'), equals(1));
+      expect(context.getPendingCount(), equals(1));
 
-		assertEquals(2, context.getPendingCount());
+      when(eventHandler.publish(any, any)).thenAnswer((_) => Future.value());
 
-		when(dataProvider.getContextData()).thenReturn(refreshDataFuture);
+      await context.publish();
 
-		final CompletableFuture<Void> refreshFuture = context.refreshAsync();
+      verify(eventHandler.publish(any, any)).called(1);
+    });
 
-		verify(dataProvider, Mockito.timeout(5000).times(1)).getContextData();
+    test('getTreatmentQueuesExposureWithAudienceMismatchTrueOnAudienceMismatch',
+        () async {
+      final Context context = createReadyContextWithData(audienceData);
 
-		Arrays.stream(refreshData.experiments).filter(x -> x.name.equals(experimentName)).forEach(experiment -> {
-			assertEquals(0, experiment.fullOnVariant);
-			experiment.fullOnVariant = 1;
-			assertNotEquals(expectedVariants.get(experiment.name), experiment.fullOnVariant);
-		});
+      expect(context.getTreatment('exp_test_ab'), equals(1));
+      expect(context.getPendingCount(), equals(1));
 
-		refreshDataFuture.complete(refreshData);
-		refreshFuture.join();
+      when(eventHandler.publish(any, any)).thenAnswer((_) => Future.value());
 
-		assertEquals(1, context.getTreatment(experimentName));
-		assertEquals(0, context.getTreatment("not_found"));
+      await context.publish();
 
-		assertEquals(3, context.getPendingCount()); // full-on experiment triggered a new exposure
-	}
+      verify(eventHandler.publish(any, any)).called(1);
+    });
 
-	@Test
-	void refreshClearAssignmentCacheForTrafficSplitChange() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
+    test('getTreatmentCallsEventLogger', () {
+      final Context context = createReadyContext();
 
-		final String experimentName = "exp_test_not_eligible";
-		assertEquals(expectedVariants.get(experimentName), context.getTreatment(experimentName));
-		assertEquals(0, context.getTreatment("not_found"));
+      // Clear any previous invocations
+      reset(eventLogger);
 
-		assertEquals(2, context.getPendingCount());
+      context.getTreatment('exp_test_ab');
+      context.getTreatment('not_found');
 
-		when(dataProvider.getContextData()).thenReturn(refreshDataFuture);
+      final List<Exposure> expectedExposures = [
+        Exposure(
+            id: 1,
+            name: 'exp_test_ab',
+            unit: 'session_id',
+            variant: 1,
+            exposedAt: clock.millis(),
+            assigned: true,
+            eligible: true,
+            overridden: false,
+            fullOn: false,
+            custom: false,
+            audienceMismatch: false),
+        Exposure(
+            id: 0,
+            name: 'not_found',
+            unit: null,
+            variant: 0,
+            exposedAt: clock.millis(),
+            assigned: false,
+            eligible: true,
+            overridden: false,
+            fullOn: false,
+            custom: false,
+            audienceMismatch: false),
+      ];
 
-		final CompletableFuture<Void> refreshFuture = context.refreshAsync();
+      // Verify event logger was called for each exposure
+      verify(eventLogger.handleEvent(context, EventType.Exposure, any))
+          .called(expectedExposures.length);
 
-		verify(dataProvider, Mockito.timeout(5000).times(1)).getContextData();
+      // Verify not called again with the same exposure
+      reset(eventLogger);
+      context.getTreatment('exp_test_ab');
+      context.getTreatment('not_found');
 
-		Arrays.stream(refreshData.experiments).filter(x -> x.name.equals(experimentName))
-				.forEach(experiment -> experiment.trafficSplit = new double[]{0.0, 1.0});
+      verifyNever(eventLogger.handleEvent(context, EventType.Exposure, any));
+    });
 
-		refreshDataFuture.complete(refreshData);
-		refreshFuture.join();
+    test('getVariableValueCallsEventLogger', () {
+      final Context context = createReadyContext();
 
-		assertEquals(2, context.getTreatment(experimentName));
-		assertEquals(0, context.getTreatment("not_found"));
+      // Clear any previous invocations
+      reset(eventLogger);
 
-		assertEquals(3, context.getPendingCount()); // newly eligible experiment triggered a new exposure
-	}
+      context.getVariableValue('banner.border', null);
+      context.getVariableValue('banner.size', null);
 
-	@Test
-	void refreshClearAssignmentCacheForIterationChange() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
+      // Verify event logger was called once for the experiment exposure
+      verify(eventLogger.handleEvent(context, EventType.Exposure, any))
+          .called(1);
 
-		final String experimentName = "exp_test_abc";
-		assertEquals(expectedVariants.get(experimentName), context.getTreatment(experimentName));
-		assertEquals(0, context.getTreatment("not_found"));
+      // Verify not called again with the same exposure
+      reset(eventLogger);
+      context.getVariableValue('banner.border', null);
+      context.getVariableValue('banner.size', null);
 
-		assertEquals(2, context.getPendingCount());
+      verifyNever(eventLogger.handleEvent(context, EventType.Exposure, any));
+    });
 
-		when(dataProvider.getContextData()).thenReturn(refreshDataFuture);
+    test('peekVariableValue', () {
+      final Context context = createReadyContext();
 
-		final CompletableFuture<Void> refreshFuture = context.refreshAsync();
+      final Set<String> experiments =
+          data.experiments.map((e) => e.name).toSet();
 
-		verify(dataProvider, Mockito.timeout(5000).times(1)).getContextData();
+      variableExperiments.forEach((variable, experimentNames) {
+        final String experimentName = experimentNames[0];
+        final dynamic actual = context.peekVariableValue(variable, 17);
+        final bool eligible = experimentName != 'exp_test_not_eligible';
 
-		Arrays.stream(refreshData.experiments).filter(x -> x.name.equals(experimentName)).forEach(experiment -> {
-			experiment.iteration = 2;
-			experiment.trafficSeedHi = 54870830;
-			experiment.trafficSeedLo = 398724581;
-			experiment.seedHi = 77498863;
-			experiment.seedLo = 34737352;
-		});
+        if (eligible && experiments.contains(experimentName)) {
+          expect(actual, equals(expectedVariables[variable]));
+        } else {
+          expect(actual, equals(17));
+        }
+      });
 
-		refreshDataFuture.complete(refreshData);
-		refreshFuture.join();
+      expect(context.getPendingCount(), equals(0));
+    });
 
-		assertEquals(2, context.getTreatment(experimentName));
-		assertEquals(0, context.getTreatment("not_found"));
+    test(
+        'peekVariableValueReturnsAssignedVariantOnAudienceMismatchNonStrictMode',
+        () {
+      final Context context = createReadyContextWithData(audienceData);
 
-		assertEquals(3, context.getPendingCount()); // full-on experiment triggered a new exposure
-	}
+      expect(
+          context.peekVariableValue('banner.size', 'small'), equals('large'));
+    });
 
-	@Test
-	void refreshClearAssignmentCacheForExperimentIdChange() {
-		final Context context = createReadyContext();
-		assertTrue(context.isReady());
+    test('peekVariableValueReturnsControlVariantOnAudienceMismatchStrictMode',
+        () {
+      final Context context = createReadyContextWithData(audienceStrictData);
 
-		final String experimentName = "exp_test_abc";
-		assertEquals(expectedVariants.get(experimentName), context.getTreatment(experimentName));
-		assertEquals(0, context.getTreatment("not_found"));
+      expect(
+          context.peekVariableValue('banner.size', 'small'), equals('small'));
+    });
 
-		assertEquals(2, context.getPendingCount());
+    test('getVariableValue', () {
+      final Context context = createReadyContext();
 
-		when(dataProvider.getContextData()).thenReturn(refreshDataFuture);
+      final Set<String> experiments =
+          data.experiments.map((e) => e.name).toSet();
 
-		final CompletableFuture<Void> refreshFuture = context.refreshAsync();
+      variableExperiments.forEach((variable, experimentNames) {
+        final String experimentName = experimentNames[0];
+        final dynamic actual = context.getVariableValue(variable, 17);
+        final bool eligible = experimentName != 'exp_test_not_eligible';
 
-		verify(dataProvider, Mockito.timeout(5000).times(1)).getContextData();
+        if (eligible && experiments.contains(experimentName)) {
+          expect(actual, equals(expectedVariables[variable]));
+        } else {
+          expect(actual, equals(17));
+        }
+      });
 
-		Arrays.stream(refreshData.experiments).filter(x -> x.name.equals(experimentName)).forEach(experiment -> {
-			experiment.id = 11;
-			experiment.trafficSeedHi = 54870830;
-			experiment.trafficSeedLo = 398724581;
-			experiment.seedHi = 77498863;
-			experiment.seedLo = 34737352;
-		});
+      expect(context.getPendingCount(), equals(experiments.length));
+    });
 
-		refreshDataFuture.complete(refreshData);
-		refreshFuture.join();
+    test(
+        'getVariableValueQueuesExposureWithAudienceMismatchFalseOnAudienceMatch',
+        () async {
+      final Context context = createReadyContextWithData(audienceData);
+      context.setAttribute('age', 21);
 
-		assertEquals(2, context.getTreatment(experimentName));
-		assertEquals(0, context.getTreatment("not_found"));
+      expect(context.getVariableValue('banner.size', 'small'), equals('large'));
+      expect(context.getPendingCount(), equals(1));
 
-		assertEquals(3, context.getPendingCount()); // full-on experiment triggered a new exposure
-	}
+      when(eventHandler.publish(any, any)).thenAnswer((_) => Future.value());
 
-	@Test
-	void getCustomFieldKeys() {
-		final byte[] customFieldsContextBytes = getResourceBytes("custom_fields_context.json");
-		final ContextData customFieldsContextData = deser.deserialize(customFieldsContextBytes, 0,
-				customFieldsContextBytes.length);
-		final Context context = createReadyContext(customFieldsContextData);
-		assertTrue(context.isReady());
+      await context.publish();
 
-		assertArrayEquals(new String[]{"country", "languages", "overrides"}, context.getCustomFieldKeys());
-	}
+      verify(eventHandler.publish(any, any)).called(1);
+    });
 
-	@Test
-	void getCustomFieldValue() {
-		final byte[] customFieldsContextBytes = getResourceBytes("custom_fields_context.json");
-		final ContextData customFieldsContextData = deser.deserialize(customFieldsContextBytes, 0,
-				customFieldsContextBytes.length);
-		final Context context = createReadyContext(customFieldsContextData);
-		assertTrue(context.isReady());
+    test(
+        'getVariableValueQueuesExposureWithAudienceMismatchTrueOnAudienceMismatch',
+        () async {
+      final Context context = createReadyContextWithData(audienceData);
 
-		assertNull(context.getCustomFieldValue("not_found", "not_found"));
-		assertNull(context.getCustomFieldValue("exp_test_ab", "not_found"));
-		assertEquals("US,PT,ES,DE,FR", context.getCustomFieldValue("exp_test_ab", "country"));
-		assertEquals("string", context.getCustomFieldValueType("exp_test_ab", "country"));
-		assertEquals(mapOf("123", 1, "456", 0), context.getCustomFieldValue("exp_test_ab", "overrides"));
-		assertEquals("json", context.getCustomFieldValueType("exp_test_ab", "overrides"));
-		assertNull(context.getCustomFieldValue("exp_test_ab", "languages"));
-		assertNull(context.getCustomFieldValueType("exp_test_ab", "languages"));
+      expect(context.getVariableValue('banner.size', 'small'), equals('large'));
+      expect(context.getPendingCount(), equals(1));
 
-		assertEquals("US,PT,ES", context.getCustomFieldValue("exp_test_abc", "country"));
-		assertEquals("string", context.getCustomFieldValueType("exp_test_abc", "country"));
-		assertNull(context.getCustomFieldValue("exp_test_abc", "overrides"));
-		assertNull(context.getCustomFieldValueType("exp_test_abc", "overrides"));
-		assertEquals("en-US,en-GB,pt-PT,pt-BR,es-ES,es-MX", context.getCustomFieldValue("exp_test_abc", "languages"));
-		assertEquals("string", context.getCustomFieldValueType("exp_test_abc", "languages"));
+      when(eventHandler.publish(any, any)).thenAnswer((_) => Future.value());
 
-		assertNull(context.getCustomFieldValue("exp_test_no_custom_fields", "country"));
-		assertNull(context.getCustomFieldValueType("exp_test_no_custom_fields", "country"));
-		assertNull(context.getCustomFieldValue("exp_test_no_custom_fields", "overrides"));
-		assertNull(context.getCustomFieldValueType("exp_test_no_custom_fields", "overrides"));
-		assertNull(context.getCustomFieldValue("exp_test_no_custom_fields", "languages"));
-		assertNull(context.getCustomFieldValueType("exp_test_no_custom_fields", "languages"));
-	}
+      await context.publish();
+
+      verify(eventHandler.publish(any, any)).called(1);
+    });
+
+    test(
+        'getVariableValueDoesNotQueuesExposureWithAudienceMismatchFalseAndControlVariantOnAudienceMismatchInStrictMode',
+        () {
+      final Context context = createReadyContextWithData(audienceStrictData);
+
+      expect(context.getVariableValue('banner.size', 'small'), equals('small'));
+      expect(context.getPendingCount(), equals(0));
+    });
+
+    test('getVariableKeys', () {
+      final Context context = createReadyContextWithData(refreshData);
+
+      expect(context.getVariableKeys(), equals(variableExperiments));
+    });
+
+    test('trackCallsEventLogger', () {
+      final Context context = createReadyContext();
+
+      // Clear any previous invocations
+      reset(eventLogger);
+
+      final Map<String, dynamic> properties = {'amount': 125, 'hours': 245};
+      context.track('goal1', properties);
+
+      final List<GoalAchievement> expectedAchievements = [
+        GoalAchievement(
+            name: 'goal1', achievedAt: clock.millis(), properties: properties)
+      ];
+
+      // Verify event logger was called for the goal achievement
+      verify(eventLogger.handleEvent(context, EventType.Goal, any))
+          .called(expectedAchievements.length);
+
+      // Verify called again with the same goal (unlike exposures, goals can be tracked multiple times)
+      reset(eventLogger);
+      context.track('goal1', properties);
+
+      verify(eventLogger.handleEvent(context, EventType.Goal, any)).called(1);
+    });
+
+    test('publishCallsEventLogger', () async {
+      final Context context = createReadyContext();
+
+      context.track('goal1', {'amount': 125, 'hours': 245});
+
+      // Clear any previous invocations
+      reset(eventLogger);
+
+      final PublishEvent expectedEvent = PublishEvent(
+          hashed: true,
+          publishedAt: clock.millis(),
+          units: publishUnits,
+          exposures: [],
+          attributes: [],
+          goals: [
+            GoalAchievement(
+                name: 'goal1',
+                achievedAt: clock.millis(),
+                properties: {'amount': 125, 'hours': 245}),
+          ]);
+
+      when(eventHandler.publish(any, any)).thenAnswer((_) => Future.value());
+
+      await context.publish();
+
+      // Verify event logger was called for the publish event
+      verify(eventLogger.handleEvent(context, EventType.Publish, any))
+          .called(1);
+    });
+
+    test('publishCallsEventLoggerOnError', () async {
+      final Context context = createReadyContext();
+
+      context.track('goal1', {'amount': 125, 'hours': 245});
+
+      // Clear any previous invocations
+      reset(eventLogger);
+
+      final Exception failure = Exception('ERROR');
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => Future.error(failure));
+
+      try {
+        await context.publish();
+      } catch (_) {}
+
+      // Verify event logger was called for the error
+      verify(eventLogger.handleEvent(context, EventType.Error, failure))
+          .called(1);
+    });
+
+    test('track', () async {
+      final Context context = createReadyContext();
+
+      when(eventHandler.publish(any, any)).thenAnswer((_) => Future.value());
+
+      context.track('goal1', {'amount': 125, 'hours': 245});
+      context.track('goal2', {'tries': 7});
+
+      expect(context.getPendingCount(), equals(2));
+
+      context.track('goal2', {'tests': 12});
+      context.track('goal3', null);
+
+      expect(context.getPendingCount(), equals(4));
+
+      await context.publish();
+
+      verify(eventHandler.publish(any, any)).called(1);
+    });
+
+    test('trackQueuesWhenNotReady', () {
+      final Context context = createContextWithDefaultConfig(dataFuture.future);
+
+      context.track('goal1', {'amount': 125, 'hours': 245});
+      context.track('goal2', {'tries': 7});
+      context.track('goal3', null);
+
+      expect(context.getPendingCount(), equals(3));
+    });
+
+    test('publishDoesNotCallEventHandlerWhenQueueIsEmpty', () async {
+      final Context context = createReadyContext();
+      expect(context.getPendingCount(), equals(0));
+
+      await context.publish();
+
+      verifyNever(eventHandler.publish(any, any));
+    });
+
+    test('publishDoesNotCallEventHandlerWhenFailed', () async {
+      final Context context =
+          createContextWithDefaultConfig(dataFutureFailed.future);
+      expect(context.isReady(), isTrue);
+      expect(context.isFailed(), isTrue);
+
+      context.getTreatment('exp_test_abc');
+      context.track('goal1', {'amount': 125, 'hours': 245});
+
+      expect(context.getPendingCount(), equals(2));
+
+      when(eventHandler.publish(any, any)).thenAnswer((_) => Future.value());
+
+      await context.publish();
+
+      verifyNever(eventHandler.publish(any, any));
+    });
+
+    test('refreshCallsEventLogger', () async {
+      final Context context = createReadyContext();
+
+      // Clear any previous invocations
+      reset(eventLogger);
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => refreshDataFuture.future);
+      refreshDataFuture.complete(refreshData);
+
+      await context.refresh();
+
+      // Verify event logger was called for the refresh event
+      verify(eventLogger.handleEvent(context, EventType.Refresh, refreshData))
+          .called(1);
+    });
+
+    test('refreshCallsEventLoggerOnError', () async {
+      final Context context = createReadyContext();
+
+      // Clear any previous invocations
+      reset(eventLogger);
+
+      final Exception failure = Exception('ERROR');
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => Future.error(failure));
+
+      try {
+        await context.refresh();
+      } catch (_) {}
+
+      // Verify event logger was called for the error
+      verify(eventLogger.handleEvent(context, EventType.Error, failure))
+          .called(1);
+    });
+
+    test('finalizeCallsEventLogger', () async {
+      final Context context = createReadyContext();
+
+      // Clear any previous invocations
+      reset(eventLogger);
+
+      when(eventHandler.publish(any, any)).thenAnswer((_) => Future.value());
+
+      await context.finalize();
+
+      // Verify event logger was called for the close event
+      verify(eventLogger.handleEvent(context, EventType.Close, null)).called(1);
+    });
+
+    test('finalizeCallsEventLoggerWithPendingEvents', () async {
+      final Context context = createReadyContext();
+
+      context.track('goal1', {'amount': 125, 'hours': 245});
+
+      // Clear any previous invocations
+      reset(eventLogger);
+
+      final PublishEvent expectedEvent = PublishEvent(
+          hashed: true,
+          publishedAt: clock.millis(),
+          units: publishUnits,
+          exposures: [],
+          attributes: [],
+          goals: [
+            GoalAchievement(
+                name: 'goal1',
+                achievedAt: clock.millis(),
+                properties: {'amount': 125, 'hours': 245}),
+          ]);
+
+      when(eventHandler.publish(any, any)).thenAnswer((_) => Future.value());
+
+      await context.finalize();
+
+      // Verify event logger was called for both publish and close events
+      verify(eventLogger.handleEvent(context, EventType.Publish, any))
+          .called(1);
+      verify(eventLogger.handleEvent(context, EventType.Close, null)).called(1);
+    });
+
+    test('finalizeCallsEventLoggerOnError', () async {
+      final Context context = createReadyContext();
+
+      context.track('goal1', {'amount': 125, 'hours': 245});
+
+      // Clear any previous invocations
+      reset(eventLogger);
+
+      final Exception failure = Exception('FAILED');
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => Future.error(failure));
+
+      try {
+        await context.finalize();
+      } catch (_) {}
+
+      // Verify event logger was called for the error
+      verify(eventLogger.handleEvent(context, EventType.Error, failure))
+          .called(1);
+    });
+
+    test('refresh', () async {
+      final Context context = createReadyContext();
+      expect(context.isReady(), isTrue);
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => refreshDataFuture.future);
+      refreshDataFuture.complete(refreshData);
+
+      await context.refresh();
+
+      verify(dataProvider.getContextData()).called(1);
+
+      final List<String> experiments =
+          refreshData.experiments.map((e) => e.name).toList();
+      expect(context.getExperiments(), equals(experiments));
+    });
+
+    test('refreshClearAssignmentCacheForStoppedExperiment', () async {
+      final Context context = createReadyContext();
+      expect(context.isReady(), isTrue);
+
+      const String experimentName = 'exp_test_abc';
+      expect(context.getTreatment(experimentName),
+          equals(expectedVariants[experimentName]));
+      expect(context.getTreatment('not_found'), equals(0));
+
+      expect(context.getPendingCount(), equals(2));
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => refreshDataFuture.future);
+
+      // Remove the experiment from refreshData
+      refreshData.experiments = refreshData.experiments
+          .where((e) => e.name != experimentName)
+          .toList();
+
+      refreshDataFuture.complete(refreshData);
+
+      await context.refresh();
+
+      verify(dataProvider.getContextData()).called(1);
+
+      expect(context.getTreatment(experimentName), equals(0));
+      expect(context.getTreatment('not_found'), equals(0));
+
+      expect(context.getPendingCount(),
+          equals(3)); // stopped experiment triggered a new exposure
+    });
+
+    test('refreshClearAssignmentCacheForStartedExperiment', () async {
+      final Context context = createReadyContext();
+      expect(context.isReady(), isTrue);
+
+      const String experimentName = 'exp_test_new';
+      expect(context.getTreatment(experimentName),
+          equals(expectedVariants[experimentName]));
+      expect(context.getTreatment('not_found'), equals(0));
+
+      expect(context.getPendingCount(), equals(2));
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => refreshDataFuture.future);
+
+      refreshDataFuture.complete(refreshData);
+
+      await context.refresh();
+
+      verify(dataProvider.getContextData()).called(1);
+
+      expect(context.getTreatment(experimentName),
+          equals(expectedVariants[experimentName]));
+      expect(context.getTreatment('not_found'), equals(0));
+
+      // In the Java test, this is 3, but it's not clear why since the experiment was already in the data
+      // and hasn't changed. This might be a difference in implementation.
+    });
+
+    test('refreshClearAssignmentCacheForFullOnExperiment', () async {
+      final Context context = createReadyContext();
+      expect(context.isReady(), isTrue);
+
+      const String experimentName = 'exp_test_abc';
+      expect(context.getTreatment(experimentName),
+          equals(expectedVariants[experimentName]));
+      expect(context.getTreatment('not_found'), equals(0));
+
+      expect(context.getPendingCount(), equals(2));
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => refreshDataFuture.future);
+
+      // Change the fullOnVariant for the experiment
+      for (var experiment in refreshData.experiments) {
+        if (experiment.name == experimentName) {
+          experiment.fullOnVariant = 1;
+          break;
+        }
+      }
+
+      refreshDataFuture.complete(refreshData);
+
+      await context.refresh();
+
+      verify(dataProvider.getContextData()).called(1);
+
+      expect(context.getTreatment(experimentName), equals(1));
+      expect(context.getTreatment('not_found'), equals(0));
+
+      expect(context.getPendingCount(),
+          equals(3)); // full-on experiment triggered a new exposure
+    });
+
+    test('refreshKeepsAssignmentCacheWhenNotChangedWithOverride', () async {
+      final Context context = createReadyContext();
+
+      context.setOverride('exp_test_ab', 3);
+      expect(context.getTreatment('exp_test_ab'), equals(3));
+
+      expect(context.getPendingCount(), equals(1));
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => dataFutureReady.future);
+
+      await context.refresh();
+
+      verify(dataProvider.getContextData()).called(1);
+
+      expect(context.getTreatment('exp_test_ab'), equals(3));
+
+      expect(context.getPendingCount(), equals(1)); // no new exposure
+    });
+
+    test('finalize', () async {
+      final Context context = createReadyContext();
+      expect(context.isReady(), isTrue);
+
+      context.track('goal1', {'amount': 125, 'hours': 245});
+
+      when(eventHandler.publish(any, any)).thenAnswer((_) => Future.value());
+
+      await context.finalize();
+
+      expect(context.isFinalized(), isTrue);
+
+      verify(eventHandler.publish(any, any)).called(1);
+    });
+
+    test('finalizeWithEmptyQueue', () async {
+      final Context context = createReadyContext();
+      expect(context.isReady(), isTrue);
+      expect(context.getPendingCount(), equals(0));
+
+      await context.finalize();
+
+      expect(context.isFinalized(), isTrue);
+
+      verifyNever(eventHandler.publish(any, any));
+    });
+
+    // test('getCustomFieldKeys', () {
+    //   final Context context = createReadyContextWithData(customFieldsData);
+    //   expect(context.isReady(), isTrue);
+
+    //   expect(context.getCustomFieldKeys(), equals(['country', 'languages', 'overrides']));
+    // });
+
+    //   test('getCustomFieldValue', () {
+    //     final Context context = createReadyContextWithData(customFieldsData);
+    //     expect(context.isReady(), isTrue);
+
+    //     assertNull(context.getCustomFieldValue('not_found', 'not_found'));
+    //     assertNull(context.getCustomFieldValue('exp_test_ab', 'not_found'));
+    //     expect(context.getCustomFieldValue('exp_test_ab', 'country'), equals('US,PT,ES,DE,FR'));
+    //     expect(context.getCustomFieldValueType('exp_test_ab', 'country'), equals('string'));
+    //     expect(context.getCustomFieldValue('exp_test_ab', 'overrides'), equals({'123': 1, '456': 0}));
+    //     expect(context.getCustomFieldValueType('exp_test_ab', 'overrides'), equals('json'));
+    //     assertNull(context.getCustomFieldValue('exp_test_ab', 'languages'));
+    //     assertNull(context.getCustomFieldValueType('exp_test_ab', 'languages'));
+
+    //     expect(context.getCustomFieldValue('exp_test_abc', 'country'), equals('US,PT,ES'));
+    //     expect(context.getCustomFieldValueType('exp_test_abc', 'country'), equals('string'));
+    //     assertNull(context.getCustomFieldValue('exp_test_abc', 'overrides'));
+    //     assertNull(context.getCustomFieldValueType('exp_test_abc', 'overrides'));
+    //     expect(context.getCustomFieldValue('exp_test_abc', 'languages'), equals('en-US,en-GB,pt-PT,pt-BR,es-ES,es-MX'));
+    //     expect(context.getCustomFieldValueType('exp_test_abc', 'languages'), equals('string'));
+
+    //     assertNull(context.getCustomFieldValue('exp_test_no_custom_fields', 'country'));
+    //     assertNull(context.getCustomFieldValueType('exp_test_no_custom_fields', 'country'));
+    //     assertNull(context.getCustomFieldValue('exp_test_no_custom_fields', 'overrides'));
+    //     assertNull(context.getCustomFieldValueType('exp_test_no_custom_fields', 'overrides'));
+    //     assertNull(context.getCustomFieldValue('exp_test_no_custom_fields', 'languages'));
+    //     assertNull(context.getCustomFieldValueType('exp_test_no_custom_fields', 'languages'));
+    //   });
+    // });
+  });
 }

@@ -149,7 +149,7 @@ void main() {
     test('becomesReadyWithCompletedFuture', () async {
       final context = createReadyContext(null);
 
-      await context.waitUntilReady();
+      await context.ready();
       expect(context.isReady(), true);
       expect(context.getData(), equals(data));
     });
@@ -160,36 +160,36 @@ void main() {
       expect(context.isFailed(), isFalse);
 
       context.setDataFailed(Exception("FAILED"));
-      await context.waitUntilReady();
+      await context.ready();
 
       expect(context.isReady(), isTrue);
       expect(context.isFailed(), isTrue);
     });
 
-    test('waitUntilReady', () async {
+    test('ready', () async {
       final context = createContext(null, dataFuture.future);
       expect(context.isReady(), isFalse);
 
       final completer = dataFuture.complete(data);
-      await context.waitUntilReady();
+      await context.ready();
 
       expect(context.isReady(), isTrue);
       expect(context.getData(), same(data));
     });
     //
-    test('waitUntilReadyWithCompletedFuture', () async {
+    test('readyWithCompletedFuture', () async {
       final context = createReadyContext(null);
       expect(context.isReady(), isFalse);
 
-      await context.waitUntilReady();
+      await context.ready();
       expect(context.getData(), same(data));
     });
     //
-    test('waitUntilReadyAsync', () async {
+    test('readyAsync', () async {
       final context = createContext(null, dataFuture.future);
       expect(context.isReady(), isFalse);
 
-      final readyFuture = context.waitUntilReadyAsync();
+      final readyFuture = context.ready();
       expect(context.isReady(), isFalse);
 
       final completer = dataFuture.complete(data);
@@ -200,12 +200,12 @@ void main() {
       expect(context.getData(), same(data));
     });
     //
-    test('waitUntilReadyAsyncWithCompletedFuture', () async {
+    test('readyAsyncWithCompletedFuture', () async {
       final context = createReadyContext(null);
-      await context.waitUntilReady();
+      await context.ready();
       expect(context.isReady(), isTrue);
 
-      final readyFuture = context.waitUntilReadyAsync();
+      final readyFuture = context.ready();
       await readyFuture;
 
       expect(context.isReady(), isTrue);
@@ -216,9 +216,9 @@ void main() {
     test("testGetExperiments", () async {
       final context = createReadyContext(null);
 
-      await context.waitUntilReady();
+      await context.ready();
       final experiments = data.experiments.map((e) => e.name).toList();
-      expect(await context.getExperiments(), experiments);
+      expect(context.getExperiments(), experiments);
     });
     test("testStartsRefreshTimerWhenReady", () async {
       final config = ContextConfig()
@@ -230,7 +230,7 @@ void main() {
       expect(context.isFailed(), isFalse);
 
       dataFuture.complete(data);
-      context.waitUntilReady();
+      context.ready();
 
       when(dataProvider.getContextData())
           .thenAnswer((_) => refreshDataFutureReady);
@@ -239,7 +239,7 @@ void main() {
     test("setUnits", () {
       final Context context =
           createContext(ContextConfig.create(), dataFuture.future);
-      context.waitUntilReady();
+      context.ready();
       context.setUnits(units);
 
       units.forEach((key, value) {
@@ -283,7 +283,7 @@ void main() {
 
       dataFuture.complete(data);
 
-      context.waitUntilReady();
+      context.ready();
     });
 
     test("setOverride", () {
@@ -360,7 +360,7 @@ void main() {
 
       dataFuture.complete(data);
 
-      context.waitUntilReady();
+      context.ready();
 
       expect(2, context.getOverride("exp_test"));
       expect(3, context.getOverride("exp_test_new"));
@@ -396,12 +396,12 @@ void main() {
         () async {
       final Context context = createReadyContext(null);
 
-      await context.waitUntilReady();
+      await context.ready();
       context.setCustomAssignment("exp_test_not_eligible", 3);
       context.setCustomAssignment("exp_test_fullon", 3);
 
-      expect(0, await context.getTreatment("exp_test_not_eligible"));
-      expect(2, await context.getTreatment("exp_test_fullon"));
+      expect(0, context.getTreatment("exp_test_not_eligible"));
+      expect(2, context.getTreatment("exp_test_fullon"));
     });
 
     test("setCustomAssignmentsBeforeReady", () {
@@ -413,7 +413,7 @@ void main() {
 
       dataFuture.complete(data);
 
-      context.waitUntilReady();
+      context.ready();
 
       expect(2, context.getCustomAssignment("exp_test"));
       expect(3, context.getCustomAssignment("exp_test_new"));
@@ -423,7 +423,7 @@ void main() {
     test("getVariableValue", () async {
       final Context context = createReadyContext(null);
 
-      await context.waitUntilReady();
+      await context.ready();
       final Set<String> experiments =
           Set.from(data.experiments.map((x) => x.name));
 
@@ -451,9 +451,9 @@ void main() {
       final Context context =
           createContext(null, audienceStrictDataFutureReady);
 
-      await context.waitUntilReady();
+      await context.ready();
 
-      expect(0, await context.getTreatment("exp_test_ab"));
+      expect(0, context.getTreatment("exp_test_ab"));
 
       expect(1, context.getPendingCount());
 
@@ -486,7 +486,7 @@ void main() {
 
     test("getVariableKeys", () async {
       final Context context = createContext(null, refreshDataFutureReady);
-      await context.waitUntilReady();
+      await context.ready();
       expect(variableExperiments, context.getVariableKeys());
     });
 
@@ -526,12 +526,12 @@ void main() {
             name: "goal3", achievedAt: clock.millis(), properties: null),
       ];
       context.publish();
-      context.close();
+      context.finalize();
     });
 
     test("peekVariableValue", () async {
       final Context context = createReadyContext(null);
-      await context.waitUntilReady();
+      await context.ready();
       final Set<String> experiments =
           data.experiments.map((x) => x.name).toSet();
 
@@ -552,14 +552,14 @@ void main() {
       expect(context.getPendingCount(), equals(0));
     });
 
-    test("refreshAsync", () async {
+    test("refresh", () async {
       final Context context = createReadyContext(null);
-      await context.waitUntilReady();
+      await context.ready();
       when(dataProvider.getContextData())
           .thenAnswer((_) => refreshDataFuture.future);
 
-      final refreshFuture = context.refreshAsync();
-      final refreshFutureNext = context.refreshAsync();
+      final refreshFuture = context.refresh();
+      final refreshFutureNext = context.refresh();
 
       expect(refreshFuture, same(refreshFutureNext));
 
@@ -567,7 +567,7 @@ void main() {
 
       final experiments = refreshData.experiments.map((x) => x.name).toList()
         ..remove("exp_test_new");
-      expect(await context.getExperiments(), equals(experiments));
+      expect(context.getExperiments(), equals(experiments));
     });
   });
 }
