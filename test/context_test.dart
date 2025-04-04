@@ -325,7 +325,7 @@ void main() {
       expect(() => context.getVariableKeys(), throwsA(isA<Exception>()));
     });
 
-    test('throwsWhenFinalized', () async {
+    test('throwsWhenClosed', () async {
       final Context context = createReadyContext();
       await context.ready();
 
@@ -337,9 +337,9 @@ void main() {
       when(eventHandler.publish(any, any))
           .thenAnswer((_) => createCompleteVoidCompleter());
 
-      await context.finalize();
+      await context.close();
 
-      expect(context.isFinalized(), isTrue);
+      expect(context.isClosed(), isTrue);
 
       expect(() => context.setAttribute('attr1', 'value1'),
           throwsA(isA<Exception>()));
@@ -1066,7 +1066,7 @@ void main() {
           .called(1);
     });
 
-    test('finalizeCallsEventLogger', () async {
+    test('closeCallsEventLogger', () async {
       final Context context = createReadyContext();
       await context.ready();
 
@@ -1075,12 +1075,12 @@ void main() {
       when(eventHandler.publish(any, any))
           .thenAnswer((_) => createCompleteVoidCompleter());
 
-      await context.finalize();
+      await context.close();
 
       verify(eventLogger.handleEvent(context, EventType.Close, null)).called(1);
     });
 
-    test('finalizeCallsEventLoggerWithPendingEvents', () async {
+    test('closeCallsEventLoggerWithPendingEvents', () async {
       final Context context = createReadyContext();
       await context.ready();
 
@@ -1091,14 +1091,14 @@ void main() {
       when(eventHandler.publish(any, any))
           .thenAnswer((_) => createCompleteVoidCompleter());
 
-      await context.finalize();
+      await context.close();
 
       verify(eventLogger.handleEvent(context, EventType.Publish, any))
           .called(1);
       verify(eventLogger.handleEvent(context, EventType.Close, null)).called(1);
     });
 
-    test('finalizeCallsEventLoggerOnError', () async {
+    test('closeCallsEventLoggerOnError', () async {
       final Context context = createReadyContext();
       await context.ready();
 
@@ -1110,7 +1110,7 @@ void main() {
       when(eventHandler.publish(any, any))
           .thenAnswer((_) => createErrorVoidCompleter(failure));
 
-      await expectLater(context.finalize(), throwsException);
+      await expectLater(context.close(), throwsException);
 
       verify(eventLogger.handleEvent(context, EventType.Error, failure))
           .called(1);
@@ -1250,7 +1250,7 @@ void main() {
       expect(context.getPendingCount(), equals(1)); // no new exposure
     });
 
-    test('finalize', () async {
+    test('close', () async {
       final Context context = createReadyContext();
       await context.ready();
 
@@ -1261,23 +1261,23 @@ void main() {
       when(eventHandler.publish(any, any))
           .thenAnswer((_) => createCompleteVoidCompleter());
 
-      await context.finalize();
+      await context.close();
 
-      expect(context.isFinalized(), isTrue);
+      expect(context.isClosed(), isTrue);
 
       verify(eventHandler.publish(any, any)).called(1);
     });
 
-    test('finalizeWithEmptyQueue', () async {
+    test('closeWithEmptyQueue', () async {
       final Context context = createReadyContext();
       await context.ready();
 
       expect(context.isReady(), isTrue);
       expect(context.getPendingCount(), equals(0));
 
-      await context.finalize();
+      await context.close();
 
-      expect(context.isFinalized(), isTrue);
+      expect(context.isClosed(), isTrue);
 
       verifyNever(eventHandler.publish(any, any));
     });
@@ -1863,7 +1863,7 @@ void main() {
           equals(3)); // full-on experiment triggered a new exposure
     });
 
-    test('finalizeStopsRefreshTimer', () async {
+    test('closeStopsRefreshTimer', () async {
       final config =
           ContextConfig.create().setUnits(units).setRefreshInterval(333);
 
@@ -1872,16 +1872,16 @@ void main() {
 
       expect(context.isReady(), isTrue);
 
-      await context.finalize();
+      await context.close();
 
-      expect(context.isFinalized(), isTrue);
+      expect(context.isClosed(), isTrue);
 
       await Future.delayed(const Duration(milliseconds: 666));
 
       verifyNever(dataProvider.getContextData());
     });
 
-    test('finalizeExceptionally', () async {
+    test('closeExceptionally', () async {
       final context = createReadyContext();
       await context.ready();
 
@@ -1895,7 +1895,7 @@ void main() {
       when(eventHandler.publish(any, any))
           .thenAnswer((_) => createErrorVoidCompleter(failure));
 
-      await expectLater(context.finalize(), throwsA(isA<Exception>()));
+      await expectLater(context.close(), throwsA(isA<Exception>()));
 
       verify(eventLogger.handleEvent(context, EventType.Error, failure))
           .called(1);

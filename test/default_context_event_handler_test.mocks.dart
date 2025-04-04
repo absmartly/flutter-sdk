@@ -521,18 +521,18 @@ class MockContext extends _i1.Mock implements _i8.Context {
           as bool);
 
   @override
-  bool isFinalized() =>
+  bool isClosed() =>
       (super.noSuchMethod(
-            Invocation.method(#isFinalized, []),
+            Invocation.method(#isClosed, []),
             returnValue: false,
             returnValueForMissingStub: false,
           )
           as bool);
 
   @override
-  bool isFinalizing() =>
+  bool isClosing() =>
       (super.noSuchMethod(
-            Invocation.method(#isFinalizing, []),
+            Invocation.method(#isClosing, []),
             returnValue: false,
             returnValueForMissingStub: false,
           )
@@ -755,9 +755,9 @@ class MockContext extends _i1.Mock implements _i8.Context {
           as _i12.Future<void>);
 
   @override
-  _i12.Future<void> finalize() =>
+  _i12.Future<void> close() =>
       (super.noSuchMethod(
-            Invocation.method(#finalize, []),
+            Invocation.method(#close, []),
             returnValue: _i12.Future<void>.value(),
             returnValueForMissingStub: _i12.Future<void>.value(),
           )

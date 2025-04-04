@@ -33,8 +33,8 @@ class Context {
       final VariableParser variableParser,
       AudienceMatcher audienceMatcher,
       ContextEventLogger eventLogger) {
-    return Context(clock, config, dataFuture, dataProvider,
-        eventHandler, variableParser, audienceMatcher, eventLogger);
+    return Context(clock, config, dataFuture, dataProvider, eventHandler,
+        variableParser, audienceMatcher, eventLogger);
   }
 
   Context(
@@ -88,11 +88,11 @@ class Context {
     return failed_;
   }
 
-  bool isFinalized() {
+  bool isClosed() {
     return closed_;
   }
 
-  bool isFinalizing() {
+  bool isClosing() {
     return !closed_ && closing_;
   }
 
@@ -109,7 +109,8 @@ class Context {
   List<String> getExperiments() {
     checkReady(true);
 
-    return List.generate(data_!.experiments.length, (index) => data_!.experiments[index].name);
+    return List.generate(
+        data_!.experiments.length, (index) => data_!.experiments[index].name);
   }
 
   ContextData getData() {
@@ -181,29 +182,30 @@ class Context {
   }
 
   dynamic getAttribute(final String name) {
-      for (int i = attributes_.length; i-- > 0;) {
-        final Attribute attr = attributes_[i];
-        if (name == attr.name) {
-          return attr.value;
-        }
+    for (int i = attributes_.length; i-- > 0;) {
+      final Attribute attr = attributes_[i];
+      if (name == attr.name) {
+        return attr.value;
       }
+    }
 
-      return null;
+    return null;
   }
 
   void setAttribute(String name, dynamic value) {
     checkNotClosed();
 
-    attributes_.add(Attribute(name: name, value: value, setAt: clock_.millis()));
+    attributes_
+        .add(Attribute(name: name, value: value, setAt: clock_.millis()));
   }
 
   Map<String, dynamic> getAttributes() {
     final Map<String, dynamic> result = {};
 
-      for (final Attribute attr in attributes_) {
-        result[attr.name] = attr.value;
-      }
-      return result;
+    for (final Attribute attr in attributes_) {
+      result[attr.name] = attr.value;
+    }
+    return result;
   }
 
   void setAttributes(final Map<String, dynamic> attributes) {
@@ -240,8 +242,8 @@ class Context {
           custom: assignment.custom,
           audienceMismatch: assignment.audienceMismatch);
 
-        pendingCount_++;
-        exposures_.add(exposure);
+      pendingCount_++;
+      exposures_.add(exposure);
 
       logEvent(EventType.Exposure, exposure);
 
@@ -260,12 +262,12 @@ class Context {
 
     final Map<String, List<String>> variableKeys = <String, List<String>>{};
 
-      indexVariables_.forEach((key, value) {
-        final List<ExperimentVariables> keyExperimentVariables = value;
-        final List<String> values = List.generate(keyExperimentVariables.length,
-            (index) => keyExperimentVariables[index].data.name);
-        variableKeys[key] = values;
-      });
+    indexVariables_.forEach((key, value) {
+      final List<ExperimentVariables> keyExperimentVariables = value;
+      final List<String> values = List.generate(keyExperimentVariables.length,
+          (index) => keyExperimentVariables[index].data.name);
+      variableKeys[key] = values;
+    });
     return variableKeys;
   }
 
@@ -274,18 +276,17 @@ class Context {
 
     final Assignment? assignment = getVariableAssignment(key);
     if (assignment != null) {
-        if (!assignment.exposed) {
-          queueExposure(assignment);
-        }
-        if (assignment.variables.containsKey(key)) {
-          return assignment.variables[key];
-        }
+      if (!assignment.exposed) {
+        queueExposure(assignment);
+      }
+      if (assignment.variables.containsKey(key)) {
+        return assignment.variables[key];
+      }
     }
     return defaultValue;
   }
 
-  dynamic peekVariableValue(
-      final String key, final dynamic defaultValue) {
+  dynamic peekVariableValue(final String key, final dynamic defaultValue) {
     checkReady(true);
 
     final Assignment? assignment = getVariableAssignment(key);
@@ -309,8 +310,8 @@ class Context {
     achievement.name = goalName;
     achievement.properties = properties;
 
-      pendingCount_++;
-      achievements_.add(achievement);
+    pendingCount_++;
+    achievements_.add(achievement);
 
     logEvent(EventType.Goal, achievement);
 
@@ -353,7 +354,7 @@ class Context {
     return Future.value();
   }
 
-  Future<void> finalize() async {
+  Future<void> close() async {
     if (!closed_) {
       if (closing_ == false) {
         closing_ = true;
@@ -399,21 +400,21 @@ class Context {
         List<GoalAchievement>? achievements;
         int eventCount;
 
-          eventCount = pendingCount_;
+        eventCount = pendingCount_;
 
-          if (eventCount > 0) {
-            if (exposures_.isNotEmpty) {
-              exposures = exposures_.toList();
-              exposures_.clear();
-            }
-
-            if (achievements_.isNotEmpty) {
-              achievements = achievements_.toList();
-              achievements_.clear();
-            }
-
-            pendingCount_ = 0;
+        if (eventCount > 0) {
+          if (exposures_.isNotEmpty) {
+            exposures = exposures_.toList();
+            exposures_.clear();
           }
+
+          if (achievements_.isNotEmpty) {
+            achievements = achievements_.toList();
+            achievements_.clear();
+          }
+
+          pendingCount_ = 0;
+        }
 
         if (eventCount > 0) {
           List<Unit> units = [];
@@ -425,8 +426,8 @@ class Context {
           }
 
           units_.forEach((key, value) {
-            units.add(Unit(
-                type: key, uid: utf8.decode(getUnitHash(key, value))));
+            units.add(
+                Unit(type: key, uid: utf8.decode(getUnitHash(key, value))));
           });
 
           final PublishEvent event = PublishEvent(
@@ -454,9 +455,9 @@ class Context {
         }
       }
     } else {
-        exposures_.clear();
-        achievements_.clear();
-        pendingCount_ = 0;
+      exposures_.clear();
+      achievements_.clear();
+      pendingCount_ = 0;
     }
 
     return Future.value();
@@ -464,9 +465,9 @@ class Context {
 
   void checkNotClosed() {
     if (closed_) {
-      throw Exception("ABSmartly Context is finalized");
+      throw Exception("ABSmartly Context is closed");
     } else if (closing_) {
-      throw Exception("ABSmartly Context is finalized");
+      throw Exception("ABSmartly Context is closing");
     }
   }
 
@@ -484,121 +485,127 @@ class Context {
         experiment.unitType == assignment.unitType &&
         experiment.iteration == assignment.iteration &&
         experiment.fullOnVariant == assignment.fullOnVariant &&
-        const ListEquality().equals(experiment.trafficSplit, assignment.trafficSplit);
+        const ListEquality()
+            .equals(experiment.trafficSplit, assignment.trafficSplit);
   }
 
   Assignment getAssignment(final String experimentName) {
-      Assignment? assignment = assignmentCache_[experimentName];
-        final int? custom = cassignments_[experimentName];
-        final int? override = overrides_[experimentName];
-        final ExperimentVariables? experiment = getExperiment(experimentName);
+    Assignment? assignment = assignmentCache_[experimentName];
+    final int? custom = cassignments_[experimentName];
+    final int? override = overrides_[experimentName];
+    final ExperimentVariables? experiment = getExperiment(experimentName);
 
-      if (assignment != null) {
-        if (override != null) {
-          if (assignment.overridden && assignment.variant == override) {
-            // override up-to-date
-            return assignment;
-          }
-        } else if (experiment == null) {
-          if (!assignment.assigned) {
-            // previously not-running experiment
-            return assignment;
-          }
-        } else if ((custom == null) || custom == assignment.variant) {
-          if (experimentMatches(experiment.data, assignment)) {
-            // assignment up-to-date
-            return assignment;
-          }
+    if (assignment != null) {
+      if (override != null) {
+        if (assignment.overridden && assignment.variant == override) {
+          // override up-to-date
+          return assignment;
+        }
+      } else if (experiment == null) {
+        if (!assignment.assigned) {
+          // previously not-running experiment
+          return assignment;
+        }
+      } else if ((custom == null) || custom == assignment.variant) {
+        if (experimentMatches(experiment.data, assignment)) {
+          // assignment up-to-date
+          return assignment;
         }
       }
+    }
 
     // cache miss or out-dated
-      assignment = Assignment();
-      assignment.name = experimentName;
-      assignment.eligible = true;
+    assignment = Assignment();
+    assignment.name = experimentName;
+    assignment.eligible = true;
 
-      if (override != null) {
-        if (experiment != null) {
-          assignment.id = experiment.data.id;
-          assignment.unitType = experiment.data.unitType;
-        }
+    if (override != null) {
+      if (experiment != null) {
+        assignment.id = experiment.data.id;
+        assignment.unitType = experiment.data.unitType;
+      }
 
-        assignment.overridden = true;
-        assignment.variant = override;
-      } else {
-        if (experiment != null) {
-          final String unitType = experiment.data.unitType;
+      assignment.overridden = true;
+      assignment.variant = override;
+    } else {
+      if (experiment != null) {
+        final String unitType = experiment.data.unitType;
 
-          if (experiment.data.audience != null && experiment.data.audience!.isNotEmpty) {
-            final Map<String, dynamic> attrs = {};
-            for (final Attribute attr in attributes_) {
-              attrs[attr.name] = attr.value;
-            }
-
-            final Result? match = audienceMatcher_.evaluate(experiment.data.audience!, attrs);
-            if (match != null) {
-              assignment.audienceMismatch = !match.get();
-            }
+        if (experiment.data.audience != null &&
+            experiment.data.audience!.isNotEmpty) {
+          final Map<String, dynamic> attrs = {};
+          for (final Attribute attr in attributes_) {
+            attrs[attr.name] = attr.value;
           }
 
-          if (experiment.data.audienceStrict && assignment.audienceMismatch) {
-            assignment.variant = 0;
-          } else if (experiment.data.fullOnVariant == 0) {
-            final String? uid = units_[experiment.data.unitType];
-            if (uid != null) {
-              final Uint8List unitHash = getUnitHash(unitType, uid);
+          final Result? match =
+              audienceMatcher_.evaluate(experiment.data.audience!, attrs);
+          if (match != null) {
+            assignment.audienceMismatch = !match.get();
+          }
+        }
 
-              final VariantAssigner assigner = getVariantAssigner(unitType, unitHash);
+        if (experiment.data.audienceStrict && assignment.audienceMismatch) {
+          assignment.variant = 0;
+        } else if (experiment.data.fullOnVariant == 0) {
+          final String? uid = units_[experiment.data.unitType];
+          if (uid != null) {
+            final Uint8List unitHash = getUnitHash(unitType, uid);
 
-              final bool eligible = assigner.assign(
-                      experiment.data.trafficSplit,
-                      experiment.data.trafficSeedHi,
-                      experiment.data.trafficSeedLo) ==
-                  1;
-              if (eligible) {
-                if (custom != null) {
-                  assignment.variant = custom;
-                  assignment.custom = true;
-                } else {
-                  assignment.variant = assigner.assign(experiment.data.split,
-                      experiment.data.seedHi, experiment.data.seedLo);
-                }
+            final VariantAssigner assigner =
+                getVariantAssigner(unitType, unitHash);
+
+            final bool eligible = assigner.assign(
+                    experiment.data.trafficSplit,
+                    experiment.data.trafficSeedHi,
+                    experiment.data.trafficSeedLo) ==
+                1;
+            if (eligible) {
+              if (custom != null) {
+                assignment.variant = custom;
+                assignment.custom = true;
               } else {
-                assignment.eligible = false;
-                assignment.variant = 0;
+                assignment.variant = assigner.assign(experiment.data.split,
+                    experiment.data.seedHi, experiment.data.seedLo);
               }
-              assignment.assigned = true;
+            } else {
+              assignment.eligible = false;
+              assignment.variant = 0;
             }
-          } else {
             assignment.assigned = true;
-            assignment.variant = experiment.data.fullOnVariant;
-            assignment.fullOn = true;
           }
-
-          assignment.unitType = unitType;
-          assignment.id = experiment.data.id;
-          assignment.iteration = experiment.data.iteration;
-          assignment.trafficSplit = experiment.data.trafficSplit;
-          assignment.fullOnVariant = experiment.data.fullOnVariant;
+        } else {
+          assignment.assigned = true;
+          assignment.variant = experiment.data.fullOnVariant;
+          assignment.fullOn = true;
         }
+
+        assignment.unitType = unitType;
+        assignment.id = experiment.data.id;
+        assignment.iteration = experiment.data.iteration;
+        assignment.trafficSplit = experiment.data.trafficSplit;
+        assignment.fullOnVariant = experiment.data.fullOnVariant;
       }
+    }
 
-      if ((experiment != null) &&
-          (assignment.variant < experiment.data.variants.length)) {
-        assignment.variables = experiment.variables[assignment.variant] ?? {};
-      }
+    if ((experiment != null) &&
+        (assignment.variant < experiment.data.variants.length)) {
+      assignment.variables = experiment.variables[assignment.variant] ?? {};
+    }
 
-      assignmentCache_[experimentName] = assignment;
+    assignmentCache_[experimentName] = assignment;
 
-      return assignment;
+    return assignment;
   }
 
   Assignment? getVariableAssignment(final String key) {
-    final List<ExperimentVariables>? keyExperimentVariables = getVariableExperiments(key);
+    final List<ExperimentVariables>? keyExperimentVariables =
+        getVariableExperiments(key);
 
     if (keyExperimentVariables != null) {
       for (ExperimentVariables experimentVariables in keyExperimentVariables) {
-        final Assignment assignment = getAssignment(experimentVariables.data.name);
+        final Assignment assignment =
+            getAssignment(experimentVariables.data.name);
         if (assignment.assigned || assignment.overridden) {
           return assignment;
         }
@@ -608,7 +615,7 @@ class Context {
   }
 
   ExperimentVariables? getExperiment(final String experimentName) {
-      return index_[experimentName];
+    return index_[experimentName];
   }
 
   List<ExperimentVariables>? getVariableExperiments(final String key) {
@@ -616,32 +623,35 @@ class Context {
   }
 
   Uint8List getUnitHash(final String unitType, final String unitUID) {
-    return hashedUnits_[unitType] ?? (hashedUnits_[unitType] = Hashing.hashUnit(unitUID));
+    return hashedUnits_[unitType] ??
+        (hashedUnits_[unitType] = Hashing.hashUnit(unitUID));
   }
 
-  VariantAssigner getVariantAssigner(final String unitType, final Uint8List unitHash) {
-    return assigners_[unitType] ?? (assigners_[unitType] = VariantAssigner(unitHash));
+  VariantAssigner getVariantAssigner(
+      final String unitType, final Uint8List unitHash) {
+    return assigners_[unitType] ??
+        (assigners_[unitType] = VariantAssigner(unitHash));
   }
 
   void setTimeout() {
     if (isReady()) {
       timeout_ ??= Timer(Duration(milliseconds: publishDelay_), () {
-          flush();
-        });
+        flush();
+      });
     }
   }
 
   void clearTimeout() {
     if (timeout_ != null) {
-          timeout_!.cancel();
-          timeout_ = null;
+      timeout_!.cancel();
+      timeout_ = null;
     }
   }
 
   void setRefreshTimer() {
     if ((refreshInterval_ > 0) && (refreshTimer_ == null)) {
-      refreshTimer_ = Timer.periodic(
-          Duration(milliseconds: refreshInterval_), (timer) {
+      refreshTimer_ =
+          Timer.periodic(Duration(milliseconds: refreshInterval_), (timer) {
         refresh();
       });
     }
@@ -661,30 +671,32 @@ class Context {
     for (Experiment experiment in data.experiments) {
       final ExperimentVariables experimentVariables = ExperimentVariables();
       experimentVariables.data = experiment;
-        for (ExperimentVariant variant in experiment.variants) {
-          if ((variant.config != null) && variant.config!.isNotEmpty) {
-            final Map<String, dynamic>? variables = variableParser_.parse(this, experiment.name, variant.name, variant.config!);
+      for (ExperimentVariant variant in experiment.variants) {
+        if ((variant.config != null) && variant.config!.isNotEmpty) {
+          final Map<String, dynamic>? variables = variableParser_.parse(
+              this, experiment.name, variant.name, variant.config!);
 
-            variables?.forEach((key, value) {
-              List<ExperimentVariables>? keyExperimentVariables = indexVariables[key];
-              if (keyExperimentVariables == null) {
-                keyExperimentVariables = [];
-                indexVariables[key] = keyExperimentVariables;
-              }
+          variables?.forEach((key, value) {
+            List<ExperimentVariables>? keyExperimentVariables =
+                indexVariables[key];
+            if (keyExperimentVariables == null) {
+              keyExperimentVariables = [];
+              indexVariables[key] = keyExperimentVariables;
+            }
 
-              int at = keyExperimentVariables.indexOf(experimentVariables);
+            int at = keyExperimentVariables.indexOf(experimentVariables);
 
-              if (at < 0) {
-                at = -at - 1;
-                keyExperimentVariables.insert(at, experimentVariables);
-              }
-            });
+            if (at < 0) {
+              at = -at - 1;
+              keyExperimentVariables.insert(at, experimentVariables);
+            }
+          });
 
-            experimentVariables.variables.add(variables);
-          } else {
-            experimentVariables.variables.add({});
-          }
+          experimentVariables.variables.add(variables);
+        } else {
+          experimentVariables.variables.add({});
         }
+      }
 
       index[experiment.name] = experimentVariables;
     }
@@ -696,10 +708,10 @@ class Context {
   }
 
   void setDataFailed(exception) {
-      index_ = {};
-      indexVariables_ = {};
-      data_ = ContextData();
-      failed_ = true;
+    index_ = {};
+    indexVariables_ = {};
+    data_ = ContextData();
+    failed_ = true;
   }
 
   void logEvent(EventType event, dynamic data) {
@@ -723,7 +735,7 @@ class Context {
   ContextData? data_;
   Map<String, ExperimentVariables> index_ = {};
   Map<String, List<ExperimentVariables>> indexVariables_ = {};
-  
+
   final Map<String, Uint8List> hashedUnits_ = {};
   final Map<String, VariantAssigner> assigners_ = {};
   final Map<String, Assignment> assignmentCache_ = {};
