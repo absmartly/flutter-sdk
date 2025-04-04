@@ -16,6 +16,8 @@ import 'ab_smartly_test.mocks.dart';
 
 @GenerateNiceMocks([
   MockSpec<Client>(),
+  MockSpec<DefaultContextDataProvider>(),
+  MockSpec<Context>(),
 ])
 void main() {
   group('ABSmartly', () {
@@ -36,14 +38,46 @@ void main() {
     test('createThrowsWithInvalidConfig', () {
       expect(() {
         final config = ABSmartlyConfig.create();
-        final absmartly = ABSmartly(config);
+        final _ = ABSmartly(config);
       },
           throwsA(const TypeMatcher<Exception>().having((e) => e.toString(),
               'message', contains('Exception: Missing Client instance'))));
     });
 
+    test('createContext', () async {
+      final config = ABSmartlyConfig.create().setClient(client);
+
+      final dataFuture = Completer<ContextData>();
+      final contextData = ContextData();
+
+      final mockDataProvider = MockDefaultContextDataProvider();
+      when(mockDataProvider.getContextData()).thenReturn(dataFuture);
+
+      final absmartly = ABSmartly(config);
+
+      absmartly.contextDataProvider_ = mockDataProvider;
+
+      final contextConfig = ContextConfig.create()
+        ..setUnit('user_id', '1234567');
+
+      final context = absmartly.createContext(contextConfig);
+
+      dataFuture.complete(contextData);
+
+      expect(context, isA<Context>());
+
+      verify(mockDataProvider.getContextData()).called(1);
+
+      expect(absmartly.contextDataProvider_, isA<DefaultContextDataProvider>());
+      expect(absmartly.contextEventHandler_, isA<DefaultContextEventHandler>());
+
+      await context.waitUntilReady();
+
+      expect(context.getUnit('user_id'), equals('1234567'));
+      expect(context.getData(), equals(contextData));
+    });
+
     test('ABSmartly createContext returns a valid Context object', () async {
-      // final config = ABSmartlyConfig().setClient(client);
       final abSmartly = ABSmartly(config);
       final contextConfig = ContextConfig();
       final context = abSmartly.createContext(contextConfig);
@@ -70,55 +104,21 @@ void main() {
       final abSmartly = ABSmartly(config);
       final contextConfig = ContextConfig();
       final context = abSmartly.createContext(contextConfig);
+
+      final contxtDataFuture = Completer<ContextData>();
+      contxtDataFuture.complete(ContextData());
+
+      when(client.getContextData()).thenReturn(contxtDataFuture);
       expect(context, isA<Context>());
     });
 
     test('ABSmartly createContextWith returns a valid Context object',
         () async {
-      final schedulerCaptor = Timer(const Duration(seconds: 1), () {});
-      config.setScheduler(schedulerCaptor);
       final abSmartly = ABSmartly(config);
       final contextConfig = ContextConfig();
       final contextData = ContextData();
       final context = abSmartly.createContextWith(contextConfig, contextData);
       expect(context, isA<Context>());
-    });
-
-    test('ABSmartly close sets client_ and scheduler_ variables to null',
-        () async {
-      // final config = ABSmartlyConfig();
-      final abSmartly = ABSmartly(config);
-      await abSmartly.close();
-      expect(abSmartly.client_, isNull);
-      expect(abSmartly.scheduler_, isNull);
-    });
-
-    test('ABSmartly close calls close() method of client_ object', () async {
-      final mockClient = MockClient();
-      config.setClient(mockClient);
-      final abSmartly = ABSmartly(config);
-      await abSmartly.close();
-      verify(mockClient.close()).called(1);
-    });
-
-    test(
-        'ABSmartly close waits for scheduler_ to complete tasks before setting it to null',
-        () async {
-      // final config = ABSmartlyConfig();
-      final abSmartly = ABSmartly(config);
-      abSmartly.scheduleTask();
-      await abSmartly.close();
-      expect(abSmartly.scheduler_, isNull);
-    });
-
-    test(
-        'ABSmartly scheduleTask sets scheduler_ variable to Timer object with duration of 5 seconds',
-        () {
-      // final config = ABSmartlyConfig();
-      final schedulerCaptor = Timer(const Duration(seconds: 5), () {});
-      final abSmartly = ABSmartly(config);
-      abSmartly.scheduleTask();
-      expect(abSmartly.scheduler_, isA<Timer>());
     });
   });
 }

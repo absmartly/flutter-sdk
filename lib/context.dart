@@ -32,7 +32,7 @@ class Context {
       final ContextEventHandler eventHandler,
       final VariableParser variableParser,
       AudienceMatcher audienceMatcher,
-      ContextEventLogger eventLogger) {
+      ContextEventLogger? eventLogger) {
     return Context(clock, config, dataFuture, dataProvider, eventHandler,
         variableParser, audienceMatcher, eventLogger);
   }
@@ -45,7 +45,7 @@ class Context {
       ContextEventHandler eventHandler,
       VariableParser variableParser,
       AudienceMatcher audienceMatcher,
-      ContextEventLogger eventLogger) {
+      ContextEventLogger? eventLogger) {
     clock_ = clock;
 
     publishDelay_ = config.getPublishDelay();
@@ -715,11 +715,11 @@ class Context {
   }
 
   void logEvent(EventType event, dynamic data) {
-    eventLogger_.handleEvent(this, event, data);
+    eventLogger_?.handleEvent(this, event, data);
   }
 
   void logError(error) {
-    eventLogger_.handleEvent(this, EventType.Error, error);
+    eventLogger_?.handleEvent(this, EventType.Error, error);
   }
 
   late Clock clock_;
@@ -729,7 +729,7 @@ class Context {
   late ContextDataProvider dataProvider_;
   late VariableParser variableParser_;
   late AudienceMatcher audienceMatcher_;
-  late ContextEventLogger eventLogger_;
+  late ContextEventLogger? eventLogger_;
   final Map<String, String> units_ = {};
   bool failed_ = false;
   ContextData? data_;

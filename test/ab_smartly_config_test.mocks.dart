@@ -5,18 +5,19 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _i2;
 
-import 'package:absmartly_sdk/client.dart' as _i10;
+import 'package:absmartly_sdk/client.dart' as _i11;
 import 'package:absmartly_sdk/context.dart' as _i7;
-import 'package:absmartly_sdk/context_data_deserializer.dart' as _i12;
+import 'package:absmartly_sdk/context_data_deserializer.dart' as _i13;
 import 'package:absmartly_sdk/context_data_provider.dart' as _i4;
 import 'package:absmartly_sdk/context_event_handler.dart' as _i6;
-import 'package:absmartly_sdk/context_event_serializer.dart' as _i13;
+import 'package:absmartly_sdk/context_event_logger.dart' as _i9;
+import 'package:absmartly_sdk/context_event_serializer.dart' as _i14;
 import 'package:absmartly_sdk/http_client.dart' as _i3;
 import 'package:absmartly_sdk/json/context_data.dart' as _i5;
 import 'package:absmartly_sdk/json/publish_event.dart' as _i8;
-import 'package:absmartly_sdk/variable_parser.dart' as _i9;
+import 'package:absmartly_sdk/variable_parser.dart' as _i10;
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:mockito/src/dummies.dart' as _i11;
+import 'package:mockito/src/dummies.dart' as _i12;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -84,10 +85,23 @@ class MockContextEventHandler extends _i1.Mock
           as _i2.Completer<void>);
 }
 
+/// A class which mocks [ContextEventLogger].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockContextEventLogger extends _i1.Mock
+    implements _i9.ContextEventLogger {
+  @override
+  void handleEvent(_i7.Context? context, _i9.EventType? type, dynamic data) =>
+      super.noSuchMethod(
+        Invocation.method(#handleEvent, [context, type, data]),
+        returnValueForMissingStub: null,
+      );
+}
+
 /// A class which mocks [VariableParser].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockVariableParser extends _i1.Mock implements _i9.VariableParser {
+class MockVariableParser extends _i1.Mock implements _i10.VariableParser {
   @override
   Map<String, dynamic>? parse(
     _i7.Context? context,
@@ -110,16 +124,16 @@ class MockVariableParser extends _i1.Mock implements _i9.VariableParser {
 /// A class which mocks [Client].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockClient extends _i1.Mock implements _i10.Client {
+class MockClient extends _i1.Mock implements _i11.Client {
   @override
   String get url_ =>
       (super.noSuchMethod(
             Invocation.getter(#url_),
-            returnValue: _i11.dummyValue<String>(
+            returnValue: _i12.dummyValue<String>(
               this,
               Invocation.getter(#url_),
             ),
-            returnValueForMissingStub: _i11.dummyValue<String>(
+            returnValueForMissingStub: _i12.dummyValue<String>(
               this,
               Invocation.getter(#url_),
             ),
@@ -184,14 +198,14 @@ class MockClient extends _i1.Mock implements _i10.Client {
   );
 
   @override
-  set deserializer_(_i12.ContextDataDeserializer? _deserializer_) =>
+  set deserializer_(_i13.ContextDataDeserializer? _deserializer_) =>
       super.noSuchMethod(
         Invocation.setter(#deserializer_, _deserializer_),
         returnValueForMissingStub: null,
       );
 
   @override
-  set serializer_(_i13.ContextEventSerializer? _serializer_) =>
+  set serializer_(_i14.ContextEventSerializer? _serializer_) =>
       super.noSuchMethod(
         Invocation.setter(#serializer_, _serializer_),
         returnValueForMissingStub: null,
