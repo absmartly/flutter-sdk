@@ -3,22 +3,22 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i12;
+import 'dart:async' as _i11;
 import 'dart:typed_data' as _i13;
 
 import 'package:absmartly_sdk/audience_matcher.dart' as _i6;
 import 'package:absmartly_sdk/client.dart' as _i18;
-import 'package:absmartly_sdk/context.dart' as _i8;
+import 'package:absmartly_sdk/context.dart' as _i7;
 import 'package:absmartly_sdk/context_data_deserializer.dart' as _i20;
 import 'package:absmartly_sdk/context_data_provider.dart' as _i4;
 import 'package:absmartly_sdk/context_event_handler.dart' as _i3;
-import 'package:absmartly_sdk/context_event_logger.dart' as _i7;
+import 'package:absmartly_sdk/context_event_logger.dart' as _i12;
 import 'package:absmartly_sdk/context_event_serializer.dart' as _i21;
-import 'package:absmartly_sdk/http_client.dart' as _i11;
-import 'package:absmartly_sdk/internal/variant_assigner.dart' as _i10;
+import 'package:absmartly_sdk/http_client.dart' as _i10;
+import 'package:absmartly_sdk/internal/variant_assigner.dart' as _i9;
 import 'package:absmartly_sdk/java/time/clock.dart' as _i2;
 import 'package:absmartly_sdk/json/attribute.dart' as _i16;
-import 'package:absmartly_sdk/json/context_data.dart' as _i9;
+import 'package:absmartly_sdk/json/context_data.dart' as _i8;
 import 'package:absmartly_sdk/json/experiment.dart' as _i17;
 import 'package:absmartly_sdk/json/exposure.dart' as _i14;
 import 'package:absmartly_sdk/json/goal_achievement.dart' as _i15;
@@ -70,47 +70,41 @@ class _FakeAudienceMatcher_4 extends _i1.SmartFake
     : super(parent, parentInvocation);
 }
 
-class _FakeContextEventLogger_5 extends _i1.SmartFake
-    implements _i7.ContextEventLogger {
-  _FakeContextEventLogger_5(Object parent, Invocation parentInvocation)
+class _FakeContext_5 extends _i1.SmartFake implements _i7.Context {
+  _FakeContext_5(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeContext_6 extends _i1.SmartFake implements _i8.Context {
-  _FakeContext_6(Object parent, Invocation parentInvocation)
+class _FakeContextData_6 extends _i1.SmartFake implements _i8.ContextData {
+  _FakeContextData_6(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeContextData_7 extends _i1.SmartFake implements _i9.ContextData {
-  _FakeContextData_7(Object parent, Invocation parentInvocation)
+class _FakeAssignment_7 extends _i1.SmartFake implements _i7.Assignment {
+  _FakeAssignment_7(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeAssignment_8 extends _i1.SmartFake implements _i8.Assignment {
-  _FakeAssignment_8(Object parent, Invocation parentInvocation)
+class _FakeVariantAssigner_8 extends _i1.SmartFake
+    implements _i9.VariantAssigner {
+  _FakeVariantAssigner_8(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeVariantAssigner_9 extends _i1.SmartFake
-    implements _i10.VariantAssigner {
-  _FakeVariantAssigner_9(Object parent, Invocation parentInvocation)
+class _FakeHTTPClient_9 extends _i1.SmartFake implements _i10.HTTPClient {
+  _FakeHTTPClient_9(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeHTTPClient_10 extends _i1.SmartFake implements _i11.HTTPClient {
-  _FakeHTTPClient_10(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
-}
-
-class _FakeCompleter_11<T> extends _i1.SmartFake implements _i12.Completer<T> {
-  _FakeCompleter_11(Object parent, Invocation parentInvocation)
+class _FakeCompleter_10<T> extends _i1.SmartFake implements _i11.Completer<T> {
+  _FakeCompleter_10(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
 /// A class which mocks [Context].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockContext extends _i1.Mock implements _i8.Context {
+class MockContext extends _i1.Mock implements _i7.Context {
   @override
   _i2.Clock get clock_ =>
       (super.noSuchMethod(
@@ -248,25 +242,11 @@ class MockContext extends _i1.Mock implements _i8.Context {
       );
 
   @override
-  _i7.ContextEventLogger get eventLogger_ =>
-      (super.noSuchMethod(
-            Invocation.getter(#eventLogger_),
-            returnValue: _FakeContextEventLogger_5(
-              this,
-              Invocation.getter(#eventLogger_),
-            ),
-            returnValueForMissingStub: _FakeContextEventLogger_5(
-              this,
-              Invocation.getter(#eventLogger_),
-            ),
-          )
-          as _i7.ContextEventLogger);
-
-  @override
-  set eventLogger_(_i7.ContextEventLogger? _eventLogger_) => super.noSuchMethod(
-    Invocation.setter(#eventLogger_, _eventLogger_),
-    returnValueForMissingStub: null,
-  );
+  set eventLogger_(_i12.ContextEventLogger? _eventLogger_) =>
+      super.noSuchMethod(
+        Invocation.setter(#eventLogger_, _eventLogger_),
+        returnValueForMissingStub: null,
+      );
 
   @override
   Map<String, String> get units_ =>
@@ -293,40 +273,40 @@ class MockContext extends _i1.Mock implements _i8.Context {
   );
 
   @override
-  set data_(_i9.ContextData? _data_) => super.noSuchMethod(
+  set data_(_i8.ContextData? _data_) => super.noSuchMethod(
     Invocation.setter(#data_, _data_),
     returnValueForMissingStub: null,
   );
 
   @override
-  Map<String, _i8.ExperimentVariables> get index_ =>
+  Map<String, _i7.ExperimentVariables> get index_ =>
       (super.noSuchMethod(
             Invocation.getter(#index_),
-            returnValue: <String, _i8.ExperimentVariables>{},
-            returnValueForMissingStub: <String, _i8.ExperimentVariables>{},
+            returnValue: <String, _i7.ExperimentVariables>{},
+            returnValueForMissingStub: <String, _i7.ExperimentVariables>{},
           )
-          as Map<String, _i8.ExperimentVariables>);
+          as Map<String, _i7.ExperimentVariables>);
 
   @override
-  set index_(Map<String, _i8.ExperimentVariables>? _index_) =>
+  set index_(Map<String, _i7.ExperimentVariables>? _index_) =>
       super.noSuchMethod(
         Invocation.setter(#index_, _index_),
         returnValueForMissingStub: null,
       );
 
   @override
-  Map<String, List<_i8.ExperimentVariables>> get indexVariables_ =>
+  Map<String, List<_i7.ExperimentVariables>> get indexVariables_ =>
       (super.noSuchMethod(
             Invocation.getter(#indexVariables_),
-            returnValue: <String, List<_i8.ExperimentVariables>>{},
+            returnValue: <String, List<_i7.ExperimentVariables>>{},
             returnValueForMissingStub:
-                <String, List<_i8.ExperimentVariables>>{},
+                <String, List<_i7.ExperimentVariables>>{},
           )
-          as Map<String, List<_i8.ExperimentVariables>>);
+          as Map<String, List<_i7.ExperimentVariables>>);
 
   @override
   set indexVariables_(
-    Map<String, List<_i8.ExperimentVariables>>? _indexVariables_,
+    Map<String, List<_i7.ExperimentVariables>>? _indexVariables_,
   ) => super.noSuchMethod(
     Invocation.setter(#indexVariables_, _indexVariables_),
     returnValueForMissingStub: null,
@@ -342,22 +322,22 @@ class MockContext extends _i1.Mock implements _i8.Context {
           as Map<String, _i13.Uint8List>);
 
   @override
-  Map<String, _i10.VariantAssigner> get assigners_ =>
+  Map<String, _i9.VariantAssigner> get assigners_ =>
       (super.noSuchMethod(
             Invocation.getter(#assigners_),
-            returnValue: <String, _i10.VariantAssigner>{},
-            returnValueForMissingStub: <String, _i10.VariantAssigner>{},
+            returnValue: <String, _i9.VariantAssigner>{},
+            returnValueForMissingStub: <String, _i9.VariantAssigner>{},
           )
-          as Map<String, _i10.VariantAssigner>);
+          as Map<String, _i9.VariantAssigner>);
 
   @override
-  Map<String, _i8.Assignment> get assignmentCache_ =>
+  Map<String, _i7.Assignment> get assignmentCache_ =>
       (super.noSuchMethod(
             Invocation.getter(#assignmentCache_),
-            returnValue: <String, _i8.Assignment>{},
-            returnValueForMissingStub: <String, _i8.Assignment>{},
+            returnValue: <String, _i7.Assignment>{},
+            returnValueForMissingStub: <String, _i7.Assignment>{},
           )
-          as Map<String, _i8.Assignment>);
+          as Map<String, _i7.Assignment>);
 
   @override
   List<_i14.Exposure> get exposures_ =>
@@ -465,39 +445,39 @@ class MockContext extends _i1.Mock implements _i8.Context {
   );
 
   @override
-  set readyFuture_(_i12.Completer<void>? _readyFuture_) => super.noSuchMethod(
+  set readyFuture_(_i11.Completer<void>? _readyFuture_) => super.noSuchMethod(
     Invocation.setter(#readyFuture_, _readyFuture_),
     returnValueForMissingStub: null,
   );
 
   @override
-  set closingFuture_(_i12.Completer<void>? _closingFuture_) =>
+  set closingFuture_(_i11.Completer<void>? _closingFuture_) =>
       super.noSuchMethod(
         Invocation.setter(#closingFuture_, _closingFuture_),
         returnValueForMissingStub: null,
       );
 
   @override
-  set refreshFuture_(_i12.Completer<void>? _refreshFuture_) =>
+  set refreshFuture_(_i11.Completer<void>? _refreshFuture_) =>
       super.noSuchMethod(
         Invocation.setter(#refreshFuture_, _refreshFuture_),
         returnValueForMissingStub: null,
       );
 
   @override
-  set timeout_(_i12.Timer? _timeout_) => super.noSuchMethod(
+  set timeout_(_i11.Timer? _timeout_) => super.noSuchMethod(
     Invocation.setter(#timeout_, _timeout_),
     returnValueForMissingStub: null,
   );
 
   @override
-  set refreshTimer_(_i12.Timer? _refreshTimer_) => super.noSuchMethod(
+  set refreshTimer_(_i11.Timer? _refreshTimer_) => super.noSuchMethod(
     Invocation.setter(#refreshTimer_, _refreshTimer_),
     returnValueForMissingStub: null,
   );
 
   @override
-  set scheduler_(_i12.Timer? _scheduler_) => super.noSuchMethod(
+  set scheduler_(_i11.Timer? _scheduler_) => super.noSuchMethod(
     Invocation.setter(#scheduler_, _scheduler_),
     returnValueForMissingStub: null,
   );
@@ -539,17 +519,17 @@ class MockContext extends _i1.Mock implements _i8.Context {
           as bool);
 
   @override
-  _i12.Future<_i8.Context> waitUntilReady() =>
+  _i11.Future<_i7.Context> waitUntilReady() =>
       (super.noSuchMethod(
             Invocation.method(#waitUntilReady, []),
-            returnValue: _i12.Future<_i8.Context>.value(
-              _FakeContext_6(this, Invocation.method(#waitUntilReady, [])),
+            returnValue: _i11.Future<_i7.Context>.value(
+              _FakeContext_5(this, Invocation.method(#waitUntilReady, [])),
             ),
-            returnValueForMissingStub: _i12.Future<_i8.Context>.value(
-              _FakeContext_6(this, Invocation.method(#waitUntilReady, [])),
+            returnValueForMissingStub: _i11.Future<_i7.Context>.value(
+              _FakeContext_5(this, Invocation.method(#waitUntilReady, [])),
             ),
           )
-          as _i12.Future<_i8.Context>);
+          as _i11.Future<_i7.Context>);
 
   @override
   List<String> getExperiments() =>
@@ -561,19 +541,19 @@ class MockContext extends _i1.Mock implements _i8.Context {
           as List<String>);
 
   @override
-  _i9.ContextData getData() =>
+  _i8.ContextData getData() =>
       (super.noSuchMethod(
             Invocation.method(#getData, []),
-            returnValue: _FakeContextData_7(
+            returnValue: _FakeContextData_6(
               this,
               Invocation.method(#getData, []),
             ),
-            returnValueForMissingStub: _FakeContextData_7(
+            returnValueForMissingStub: _FakeContextData_6(
               this,
               Invocation.method(#getData, []),
             ),
           )
-          as _i9.ContextData);
+          as _i8.ContextData);
 
   @override
   void setOverride(String? experimentName, int? variant) => super.noSuchMethod(
@@ -683,7 +663,7 @@ class MockContext extends _i1.Mock implements _i8.Context {
           as int);
 
   @override
-  void queueExposure(_i8.Assignment? assignment) => super.noSuchMethod(
+  void queueExposure(_i7.Assignment? assignment) => super.noSuchMethod(
     Invocation.method(#queueExposure, [assignment]),
     returnValueForMissingStub: null,
   );
@@ -728,13 +708,13 @@ class MockContext extends _i1.Mock implements _i8.Context {
       );
 
   @override
-  _i12.Future<void> publish() =>
+  _i11.Future<void> publish() =>
       (super.noSuchMethod(
             Invocation.method(#publish, []),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i11.Future<void>.value(),
+            returnValueForMissingStub: _i11.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i11.Future<void>);
 
   @override
   int getPendingCount() =>
@@ -746,31 +726,31 @@ class MockContext extends _i1.Mock implements _i8.Context {
           as int);
 
   @override
-  _i12.Future<void> refresh() =>
+  _i11.Future<void> refresh() =>
       (super.noSuchMethod(
             Invocation.method(#refresh, []),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i11.Future<void>.value(),
+            returnValueForMissingStub: _i11.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i11.Future<void>);
 
   @override
-  _i12.Future<void> close() =>
+  _i11.Future<void> close() =>
       (super.noSuchMethod(
             Invocation.method(#close, []),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i11.Future<void>.value(),
+            returnValueForMissingStub: _i11.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i11.Future<void>);
 
   @override
-  _i12.Future<void> flush() =>
+  _i11.Future<void> flush() =>
       (super.noSuchMethod(
             Invocation.method(#flush, []),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i11.Future<void>.value(),
+            returnValueForMissingStub: _i11.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i11.Future<void>);
 
   @override
   void checkNotClosed() => super.noSuchMethod(
@@ -787,7 +767,7 @@ class MockContext extends _i1.Mock implements _i8.Context {
   @override
   bool experimentMatches(
     _i17.Experiment? experiment,
-    _i8.Assignment? assignment,
+    _i7.Assignment? assignment,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#experimentMatches, [experiment, assignment]),
@@ -797,43 +777,43 @@ class MockContext extends _i1.Mock implements _i8.Context {
           as bool);
 
   @override
-  _i8.Assignment getAssignment(String? experimentName) =>
+  _i7.Assignment getAssignment(String? experimentName) =>
       (super.noSuchMethod(
             Invocation.method(#getAssignment, [experimentName]),
-            returnValue: _FakeAssignment_8(
+            returnValue: _FakeAssignment_7(
               this,
               Invocation.method(#getAssignment, [experimentName]),
             ),
-            returnValueForMissingStub: _FakeAssignment_8(
+            returnValueForMissingStub: _FakeAssignment_7(
               this,
               Invocation.method(#getAssignment, [experimentName]),
             ),
           )
-          as _i8.Assignment);
+          as _i7.Assignment);
 
   @override
-  _i8.Assignment? getVariableAssignment(String? key) =>
+  _i7.Assignment? getVariableAssignment(String? key) =>
       (super.noSuchMethod(
             Invocation.method(#getVariableAssignment, [key]),
             returnValueForMissingStub: null,
           )
-          as _i8.Assignment?);
+          as _i7.Assignment?);
 
   @override
-  _i8.ExperimentVariables? getExperiment(String? experimentName) =>
+  _i7.ExperimentVariables? getExperiment(String? experimentName) =>
       (super.noSuchMethod(
             Invocation.method(#getExperiment, [experimentName]),
             returnValueForMissingStub: null,
           )
-          as _i8.ExperimentVariables?);
+          as _i7.ExperimentVariables?);
 
   @override
-  List<_i8.ExperimentVariables>? getVariableExperiments(String? key) =>
+  List<_i7.ExperimentVariables>? getVariableExperiments(String? key) =>
       (super.noSuchMethod(
             Invocation.method(#getVariableExperiments, [key]),
             returnValueForMissingStub: null,
           )
-          as List<_i8.ExperimentVariables>?);
+          as List<_i7.ExperimentVariables>?);
 
   @override
   _i13.Uint8List getUnitHash(String? unitType, String? unitUID) =>
@@ -845,22 +825,22 @@ class MockContext extends _i1.Mock implements _i8.Context {
           as _i13.Uint8List);
 
   @override
-  _i10.VariantAssigner getVariantAssigner(
+  _i9.VariantAssigner getVariantAssigner(
     String? unitType,
     _i13.Uint8List? unitHash,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#getVariantAssigner, [unitType, unitHash]),
-            returnValue: _FakeVariantAssigner_9(
+            returnValue: _FakeVariantAssigner_8(
               this,
               Invocation.method(#getVariantAssigner, [unitType, unitHash]),
             ),
-            returnValueForMissingStub: _FakeVariantAssigner_9(
+            returnValueForMissingStub: _FakeVariantAssigner_8(
               this,
               Invocation.method(#getVariantAssigner, [unitType, unitHash]),
             ),
           )
-          as _i10.VariantAssigner);
+          as _i9.VariantAssigner);
 
   @override
   void setTimeout() => super.noSuchMethod(
@@ -887,7 +867,7 @@ class MockContext extends _i1.Mock implements _i8.Context {
   );
 
   @override
-  void setData(_i9.ContextData? data) => super.noSuchMethod(
+  void setData(_i8.ContextData? data) => super.noSuchMethod(
     Invocation.method(#setData, [data]),
     returnValueForMissingStub: null,
   );
@@ -899,7 +879,7 @@ class MockContext extends _i1.Mock implements _i8.Context {
   );
 
   @override
-  void logEvent(_i7.EventType? event, dynamic data) => super.noSuchMethod(
+  void logEvent(_i12.EventType? event, dynamic data) => super.noSuchMethod(
     Invocation.method(#logEvent, [event, data]),
     returnValueForMissingStub: null,
   );
@@ -967,22 +947,22 @@ class MockClient extends _i1.Mock implements _i18.Client {
   );
 
   @override
-  _i11.HTTPClient get httpClient_ =>
+  _i10.HTTPClient get httpClient_ =>
       (super.noSuchMethod(
             Invocation.getter(#httpClient_),
-            returnValue: _FakeHTTPClient_10(
+            returnValue: _FakeHTTPClient_9(
               this,
               Invocation.getter(#httpClient_),
             ),
-            returnValueForMissingStub: _FakeHTTPClient_10(
+            returnValueForMissingStub: _FakeHTTPClient_9(
               this,
               Invocation.getter(#httpClient_),
             ),
           )
-          as _i11.HTTPClient);
+          as _i10.HTTPClient);
 
   @override
-  set httpClient_(_i11.HTTPClient? _httpClient_) => super.noSuchMethod(
+  set httpClient_(_i10.HTTPClient? _httpClient_) => super.noSuchMethod(
     Invocation.setter(#httpClient_, _httpClient_),
     returnValueForMissingStub: null,
   );
@@ -1002,32 +982,32 @@ class MockClient extends _i1.Mock implements _i18.Client {
       );
 
   @override
-  _i12.Completer<_i9.ContextData> getContextData() =>
+  _i11.Completer<_i8.ContextData> getContextData() =>
       (super.noSuchMethod(
             Invocation.method(#getContextData, []),
-            returnValue: _FakeCompleter_11<_i9.ContextData>(
+            returnValue: _FakeCompleter_10<_i8.ContextData>(
               this,
               Invocation.method(#getContextData, []),
             ),
-            returnValueForMissingStub: _FakeCompleter_11<_i9.ContextData>(
+            returnValueForMissingStub: _FakeCompleter_10<_i8.ContextData>(
               this,
               Invocation.method(#getContextData, []),
             ),
           )
-          as _i12.Completer<_i9.ContextData>);
+          as _i11.Completer<_i8.ContextData>);
 
   @override
-  _i12.Completer<void> publish(_i22.PublishEvent? event) =>
+  _i11.Completer<void> publish(_i22.PublishEvent? event) =>
       (super.noSuchMethod(
             Invocation.method(#publish, [event]),
-            returnValue: _FakeCompleter_11<void>(
+            returnValue: _FakeCompleter_10<void>(
               this,
               Invocation.method(#publish, [event]),
             ),
-            returnValueForMissingStub: _FakeCompleter_11<void>(
+            returnValueForMissingStub: _FakeCompleter_10<void>(
               this,
               Invocation.method(#publish, [event]),
             ),
           )
-          as _i12.Completer<void>);
+          as _i11.Completer<void>);
 }

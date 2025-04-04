@@ -1,6 +1,3 @@
-import 'package:mockito/annotations.dart';
-
-@GenerateNiceMocks([MockSpec<HTTPClient>()])
 abstract class HTTPClient {
   Future<Response> get(
       String url, Map<String, String>? query, Map<String, String>? headers);
@@ -12,7 +9,6 @@ abstract class HTTPClient {
       Map<String, String>? headers, List<int>? body);
 }
 
-@GenerateNiceMocks([MockSpec<Response>()])
 abstract class Response {
   int? getStatusCode();
 

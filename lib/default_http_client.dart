@@ -8,9 +8,6 @@ import 'package:http/http.dart' as http;
 import 'package:absmartly_sdk/http_client.dart';
 import 'default_http_client_config.dart';
 
-import 'package:mockito/annotations.dart';
-
-@GenerateNiceMocks([MockSpec<DefaultHTTPClient>()])
 class DefaultHTTPClient implements HTTPClient {
   factory DefaultHTTPClient.create(final DefaultHTTPClientConfig config) {
     return DefaultHTTPClient(config);
@@ -23,10 +20,7 @@ class DefaultHTTPClient implements HTTPClient {
           ..maxConnectionsPerHost = 20
           ..idleTimeout =
               Duration(milliseconds: config.getConnectionKeepAlive())
-        // ..connectionTimeout = Duration(milliseconds: config.getConnectTimeout())
-        // ..connectionTimeout = Duration(milliseconds: config.getConnectionRequestTimeout()),
         );
-    // http.Client client = ioClient;
   }
 
   @override
