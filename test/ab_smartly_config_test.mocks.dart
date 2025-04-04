@@ -35,12 +35,12 @@ import 'package:mockito/src/dummies.dart' as _i12;
 
 class _FakeCompleter_0<T> extends _i1.SmartFake implements _i2.Completer<T> {
   _FakeCompleter_0(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
+      : super(parent, parentInvocation);
 }
 
 class _FakeHTTPClient_1 extends _i1.SmartFake implements _i3.HTTPClient {
   _FakeHTTPClient_1(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
+      : super(parent, parentInvocation);
 }
 
 /// A class which mocks [ContextDataProvider].
@@ -49,19 +49,17 @@ class _FakeHTTPClient_1 extends _i1.SmartFake implements _i3.HTTPClient {
 class MockContextDataProvider extends _i1.Mock
     implements _i4.ContextDataProvider {
   @override
-  _i2.Completer<_i5.ContextData> getContextData() =>
-      (super.noSuchMethod(
-            Invocation.method(#getContextData, []),
-            returnValue: _FakeCompleter_0<_i5.ContextData>(
-              this,
-              Invocation.method(#getContextData, []),
-            ),
-            returnValueForMissingStub: _FakeCompleter_0<_i5.ContextData>(
-              this,
-              Invocation.method(#getContextData, []),
-            ),
-          )
-          as _i2.Completer<_i5.ContextData>);
+  _i2.Completer<_i5.ContextData> getContextData() => (super.noSuchMethod(
+        Invocation.method(#getContextData, []),
+        returnValue: _FakeCompleter_0<_i5.ContextData>(
+          this,
+          Invocation.method(#getContextData, []),
+        ),
+        returnValueForMissingStub: _FakeCompleter_0<_i5.ContextData>(
+          this,
+          Invocation.method(#getContextData, []),
+        ),
+      ) as _i2.Completer<_i5.ContextData>);
 }
 
 /// A class which mocks [ContextEventHandler].
@@ -72,17 +70,16 @@ class MockContextEventHandler extends _i1.Mock
   @override
   _i2.Completer<void> publish(_i7.Context? context, _i8.PublishEvent? event) =>
       (super.noSuchMethod(
-            Invocation.method(#publish, [context, event]),
-            returnValue: _FakeCompleter_0<void>(
-              this,
-              Invocation.method(#publish, [context, event]),
-            ),
-            returnValueForMissingStub: _FakeCompleter_0<void>(
-              this,
-              Invocation.method(#publish, [context, event]),
-            ),
-          )
-          as _i2.Completer<void>);
+        Invocation.method(#publish, [context, event]),
+        returnValue: _FakeCompleter_0<void>(
+          this,
+          Invocation.method(#publish, [context, event]),
+        ),
+        returnValueForMissingStub: _FakeCompleter_0<void>(
+          this,
+          Invocation.method(#publish, [context, event]),
+        ),
+      ) as _i2.Completer<void>);
 }
 
 /// A class which mocks [ContextEventLogger].
@@ -110,15 +107,14 @@ class MockVariableParser extends _i1.Mock implements _i10.VariableParser {
     String? variableValue,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(#parse, [
-              context,
-              experimentName,
-              variantName,
-              variableValue,
-            ]),
-            returnValueForMissingStub: null,
-          )
-          as Map<String, dynamic>?);
+        Invocation.method(#parse, [
+          context,
+          experimentName,
+          variantName,
+          variableValue,
+        ]),
+        returnValueForMissingStub: null,
+      ) as Map<String, dynamic>?);
 }
 
 /// A class which mocks [Client].
@@ -126,76 +122,68 @@ class MockVariableParser extends _i1.Mock implements _i10.VariableParser {
 /// See the documentation for Mockito's code generation for more information.
 class MockClient extends _i1.Mock implements _i11.Client {
   @override
-  String get url_ =>
-      (super.noSuchMethod(
-            Invocation.getter(#url_),
-            returnValue: _i12.dummyValue<String>(
-              this,
-              Invocation.getter(#url_),
-            ),
-            returnValueForMissingStub: _i12.dummyValue<String>(
-              this,
-              Invocation.getter(#url_),
-            ),
-          )
-          as String);
+  String get url_ => (super.noSuchMethod(
+        Invocation.getter(#url_),
+        returnValue: _i12.dummyValue<String>(
+          this,
+          Invocation.getter(#url_),
+        ),
+        returnValueForMissingStub: _i12.dummyValue<String>(
+          this,
+          Invocation.getter(#url_),
+        ),
+      ) as String);
 
   @override
   set url_(String? _url_) => super.noSuchMethod(
-    Invocation.setter(#url_, _url_),
-    returnValueForMissingStub: null,
-  );
+        Invocation.setter(#url_, _url_),
+        returnValueForMissingStub: null,
+      );
 
   @override
-  Map<String, String> get query_ =>
-      (super.noSuchMethod(
-            Invocation.getter(#query_),
-            returnValue: <String, String>{},
-            returnValueForMissingStub: <String, String>{},
-          )
-          as Map<String, String>);
+  Map<String, String> get query_ => (super.noSuchMethod(
+        Invocation.getter(#query_),
+        returnValue: <String, String>{},
+        returnValueForMissingStub: <String, String>{},
+      ) as Map<String, String>);
 
   @override
   set query_(Map<String, String>? _query_) => super.noSuchMethod(
-    Invocation.setter(#query_, _query_),
-    returnValueForMissingStub: null,
-  );
+        Invocation.setter(#query_, _query_),
+        returnValueForMissingStub: null,
+      );
 
   @override
-  Map<String, String> get headers_ =>
-      (super.noSuchMethod(
-            Invocation.getter(#headers_),
-            returnValue: <String, String>{},
-            returnValueForMissingStub: <String, String>{},
-          )
-          as Map<String, String>);
+  Map<String, String> get headers_ => (super.noSuchMethod(
+        Invocation.getter(#headers_),
+        returnValue: <String, String>{},
+        returnValueForMissingStub: <String, String>{},
+      ) as Map<String, String>);
 
   @override
   set headers_(Map<String, String>? _headers_) => super.noSuchMethod(
-    Invocation.setter(#headers_, _headers_),
-    returnValueForMissingStub: null,
-  );
+        Invocation.setter(#headers_, _headers_),
+        returnValueForMissingStub: null,
+      );
 
   @override
-  _i3.HTTPClient get httpClient_ =>
-      (super.noSuchMethod(
-            Invocation.getter(#httpClient_),
-            returnValue: _FakeHTTPClient_1(
-              this,
-              Invocation.getter(#httpClient_),
-            ),
-            returnValueForMissingStub: _FakeHTTPClient_1(
-              this,
-              Invocation.getter(#httpClient_),
-            ),
-          )
-          as _i3.HTTPClient);
+  _i3.HTTPClient get httpClient_ => (super.noSuchMethod(
+        Invocation.getter(#httpClient_),
+        returnValue: _FakeHTTPClient_1(
+          this,
+          Invocation.getter(#httpClient_),
+        ),
+        returnValueForMissingStub: _FakeHTTPClient_1(
+          this,
+          Invocation.getter(#httpClient_),
+        ),
+      ) as _i3.HTTPClient);
 
   @override
   set httpClient_(_i3.HTTPClient? _httpClient_) => super.noSuchMethod(
-    Invocation.setter(#httpClient_, _httpClient_),
-    returnValueForMissingStub: null,
-  );
+        Invocation.setter(#httpClient_, _httpClient_),
+        returnValueForMissingStub: null,
+      );
 
   @override
   set deserializer_(_i13.ContextDataDeserializer? _deserializer_) =>
@@ -212,32 +200,28 @@ class MockClient extends _i1.Mock implements _i11.Client {
       );
 
   @override
-  _i2.Completer<_i5.ContextData> getContextData() =>
-      (super.noSuchMethod(
-            Invocation.method(#getContextData, []),
-            returnValue: _FakeCompleter_0<_i5.ContextData>(
-              this,
-              Invocation.method(#getContextData, []),
-            ),
-            returnValueForMissingStub: _FakeCompleter_0<_i5.ContextData>(
-              this,
-              Invocation.method(#getContextData, []),
-            ),
-          )
-          as _i2.Completer<_i5.ContextData>);
+  _i2.Completer<_i5.ContextData> getContextData() => (super.noSuchMethod(
+        Invocation.method(#getContextData, []),
+        returnValue: _FakeCompleter_0<_i5.ContextData>(
+          this,
+          Invocation.method(#getContextData, []),
+        ),
+        returnValueForMissingStub: _FakeCompleter_0<_i5.ContextData>(
+          this,
+          Invocation.method(#getContextData, []),
+        ),
+      ) as _i2.Completer<_i5.ContextData>);
 
   @override
-  _i2.Completer<void> publish(_i8.PublishEvent? event) =>
-      (super.noSuchMethod(
-            Invocation.method(#publish, [event]),
-            returnValue: _FakeCompleter_0<void>(
-              this,
-              Invocation.method(#publish, [event]),
-            ),
-            returnValueForMissingStub: _FakeCompleter_0<void>(
-              this,
-              Invocation.method(#publish, [event]),
-            ),
-          )
-          as _i2.Completer<void>);
+  _i2.Completer<void> publish(_i8.PublishEvent? event) => (super.noSuchMethod(
+        Invocation.method(#publish, [event]),
+        returnValue: _FakeCompleter_0<void>(
+          this,
+          Invocation.method(#publish, [event]),
+        ),
+        returnValueForMissingStub: _FakeCompleter_0<void>(
+          this,
+          Invocation.method(#publish, [event]),
+        ),
+      ) as _i2.Completer<void>);
 }

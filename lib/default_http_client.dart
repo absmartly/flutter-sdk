@@ -17,10 +17,8 @@ class DefaultHTTPClient implements HTTPClient {
 
   DefaultHTTPClient(DefaultHTTPClientConfig config) {
     client = http_io.IOClient(HttpClient()
-          ..maxConnectionsPerHost = 20
-          ..idleTimeout =
-              Duration(milliseconds: config.getConnectionKeepAlive())
-        );
+      ..maxConnectionsPerHost = 20
+      ..idleTimeout = Duration(milliseconds: config.getConnectionKeepAlive()));
   }
 
   @override

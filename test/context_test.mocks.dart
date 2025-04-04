@@ -29,7 +29,7 @@ import 'package:mockito/mockito.dart' as _i1;
 
 class _FakeCompleter_0<T> extends _i1.SmartFake implements _i2.Completer<T> {
   _FakeCompleter_0(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
+      : super(parent, parentInvocation);
 }
 
 /// A class which mocks [ContextDataProvider].
@@ -38,19 +38,17 @@ class _FakeCompleter_0<T> extends _i1.SmartFake implements _i2.Completer<T> {
 class MockContextDataProvider extends _i1.Mock
     implements _i3.ContextDataProvider {
   @override
-  _i2.Completer<_i4.ContextData> getContextData() =>
-      (super.noSuchMethod(
-            Invocation.method(#getContextData, []),
-            returnValue: _FakeCompleter_0<_i4.ContextData>(
-              this,
-              Invocation.method(#getContextData, []),
-            ),
-            returnValueForMissingStub: _FakeCompleter_0<_i4.ContextData>(
-              this,
-              Invocation.method(#getContextData, []),
-            ),
-          )
-          as _i2.Completer<_i4.ContextData>);
+  _i2.Completer<_i4.ContextData> getContextData() => (super.noSuchMethod(
+        Invocation.method(#getContextData, []),
+        returnValue: _FakeCompleter_0<_i4.ContextData>(
+          this,
+          Invocation.method(#getContextData, []),
+        ),
+        returnValueForMissingStub: _FakeCompleter_0<_i4.ContextData>(
+          this,
+          Invocation.method(#getContextData, []),
+        ),
+      ) as _i2.Completer<_i4.ContextData>);
 }
 
 /// A class which mocks [ContextEventHandler].
@@ -61,17 +59,16 @@ class MockContextEventHandler extends _i1.Mock
   @override
   _i2.Completer<void> publish(_i6.Context? context, _i7.PublishEvent? event) =>
       (super.noSuchMethod(
-            Invocation.method(#publish, [context, event]),
-            returnValue: _FakeCompleter_0<void>(
-              this,
-              Invocation.method(#publish, [context, event]),
-            ),
-            returnValueForMissingStub: _FakeCompleter_0<void>(
-              this,
-              Invocation.method(#publish, [context, event]),
-            ),
-          )
-          as _i2.Completer<void>);
+        Invocation.method(#publish, [context, event]),
+        returnValue: _FakeCompleter_0<void>(
+          this,
+          Invocation.method(#publish, [context, event]),
+        ),
+        returnValueForMissingStub: _FakeCompleter_0<void>(
+          this,
+          Invocation.method(#publish, [context, event]),
+        ),
+      ) as _i2.Completer<void>);
 }
 
 /// A class which mocks [ContextEventLogger].

@@ -26,7 +26,7 @@ import 'package:mockito/mockito.dart' as _i1;
 class MockEvaluator extends _i1.Mock implements _i2.Evaluator {
   @override
   dynamic extractVar(String? path) => super.noSuchMethod(
-    Invocation.method(#extractVar, [path]),
-    returnValueForMissingStub: null,
-  );
+        Invocation.method(#extractVar, [path]),
+        returnValueForMissingStub: null,
+      );
 }

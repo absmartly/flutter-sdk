@@ -28,7 +28,7 @@ import 'package:mockito/mockito.dart' as _i1;
 
 class _FakeResponse_0 extends _i1.SmartFake implements _i2.Response {
   _FakeResponse_0(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
+      : super(parent, parentInvocation);
 }
 
 /// A class which mocks [HTTPClient].
@@ -42,21 +42,20 @@ class MockHTTPClient extends _i1.Mock implements _i2.HTTPClient {
     Map<String, String>? headers,
   ) =>
       (super.noSuchMethod(
+        Invocation.method(#get, [url, query, headers]),
+        returnValue: _i3.Future<_i2.Response>.value(
+          _FakeResponse_0(
+            this,
             Invocation.method(#get, [url, query, headers]),
-            returnValue: _i3.Future<_i2.Response>.value(
-              _FakeResponse_0(
-                this,
-                Invocation.method(#get, [url, query, headers]),
-              ),
-            ),
-            returnValueForMissingStub: _i3.Future<_i2.Response>.value(
-              _FakeResponse_0(
-                this,
-                Invocation.method(#get, [url, query, headers]),
-              ),
-            ),
-          )
-          as _i3.Future<_i2.Response>);
+          ),
+        ),
+        returnValueForMissingStub: _i3.Future<_i2.Response>.value(
+          _FakeResponse_0(
+            this,
+            Invocation.method(#get, [url, query, headers]),
+          ),
+        ),
+      ) as _i3.Future<_i2.Response>);
 
   @override
   _i3.Future<_i2.Response> put(
@@ -66,21 +65,20 @@ class MockHTTPClient extends _i1.Mock implements _i2.HTTPClient {
     List<int>? body,
   ) =>
       (super.noSuchMethod(
+        Invocation.method(#put, [url, query, headers, body]),
+        returnValue: _i3.Future<_i2.Response>.value(
+          _FakeResponse_0(
+            this,
             Invocation.method(#put, [url, query, headers, body]),
-            returnValue: _i3.Future<_i2.Response>.value(
-              _FakeResponse_0(
-                this,
-                Invocation.method(#put, [url, query, headers, body]),
-              ),
-            ),
-            returnValueForMissingStub: _i3.Future<_i2.Response>.value(
-              _FakeResponse_0(
-                this,
-                Invocation.method(#put, [url, query, headers, body]),
-              ),
-            ),
-          )
-          as _i3.Future<_i2.Response>);
+          ),
+        ),
+        returnValueForMissingStub: _i3.Future<_i2.Response>.value(
+          _FakeResponse_0(
+            this,
+            Invocation.method(#put, [url, query, headers, body]),
+          ),
+        ),
+      ) as _i3.Future<_i2.Response>);
 
   @override
   _i3.Future<_i2.Response> post(
@@ -90,21 +88,20 @@ class MockHTTPClient extends _i1.Mock implements _i2.HTTPClient {
     List<int>? body,
   ) =>
       (super.noSuchMethod(
+        Invocation.method(#post, [url, query, headers, body]),
+        returnValue: _i3.Future<_i2.Response>.value(
+          _FakeResponse_0(
+            this,
             Invocation.method(#post, [url, query, headers, body]),
-            returnValue: _i3.Future<_i2.Response>.value(
-              _FakeResponse_0(
-                this,
-                Invocation.method(#post, [url, query, headers, body]),
-              ),
-            ),
-            returnValueForMissingStub: _i3.Future<_i2.Response>.value(
-              _FakeResponse_0(
-                this,
-                Invocation.method(#post, [url, query, headers, body]),
-              ),
-            ),
-          )
-          as _i3.Future<_i2.Response>);
+          ),
+        ),
+        returnValueForMissingStub: _i3.Future<_i2.Response>.value(
+          _FakeResponse_0(
+            this,
+            Invocation.method(#post, [url, query, headers, body]),
+          ),
+        ),
+      ) as _i3.Future<_i2.Response>);
 }
 
 /// A class which mocks [ContextDataDeserializer].
@@ -115,10 +112,9 @@ class MockContextDataDeserializer extends _i1.Mock
   @override
   _i5.ContextData? deserialize(List<int>? bytes, int? offset, int? length) =>
       (super.noSuchMethod(
-            Invocation.method(#deserialize, [bytes, offset, length]),
-            returnValueForMissingStub: null,
-          )
-          as _i5.ContextData?);
+        Invocation.method(#deserialize, [bytes, offset, length]),
+        returnValueForMissingStub: null,
+      ) as _i5.ContextData?);
 }
 
 /// A class which mocks [ContextEventSerializer].
@@ -127,10 +123,8 @@ class MockContextDataDeserializer extends _i1.Mock
 class MockContextEventSerializer extends _i1.Mock
     implements _i6.ContextEventSerializer {
   @override
-  List<int>? serialize(_i7.PublishEvent? publishEvent) =>
-      (super.noSuchMethod(
-            Invocation.method(#serialize, [publishEvent]),
-            returnValueForMissingStub: null,
-          )
-          as List<int>?);
+  List<int>? serialize(_i7.PublishEvent? publishEvent) => (super.noSuchMethod(
+        Invocation.method(#serialize, [publishEvent]),
+        returnValueForMissingStub: null,
+      ) as List<int>?);
 }

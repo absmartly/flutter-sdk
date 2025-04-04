@@ -31,10 +31,9 @@ class MockContextDataDeserializer extends _i1.Mock
   @override
   _i3.ContextData? deserialize(List<int>? bytes, int? offset, int? length) =>
       (super.noSuchMethod(
-            Invocation.method(#deserialize, [bytes, offset, length]),
-            returnValueForMissingStub: null,
-          )
-          as _i3.ContextData?);
+        Invocation.method(#deserialize, [bytes, offset, length]),
+        returnValueForMissingStub: null,
+      ) as _i3.ContextData?);
 }
 
 /// A class which mocks [ContextEventSerializer].
@@ -43,10 +42,8 @@ class MockContextDataDeserializer extends _i1.Mock
 class MockContextEventSerializer extends _i1.Mock
     implements _i4.ContextEventSerializer {
   @override
-  List<int>? serialize(_i5.PublishEvent? publishEvent) =>
-      (super.noSuchMethod(
-            Invocation.method(#serialize, [publishEvent]),
-            returnValueForMissingStub: null,
-          )
-          as List<int>?);
+  List<int>? serialize(_i5.PublishEvent? publishEvent) => (super.noSuchMethod(
+        Invocation.method(#serialize, [publishEvent]),
+        returnValueForMissingStub: null,
+      ) as List<int>?);
 }

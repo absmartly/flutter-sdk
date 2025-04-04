@@ -11,7 +11,6 @@ import 'http_client.dart';
 import 'json/context_data.dart';
 import 'json/publish_event.dart';
 
-
 class Client {
   static Client create(ClientConfig config, {HTTPClient? httpClient}) {
     if (httpClient == null) {

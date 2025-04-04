@@ -30,12 +30,12 @@ import 'package:mockito/src/dummies.dart' as _i5;
 
 class _FakeHTTPClient_0 extends _i1.SmartFake implements _i2.HTTPClient {
   _FakeHTTPClient_0(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
+      : super(parent, parentInvocation);
 }
 
 class _FakeCompleter_1<T> extends _i1.SmartFake implements _i3.Completer<T> {
   _FakeCompleter_1(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
+      : super(parent, parentInvocation);
 }
 
 /// A class which mocks [Client].
@@ -43,73 +43,65 @@ class _FakeCompleter_1<T> extends _i1.SmartFake implements _i3.Completer<T> {
 /// See the documentation for Mockito's code generation for more information.
 class MockClient extends _i1.Mock implements _i4.Client {
   @override
-  String get url_ =>
-      (super.noSuchMethod(
-            Invocation.getter(#url_),
-            returnValue: _i5.dummyValue<String>(this, Invocation.getter(#url_)),
-            returnValueForMissingStub: _i5.dummyValue<String>(
-              this,
-              Invocation.getter(#url_),
-            ),
-          )
-          as String);
+  String get url_ => (super.noSuchMethod(
+        Invocation.getter(#url_),
+        returnValue: _i5.dummyValue<String>(this, Invocation.getter(#url_)),
+        returnValueForMissingStub: _i5.dummyValue<String>(
+          this,
+          Invocation.getter(#url_),
+        ),
+      ) as String);
 
   @override
   set url_(String? _url_) => super.noSuchMethod(
-    Invocation.setter(#url_, _url_),
-    returnValueForMissingStub: null,
-  );
+        Invocation.setter(#url_, _url_),
+        returnValueForMissingStub: null,
+      );
 
   @override
-  Map<String, String> get query_ =>
-      (super.noSuchMethod(
-            Invocation.getter(#query_),
-            returnValue: <String, String>{},
-            returnValueForMissingStub: <String, String>{},
-          )
-          as Map<String, String>);
+  Map<String, String> get query_ => (super.noSuchMethod(
+        Invocation.getter(#query_),
+        returnValue: <String, String>{},
+        returnValueForMissingStub: <String, String>{},
+      ) as Map<String, String>);
 
   @override
   set query_(Map<String, String>? _query_) => super.noSuchMethod(
-    Invocation.setter(#query_, _query_),
-    returnValueForMissingStub: null,
-  );
+        Invocation.setter(#query_, _query_),
+        returnValueForMissingStub: null,
+      );
 
   @override
-  Map<String, String> get headers_ =>
-      (super.noSuchMethod(
-            Invocation.getter(#headers_),
-            returnValue: <String, String>{},
-            returnValueForMissingStub: <String, String>{},
-          )
-          as Map<String, String>);
+  Map<String, String> get headers_ => (super.noSuchMethod(
+        Invocation.getter(#headers_),
+        returnValue: <String, String>{},
+        returnValueForMissingStub: <String, String>{},
+      ) as Map<String, String>);
 
   @override
   set headers_(Map<String, String>? _headers_) => super.noSuchMethod(
-    Invocation.setter(#headers_, _headers_),
-    returnValueForMissingStub: null,
-  );
+        Invocation.setter(#headers_, _headers_),
+        returnValueForMissingStub: null,
+      );
 
   @override
-  _i2.HTTPClient get httpClient_ =>
-      (super.noSuchMethod(
-            Invocation.getter(#httpClient_),
-            returnValue: _FakeHTTPClient_0(
-              this,
-              Invocation.getter(#httpClient_),
-            ),
-            returnValueForMissingStub: _FakeHTTPClient_0(
-              this,
-              Invocation.getter(#httpClient_),
-            ),
-          )
-          as _i2.HTTPClient);
+  _i2.HTTPClient get httpClient_ => (super.noSuchMethod(
+        Invocation.getter(#httpClient_),
+        returnValue: _FakeHTTPClient_0(
+          this,
+          Invocation.getter(#httpClient_),
+        ),
+        returnValueForMissingStub: _FakeHTTPClient_0(
+          this,
+          Invocation.getter(#httpClient_),
+        ),
+      ) as _i2.HTTPClient);
 
   @override
   set httpClient_(_i2.HTTPClient? _httpClient_) => super.noSuchMethod(
-    Invocation.setter(#httpClient_, _httpClient_),
-    returnValueForMissingStub: null,
-  );
+        Invocation.setter(#httpClient_, _httpClient_),
+        returnValueForMissingStub: null,
+      );
 
   @override
   set deserializer_(_i6.ContextDataDeserializer? _deserializer_) =>
@@ -126,32 +118,28 @@ class MockClient extends _i1.Mock implements _i4.Client {
       );
 
   @override
-  _i3.Completer<_i8.ContextData> getContextData() =>
-      (super.noSuchMethod(
-            Invocation.method(#getContextData, []),
-            returnValue: _FakeCompleter_1<_i8.ContextData>(
-              this,
-              Invocation.method(#getContextData, []),
-            ),
-            returnValueForMissingStub: _FakeCompleter_1<_i8.ContextData>(
-              this,
-              Invocation.method(#getContextData, []),
-            ),
-          )
-          as _i3.Completer<_i8.ContextData>);
+  _i3.Completer<_i8.ContextData> getContextData() => (super.noSuchMethod(
+        Invocation.method(#getContextData, []),
+        returnValue: _FakeCompleter_1<_i8.ContextData>(
+          this,
+          Invocation.method(#getContextData, []),
+        ),
+        returnValueForMissingStub: _FakeCompleter_1<_i8.ContextData>(
+          this,
+          Invocation.method(#getContextData, []),
+        ),
+      ) as _i3.Completer<_i8.ContextData>);
 
   @override
-  _i3.Completer<void> publish(_i9.PublishEvent? event) =>
-      (super.noSuchMethod(
-            Invocation.method(#publish, [event]),
-            returnValue: _FakeCompleter_1<void>(
-              this,
-              Invocation.method(#publish, [event]),
-            ),
-            returnValueForMissingStub: _FakeCompleter_1<void>(
-              this,
-              Invocation.method(#publish, [event]),
-            ),
-          )
-          as _i3.Completer<void>);
+  _i3.Completer<void> publish(_i9.PublishEvent? event) => (super.noSuchMethod(
+        Invocation.method(#publish, [event]),
+        returnValue: _FakeCompleter_1<void>(
+          this,
+          Invocation.method(#publish, [event]),
+        ),
+        returnValueForMissingStub: _FakeCompleter_1<void>(
+          this,
+          Invocation.method(#publish, [event]),
+        ),
+      ) as _i3.Completer<void>);
 }
