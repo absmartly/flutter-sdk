@@ -47,11 +47,12 @@ void main() {
     test('createContext', () async {
       final config = ABSmartlyConfig.create().setClient(client);
 
-      final dataFuture = Completer<ContextData>();
       final contextData = ContextData();
+      final dataCompleter = Completer<ContextData>();
+      dataCompleter.complete(contextData);
 
       final mockDataProvider = MockDefaultContextDataProvider();
-      when(mockDataProvider.getContextData()).thenReturn(dataFuture);
+      when(mockDataProvider.getContextData()).thenReturn(dataCompleter);
 
       final absmartly = ABSmartly(config);
 
@@ -61,8 +62,6 @@ void main() {
         ..setUnit('user_id', '1234567');
 
       final context = absmartly.createContext(contextConfig);
-
-      dataFuture.complete(contextData);
 
       expect(context, isA<Context>());
 
@@ -78,6 +77,12 @@ void main() {
     });
 
     test('ABSmartly createContext returns a valid Context object', () async {
+      final contextData = ContextData();
+      final dataCompleter = Completer<ContextData>();
+      dataCompleter.complete(contextData);
+
+      when(client.getContextData()).thenReturn(dataCompleter);
+
       final abSmartly = ABSmartly(config);
       final contextConfig = ContextConfig();
       final context = abSmartly.createContext(contextConfig);
@@ -87,7 +92,6 @@ void main() {
     test(
         'ABSmartly constructor creates default contextDataProvider when getContextDataProvider() returns null',
         () {
-      // final config = ABSmartlyConfig();
       expect(ABSmartly(config).contextDataProvider_,
           isA<DefaultContextDataProvider>());
     });
@@ -100,15 +104,15 @@ void main() {
     });
 
     test('ABSmartly createContext returns a valid Context object', () async {
-      // final config = ABSmartlyConfig();
+      final contextData = ContextData();
+      final dataCompleter = Completer<ContextData>();
+      dataCompleter.complete(contextData);
+
+      when(client.getContextData()).thenReturn(dataCompleter);
+
       final abSmartly = ABSmartly(config);
       final contextConfig = ContextConfig();
       final context = abSmartly.createContext(contextConfig);
-
-      final contxtDataFuture = Completer<ContextData>();
-      contxtDataFuture.complete(ContextData());
-
-      when(client.getContextData()).thenReturn(contxtDataFuture);
       expect(context, isA<Context>());
     });
 

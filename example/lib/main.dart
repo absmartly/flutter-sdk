@@ -102,8 +102,7 @@ class _AbSmartlyScreenState extends State<AbSmartlyScreen> {
 
     context.track("payment", properties);
 
-    context.finalize();
-    sdk.close();
+    context.close();
     res = "Variant ${treatment.toString()}";
     setState(() {});
     Helper.response = null;
