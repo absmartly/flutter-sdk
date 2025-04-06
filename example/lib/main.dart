@@ -75,7 +75,8 @@ class _AbSmartlyScreenState extends State<AbSmartlyScreen> {
         ABSmartlyConfig.create().setClient(Client.create(clientConfig));
     final ABSmartly sdk = ABSmartly(sdkConfig);
     final ContextConfig contextConfig = ContextConfig.create()
-      ..setUnit("user_id", "${DateTime.now().millisecondsSinceEpoch}${(1000 + Random().nextInt(9000))}");
+      ..setUnit("user_id",
+          "${DateTime.now().millisecondsSinceEpoch}${(1000 + Random().nextInt(9000))}");
 
     contextConfig.setContextEventLogger(CustomEventLogger());
 
