@@ -727,6 +727,9 @@ void main() {
       context.getTreatment('exp_test_ab');
       context.getTreatment('not_found');
 
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
       final List<Exposure> expectedExposures = [
         Exposure(
             id: 1,
@@ -775,6 +778,9 @@ void main() {
 
       context.getVariableValue('banner.border', null);
       context.getVariableValue('banner.size', null);
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
 
       // Verify event logger was called once for the experiment exposure
       verify(eventLogger.handleEvent(context, EventType.exposure, any))
@@ -835,6 +841,9 @@ void main() {
 
       final Set<String> experiments =
           data.experiments.map((e) => e.name).toSet();
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
 
       variableExperiments.forEach((variable, experimentNames) {
         final String experimentName = experimentNames[0];
@@ -918,6 +927,9 @@ void main() {
         GoalAchievement(
             name: 'goal1', achievedAt: clock.millis(), properties: properties)
       ];
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
 
       // Verify event logger was called for the goal achievement
       verify(eventLogger.handleEvent(context, EventType.goal, any))
@@ -1147,6 +1159,9 @@ void main() {
 
       expect(context.getPendingCount(), equals(2));
 
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
       when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
 
       refreshData.experiments = refreshData.experiments
@@ -1178,6 +1193,9 @@ void main() {
 
       expect(context.getPendingCount(), equals(2));
 
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
       when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
 
       refreshDataFuture.complete(refreshData);
@@ -1206,6 +1224,9 @@ void main() {
       expect(context.getTreatment('not_found'), equals(0));
 
       expect(context.getPendingCount(), equals(2));
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
 
       when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
 
@@ -1238,6 +1259,9 @@ void main() {
       expect(context.getTreatment('exp_test_ab'), equals(3));
 
       expect(context.getPendingCount(), equals(1));
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
 
       when(dataProvider.getContextData()).thenAnswer((_) => dataFutureReady);
 
@@ -1294,10 +1318,18 @@ void main() {
       await context.waitUntilReady();
 
       Completer<void> refreshCompleter = Completer<void>();
+      bool refreshCalled = false;
 
       verifyNever(dataProvider.getContextData());
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
       when(dataProvider.getContextData()).thenAnswer((_) {
-        refreshCompleter.complete();
+        if (!refreshCalled) {
+          refreshCalled = true;
+          refreshCompleter.complete();
+        }
         return refreshDataFutureReady;
       });
 
@@ -1380,6 +1412,9 @@ void main() {
 
       context.setOverrides(overrides);
 
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
       overrides.forEach((experimentName, variant) {
         expect(context.getTreatment(experimentName), equals(variant));
       });
@@ -1411,6 +1446,9 @@ void main() {
       final context = createReadyContext();
       await context.waitUntilReady();
 
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
       context.setCustomAssignment("exp_test_not_eligible", 3);
       context.setCustomAssignment("exp_test_fullon", 3);
 
@@ -1426,6 +1464,9 @@ void main() {
         "exp_test_ab": 2,
         "exp_test_abc": 3
       };
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
 
       customAssignments.forEach((experimentName, _) {
         expect(context.getTreatment(experimentName),
@@ -1543,6 +1584,9 @@ void main() {
             break;
         }
       }
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
 
       {
         final context = createReadyContextWithData(data);
@@ -1712,6 +1756,9 @@ void main() {
         completer.completeError(failure);
         return completer;
       });
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
 
       expect(() => context.refresh(), throwsA(isA<Exception>()));
 
@@ -1730,6 +1777,9 @@ void main() {
       context.getTreatment("not_found");
 
       expect(context.getPendingCount(), equals(data.experiments.length + 1));
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
 
       when(dataProvider.getContextData()).thenReturn(refreshDataFutureReady);
 
@@ -1754,6 +1804,9 @@ void main() {
       expect(context.getTreatment("exp_test_ab"), equals(0));
       expect(context.getPendingCount(), equals(1));
 
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
       when(dataProvider.getContextData())
           .thenReturn(audienceStrictDataFutureReady);
 
@@ -1776,6 +1829,9 @@ void main() {
           equals(expectedVariants[experimentName]));
       expect(context.getTreatment("not_found"), equals(0));
       expect(context.getPendingCount(), equals(2));
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
 
       when(dataProvider.getContextData()).thenReturn(refreshDataFutureReady);
 
@@ -1806,6 +1862,9 @@ void main() {
           equals(expectedVariants[experimentName]));
       expect(context.getTreatment("not_found"), equals(0));
       expect(context.getPendingCount(), equals(2));
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
 
       when(dataProvider.getContextData()).thenReturn(refreshDataFutureReady);
 
@@ -1840,6 +1899,9 @@ void main() {
           equals(expectedVariants[experimentName]));
       expect(context.getTreatment("not_found"), equals(0));
       expect(context.getPendingCount(), equals(2));
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
 
       when(dataProvider.getContextData()).thenReturn(refreshDataFutureReady);
 
