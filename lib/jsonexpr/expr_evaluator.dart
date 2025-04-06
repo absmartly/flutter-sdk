@@ -50,7 +50,9 @@ class ExprEvaluator extends Evaluator {
     } else if (x is String) {
       try {
         return double.parse(x); // use javascript semantics: numbers are doubles
-      } catch (e) {}
+      } catch (e) {
+        // ignore and return null
+      }
     }
 
     return null;

@@ -116,21 +116,21 @@ class CustomEventLogger implements ContextEventLogger {
   @override
   void handleEvent(Context context, EventType event, dynamic data) {
     switch (event) {
-      case EventType.Exposure:
+      case EventType.exposure:
         final Exposure exposure = data;
         print("exposed to experiment ${exposure.name}");
         break;
-      case EventType.Goal:
+      case EventType.goal:
         final GoalAchievement goal = data;
         print("goal tracked: ${goal.name}");
         break;
-      case EventType.Error:
+      case EventType.error:
         print("error: $data");
         break;
-      case EventType.Publish:
-      case EventType.Ready:
-      case EventType.Refresh:
-      case EventType.Close:
+      case EventType.publish:
+      case EventType.ready:
+      case EventType.refresh:
+      case EventType.close:
         break;
     }
   }

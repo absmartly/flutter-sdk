@@ -5,11 +5,11 @@ abstract class ContextEventLogger {
 }
 
 enum EventType {
-  Error,
-  Ready,
-  Refresh,
-  Publish,
-  Exposure,
-  Goal,
-  Close,
+  error,
+  ready,
+  refresh,
+  publish,
+  exposure,
+  goal,
+  close,
 }

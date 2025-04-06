@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../buffers.dart';
 
+// ignore: camel_case_types
 abstract class Murmur3_32 {
   static int digest(
     Uint8List key,

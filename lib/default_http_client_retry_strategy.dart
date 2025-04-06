@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:math';
 
 class DefaultHTTPClientRetryStrategy {
-  static const int MIN_RETRY_INTERVAL = 5;
+  static const int minRetryInterval = 5;
 
   final int maxRetries;
   final int retryIntervalUs;
@@ -10,7 +10,7 @@ class DefaultHTTPClientRetryStrategy {
   DefaultHTTPClientRetryStrategy(this.maxRetries, int maxRetryIntervalMs)
       : retryIntervalUs = max(
             0,
-            (2000 * (maxRetryIntervalMs - MIN_RETRY_INTERVAL)) ~/
+            (2000 * (maxRetryIntervalMs - minRetryInterval)) ~/
                 (1 << maxRetries));
 
   // @override
@@ -32,7 +32,7 @@ class DefaultHTTPClientRetryStrategy {
   Duration getRetryInterval(
       {required HttpResponse response, required int execCount}) {
     return Duration(
-        milliseconds: MIN_RETRY_INTERVAL +
+        milliseconds: minRetryInterval +
             (((1 << (execCount - 1)) * retryIntervalUs) ~/ 1000));
   }
 

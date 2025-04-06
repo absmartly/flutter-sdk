@@ -22,15 +22,15 @@ class PublishEvent {
       required this.attributes});
 
   @override
-  bool operator ==(dynamic o) {
-    if (identical(this, o)) return true;
-    return o is PublishEvent &&
-        o.hashed == hashed &&
-        o.publishedAt == publishedAt &&
-        listEquals(o.units, units) &&
-        listEquals(o.exposures, exposures) &&
-        listEquals(o.goals, goals) &&
-        listEquals(o.attributes, attributes);
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PublishEvent &&
+        other.hashed == hashed &&
+        other.publishedAt == publishedAt &&
+        listEquals(other.units, units) &&
+        listEquals(other.exposures, exposures) &&
+        listEquals(other.goals, goals) &&
+        listEquals(other.attributes, attributes);
   }
 
   @override

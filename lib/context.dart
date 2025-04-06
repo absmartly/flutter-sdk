@@ -67,7 +67,7 @@ class Context {
       readyFuture_!.complete();
       readyFuture_ = null;
 
-      logEvent(EventType.Ready, data);
+      logEvent(EventType.ready, data);
 
       if (getPendingCount() > 0) {
         setTimeout();
@@ -245,7 +245,7 @@ class Context {
       pendingCount_++;
       exposures_.add(exposure);
 
-      logEvent(EventType.Exposure, exposure);
+      logEvent(EventType.exposure, exposure);
 
       setTimeout();
     }
@@ -313,7 +313,7 @@ class Context {
     pendingCount_++;
     achievements_.add(achievement);
 
-    logEvent(EventType.Goal, achievement);
+    logEvent(EventType.goal, achievement);
 
     setTimeout();
   }
@@ -339,7 +339,7 @@ class Context {
         setData(data);
         refreshing_ = false;
         refreshFuture_!.complete();
-        logEvent(EventType.Refresh, data);
+        logEvent(EventType.refresh, data);
       }).catchError((error) {
         refreshing_ = false;
         refreshFuture_!.completeError(error);
@@ -367,7 +367,7 @@ class Context {
             closed_ = true;
             closing_ = false;
             closingFuture_!.complete();
-            logEvent(EventType.Close, null);
+            logEvent(EventType.close, null);
           }).catchError((exception) {
             closed_ = true;
             closing_ = false;
@@ -379,7 +379,7 @@ class Context {
         } else {
           closed_ = true;
           closing_ = false;
-          logEvent(EventType.Close, null);
+          logEvent(EventType.close, null);
         }
       }
 
@@ -444,7 +444,7 @@ class Context {
           final Completer<void> result = Completer<void>();
 
           eventHandler_.publish(this, event).future.then((_) {
-            logEvent(EventType.Publish, event);
+            logEvent(EventType.publish, event);
             result.complete();
           }).catchError((error) {
             logError(error);
@@ -719,7 +719,7 @@ class Context {
   }
 
   void logError(error) {
-    eventLogger_?.handleEvent(this, EventType.Error, error);
+    eventLogger_?.handleEvent(this, EventType.error, error);
   }
 
   late Clock clock_;

@@ -33,9 +33,9 @@ void main() {
 
     test('setHttpVersionPolicy', () {
       final config = DefaultHTTPClientConfig.create()
-          .setHTTPVersionPolicy(HTTPVersionPolicy.FORCE_HTTP_1);
-      expect(config.getHTTPVersionPolicy(),
-          equals(HTTPVersionPolicy.FORCE_HTTP_1));
+          .setHTTPVersionPolicy(HTTPVersionPolicy.forceHttp1);
+      expect(
+          config.getHTTPVersionPolicy(), equals(HTTPVersionPolicy.forceHttp1));
     });
   });
 }

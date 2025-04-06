@@ -63,5 +63,5 @@ class DefaultHTTPClientConfig {
   int connectionRequestTimeout_ = 1000;
   int retryInterval_ = 333;
   int maxRetries_ = 5;
-  HTTPVersionPolicy httpVersionPolicy_ = HTTPVersionPolicy.NEGOTIATE;
+  HTTPVersionPolicy httpVersionPolicy_ = HTTPVersionPolicy.negotiate;
 }

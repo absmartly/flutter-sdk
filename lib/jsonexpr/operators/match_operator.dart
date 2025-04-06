@@ -12,7 +12,9 @@ class MatchOperator extends BinaryOperator {
           final compiled = RegExp(pattern);
           final matcher = compiled.firstMatch(text);
           return matcher != null;
-        } catch (e) {}
+        } catch (e) {
+          // ignore and return null
+        }
       }
     }
     return null;

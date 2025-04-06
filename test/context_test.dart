@@ -260,7 +260,7 @@ void main() {
       await context.waitUntilReady();
 
       // Verify event logger was called with Ready event
-      verify(eventLogger.handleEvent(context, EventType.Ready, data)).called(1);
+      verify(eventLogger.handleEvent(context, EventType.ready, data)).called(1);
     });
 
     test('callsEventLoggerWithCompletedFuture', () async {
@@ -268,7 +268,7 @@ void main() {
       await context.waitUntilReady();
 
       // Verify event logger was called with Ready event
-      verify(eventLogger.handleEvent(context, EventType.Ready, data)).called(1);
+      verify(eventLogger.handleEvent(context, EventType.ready, data)).called(1);
     });
 
     test('callsEventLoggerWithException', () async {
@@ -280,7 +280,7 @@ void main() {
       await context.waitUntilReady();
 
       // Verify event logger was called with Error event
-      verify(eventLogger.handleEvent(context, EventType.Error, error))
+      verify(eventLogger.handleEvent(context, EventType.error, error))
           .called(1);
     });
 
@@ -755,7 +755,7 @@ void main() {
       ];
 
       // Verify event logger was called for each exposure
-      verify(eventLogger.handleEvent(context, EventType.Exposure, any))
+      verify(eventLogger.handleEvent(context, EventType.exposure, any))
           .called(expectedExposures.length);
 
       // Verify not called again with the same exposure
@@ -763,7 +763,7 @@ void main() {
       context.getTreatment('exp_test_ab');
       context.getTreatment('not_found');
 
-      verifyNever(eventLogger.handleEvent(context, EventType.Exposure, any));
+      verifyNever(eventLogger.handleEvent(context, EventType.exposure, any));
     });
 
     test('getVariableValueCallsEventLogger', () async {
@@ -777,7 +777,7 @@ void main() {
       context.getVariableValue('banner.size', null);
 
       // Verify event logger was called once for the experiment exposure
-      verify(eventLogger.handleEvent(context, EventType.Exposure, any))
+      verify(eventLogger.handleEvent(context, EventType.exposure, any))
           .called(1);
 
       // Verify not called again with the same exposure
@@ -785,7 +785,7 @@ void main() {
       context.getVariableValue('banner.border', null);
       context.getVariableValue('banner.size', null);
 
-      verifyNever(eventLogger.handleEvent(context, EventType.Exposure, any));
+      verifyNever(eventLogger.handleEvent(context, EventType.exposure, any));
     });
 
     test('peekVariableValue', () async {
@@ -920,14 +920,14 @@ void main() {
       ];
 
       // Verify event logger was called for the goal achievement
-      verify(eventLogger.handleEvent(context, EventType.Goal, any))
+      verify(eventLogger.handleEvent(context, EventType.goal, any))
           .called(expectedAchievements.length);
 
       // Verify called again with the same goal (unlike exposures, goals can be tracked multiple times)
       reset(eventLogger);
       context.track('goal1', properties);
 
-      verify(eventLogger.handleEvent(context, EventType.Goal, any)).called(1);
+      verify(eventLogger.handleEvent(context, EventType.goal, any)).called(1);
     });
 
     test('publishCallsEventLogger', () async {
@@ -943,7 +943,7 @@ void main() {
 
       await context.publish();
 
-      verify(eventLogger.handleEvent(context, EventType.Publish, any))
+      verify(eventLogger.handleEvent(context, EventType.publish, any))
           .called(1);
     });
 
@@ -961,7 +961,7 @@ void main() {
 
       await expectLater(context.publish(), throwsA(isA<Exception>()));
 
-      verify(eventLogger.handleEvent(context, EventType.Error, failure))
+      verify(eventLogger.handleEvent(context, EventType.error, failure))
           .called(1);
     });
 
@@ -1042,7 +1042,7 @@ void main() {
       await context.refresh();
 
       // Verify event logger was called for the refresh event
-      verify(eventLogger.handleEvent(context, EventType.Refresh, refreshData))
+      verify(eventLogger.handleEvent(context, EventType.refresh, refreshData))
           .called(1);
     });
 
@@ -1062,7 +1062,7 @@ void main() {
       await expectLater(context.refresh(), throwsException);
 
       // Verify event logger was called for the error
-      verify(eventLogger.handleEvent(context, EventType.Error, failure))
+      verify(eventLogger.handleEvent(context, EventType.error, failure))
           .called(1);
     });
 
@@ -1077,7 +1077,7 @@ void main() {
 
       await context.close();
 
-      verify(eventLogger.handleEvent(context, EventType.Close, null)).called(1);
+      verify(eventLogger.handleEvent(context, EventType.close, null)).called(1);
     });
 
     test('closeCallsEventLoggerWithPendingEvents', () async {
@@ -1093,9 +1093,9 @@ void main() {
 
       await context.close();
 
-      verify(eventLogger.handleEvent(context, EventType.Publish, any))
+      verify(eventLogger.handleEvent(context, EventType.publish, any))
           .called(1);
-      verify(eventLogger.handleEvent(context, EventType.Close, null)).called(1);
+      verify(eventLogger.handleEvent(context, EventType.close, null)).called(1);
     });
 
     test('closeCallsEventLoggerOnError', () async {
@@ -1112,7 +1112,7 @@ void main() {
 
       await expectLater(context.close(), throwsException);
 
-      verify(eventLogger.handleEvent(context, EventType.Error, failure))
+      verify(eventLogger.handleEvent(context, EventType.error, failure))
           .called(1);
     });
 
@@ -1897,7 +1897,7 @@ void main() {
 
       await expectLater(context.close(), throwsA(isA<Exception>()));
 
-      verify(eventLogger.handleEvent(context, EventType.Error, failure))
+      verify(eventLogger.handleEvent(context, EventType.error, failure))
           .called(1);
     });
   });

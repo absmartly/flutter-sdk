@@ -8,9 +8,9 @@ class ContextData {
   ContextData({this.experiments = const []});
 
   @override
-  bool operator ==(Object o) {
-    if (identical(this, o)) return true;
-    return o is ContextData && listEquals(o.experiments, experiments);
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ContextData && listEquals(other.experiments, experiments);
   }
 
   @override
