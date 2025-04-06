@@ -8,7 +8,7 @@ export 'default_context_data_provider.dart';
 export 'default_context_event_handler.dart';
 export 'json/attribute.dart';
 export 'json/experiment.dart';
-export 'json/experiment_varient.dart';
+export 'json/experiment_variant.dart';
 export 'json/exposure.dart';
 export 'json/goal_achievement.dart';
 export 'json/publish_event.dart';

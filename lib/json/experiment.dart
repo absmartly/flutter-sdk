@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import 'experiment_varient.dart';
+import 'experiment_variant.dart';
 import 'experimet_application.dart';
 
 class Experiment {

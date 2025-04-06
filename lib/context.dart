@@ -17,7 +17,7 @@ import 'java/time/clock.dart';
 import 'json/attribute.dart';
 import 'json/context_data.dart';
 import 'json/experiment.dart';
-import 'json/experiment_varient.dart';
+import 'json/experiment_variant.dart';
 import 'json/exposure.dart';
 import 'json/goal_achievement.dart';
 import 'json/publish_event.dart';
