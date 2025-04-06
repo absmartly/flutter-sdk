@@ -1759,7 +1759,6 @@ void main() {
       when(eventHandler.publish(any, any))
           .thenAnswer((_) => createCompleteVoidCompleter());
 
-
       expect(() => context.refresh(), throwsA(isA<Exception>()));
 
       verify(dataProvider.getContextData()).called(1);
