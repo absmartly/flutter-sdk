@@ -69,12 +69,7 @@ jobs:
           cd example
           flutter pub get
 
-      - name: Build example app (Android)
-        run: |
-          cd example
-          flutter build apk --release
-
-      - name: Build example app (Web)
+      - name: Build example app
         run: |
           cd example
           flutter build web --release
