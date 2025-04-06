@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:absmartly_sdk/ab_smartly.dart';
 import 'package:absmartly_sdk/absmartly_sdk.dart';
 import 'package:absmartly_sdk/client_config.dart';
@@ -73,7 +75,7 @@ class _AbSmartlyScreenState extends State<AbSmartlyScreen> {
         ABSmartlyConfig.create().setClient(Client.create(clientConfig));
     final ABSmartly sdk = ABSmartly(sdkConfig);
     final ContextConfig contextConfig = ContextConfig.create()
-      ..setUnit("user_id", "123456");
+      ..setUnit("user_id", "${DateTime.now().millisecondsSinceEpoch}${(1000 + Random().nextInt(9000))}");
 
     contextConfig.setContextEventLogger(CustomEventLogger());
 
