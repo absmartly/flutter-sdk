@@ -6,6 +6,7 @@
 import 'dart:async' as _i3;
 import 'dart:typed_data' as _i19;
 
+import 'package:absmartly_sdk/audience_deserializer.dart' as _i24;
 import 'package:absmartly_sdk/audience_matcher.dart' as _i9;
 import 'package:absmartly_sdk/client.dart' as _i4;
 import 'package:absmartly_sdk/context.dart' as _i10;
@@ -939,4 +940,98 @@ class MockContext extends _i1.Mock implements _i10.Context {
         Invocation.method(#logError, [error]),
         returnValueForMissingStub: null,
       );
+}
+
+/// A class which mocks [ContextDataProvider].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockContextDataProvider extends _i1.Mock
+    implements _i7.ContextDataProvider {
+  @override
+  _i3.Completer<_i11.ContextData> getContextData() => (super.noSuchMethod(
+        Invocation.method(#getContextData, []),
+        returnValue: _FakeCompleter_1<_i11.ContextData>(
+          this,
+          Invocation.method(#getContextData, []),
+        ),
+        returnValueForMissingStub: _FakeCompleter_1<_i11.ContextData>(
+          this,
+          Invocation.method(#getContextData, []),
+        ),
+      ) as _i3.Completer<_i11.ContextData>);
+}
+
+/// A class which mocks [ContextEventHandler].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockContextEventHandler extends _i1.Mock
+    implements _i6.ContextEventHandler {
+  @override
+  _i3.Completer<void> publish(
+    _i10.Context? context,
+    _i16.PublishEvent? event,
+  ) =>
+      (super.noSuchMethod(
+        Invocation.method(#publish, [context, event]),
+        returnValue: _FakeCompleter_1<void>(
+          this,
+          Invocation.method(#publish, [context, event]),
+        ),
+        returnValueForMissingStub: _FakeCompleter_1<void>(
+          this,
+          Invocation.method(#publish, [context, event]),
+        ),
+      ) as _i3.Completer<void>);
+}
+
+/// A class which mocks [ContextEventLogger].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockContextEventLogger extends _i1.Mock
+    implements _i18.ContextEventLogger {
+  @override
+  void handleEvent(_i10.Context? context, _i18.EventType? type, dynamic data) =>
+      super.noSuchMethod(
+        Invocation.method(#handleEvent, [context, type, data]),
+        returnValueForMissingStub: null,
+      );
+}
+
+/// A class which mocks [VariableParser].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockVariableParser extends _i1.Mock implements _i8.VariableParser {
+  @override
+  Map<String, dynamic>? parse(
+    _i10.Context? context,
+    String? experimentName,
+    String? variantName,
+    String? variableValue,
+  ) =>
+      (super.noSuchMethod(
+        Invocation.method(#parse, [
+          context,
+          experimentName,
+          variantName,
+          variableValue,
+        ]),
+        returnValueForMissingStub: null,
+      ) as Map<String, dynamic>?);
+}
+
+/// A class which mocks [AudienceDeserializer].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockAudienceDeserializer extends _i1.Mock
+    implements _i24.AudienceDeserializer {
+  @override
+  Map<String, dynamic>? deserialize(
+    List<int>? bytes,
+    int? offset,
+    int? length,
+  ) =>
+      (super.noSuchMethod(
+        Invocation.method(#deserialize, [bytes, offset, length]),
+        returnValueForMissingStub: null,
+      ) as Map<String, dynamic>?);
 }
