@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
 }
 
 class AbSmartlyScreen extends StatefulWidget {
-  const AbSmartlyScreen({Key? key}) : super(key: key);
+  const AbSmartlyScreen({super.key});
 
   @override
   State<AbSmartlyScreen> createState() => _AbSmartlyScreenState();
