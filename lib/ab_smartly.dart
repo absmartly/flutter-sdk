@@ -54,8 +54,8 @@ class ABSmartly {
         contextEventLogger_);
   }
 
-  Completer<ContextData> getContextData() {
-    return contextDataProvider_!.getContextData();
+  Future<ContextData> getContextData() {
+    return contextDataProvider_!.getContextData().future;
   }
 
   Client? client_;
