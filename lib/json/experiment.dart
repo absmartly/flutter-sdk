@@ -1,9 +1,7 @@
-import 'dart:ui';
-
 import 'package:flutter/foundation.dart';
 
-import 'experiment_varient.dart';
-import 'experimet_application.dart';
+import 'experiment_variant.dart';
+import 'experiment_application.dart';
 
 class Experiment {
   late int id;

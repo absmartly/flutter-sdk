@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:absmartly_sdk/variable_parser.dart';
 
 import 'audience_deserializer.dart';
@@ -45,17 +43,6 @@ class ABSmartlyConfig {
     return this;
   }
 
-  // ScheduledExecutorService getScheduler() {
-  Timer? getScheduler() {
-    return scheduler_;
-  }
-
-  //ABSmartlyConfig setScheduler( ScheduledExecutorService scheduler) {
-  ABSmartlyConfig setScheduler(Timer scheduler) {
-    scheduler_ = scheduler;
-    return this;
-  }
-
   AudienceDeserializer getAudienceDeserializer() {
     return audienceDeserializer_ ?? DefaultAudienceDeserializer();
   }
@@ -82,12 +69,5 @@ class ABSmartlyConfig {
 
   AudienceDeserializer? audienceDeserializer_;
 
-  // late ScheduledExecutorService scheduler_;
   Client? client_;
-
-  Timer? scheduler_;
-
-  void scheduleTask() {
-    scheduler_ = Timer(const Duration(seconds: 5), () {});
-  }
 }

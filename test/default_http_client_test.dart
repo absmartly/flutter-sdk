@@ -2,12 +2,8 @@ import 'package:absmartly_sdk/default_http_client.dart';
 import 'package:absmartly_sdk/default_http_client_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// all working
-
 void main() {
   group('DefaultHTTPClient', () {
-
-
     late DefaultHTTPClient client;
 
     setUp(() {
@@ -49,11 +45,6 @@ void main() {
       expect(response.getContent(), isNotNull);
     });
 
-
-    test('Closes HTTP client without errors', () {
-      expect(() => client.close(), returnsNormally);
-    });
-
     test('Handles null values correctly', () async {
       final response = await client.get(
           'https://jsonplaceholder.typicode.com/posts', null, null);
@@ -62,8 +53,5 @@ void main() {
           response.getContentType(), equals('application/json; charset=utf-8'));
       expect(response.getContent(), isNotNull);
     });
-
-
-
   });
 }

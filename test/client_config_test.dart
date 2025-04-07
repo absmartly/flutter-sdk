@@ -1,11 +1,15 @@
 import 'package:absmartly_sdk/client_config.dart';
 import 'package:absmartly_sdk/context_data_deserializer.dart';
-import 'package:absmartly_sdk/context_data_deserializer.mocks.dart';
 import 'package:absmartly_sdk/context_event_serializer.dart';
-import 'package:absmartly_sdk/context_event_serializer.mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mockito/annotations.dart';
 
-// all working
+import 'client_config_test.mocks.dart';
+
+@GenerateNiceMocks([
+  MockSpec<ContextDataDeserializer>(),
+  MockSpec<ContextEventSerializer>(),
+])
 void main() {
   group('ClientConfig', () {
     test('setEndpoint', () {

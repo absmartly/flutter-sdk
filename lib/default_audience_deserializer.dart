@@ -13,7 +13,8 @@ class DefaultAudienceDeserializer implements AudienceDeserializer {
     }
 
     try {
-      final endIndex = (offset + length <= bytes.length) ? offset + length : bytes.length;
+      final endIndex =
+          (offset + length <= bytes.length) ? offset + length : bytes.length;
       final rawData = utf8.decode(bytes.sublist(offset, endIndex));
       if (rawData.isEmpty) {
         return null;

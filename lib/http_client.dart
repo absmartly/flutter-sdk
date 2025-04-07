@@ -1,12 +1,4 @@
-import 'package:absmartly_sdk/java_system_classes/closeable.dart';
-
-
-
-import 'package:mockito/annotations.dart';
-@GenerateNiceMocks([MockSpec<HTTPClient>()])
-@GenerateNiceMocks([MockSpec<Response>()])
-
-abstract class HTTPClient extends Closeable{
+abstract class HTTPClient {
   Future<Response> get(
       String url, Map<String, String>? query, Map<String, String>? headers);
 
@@ -15,6 +7,8 @@ abstract class HTTPClient extends Closeable{
 
   Future<Response> post(String url, Map<String, String>? query,
       Map<String, String>? headers, List<int>? body);
+
+  close();
 }
 
 abstract class Response {

@@ -1,14 +1,15 @@
+import 'dart:async';
 import 'context_data_provider.dart';
 import 'client.dart';
 import 'json/context_data.dart';
 
- class DefaultContextDataProvider implements ContextDataProvider {
+class DefaultContextDataProvider implements ContextDataProvider {
   DefaultContextDataProvider(this.client_);
 
   @override
-  Future<ContextData?> getContextData() {
+  Completer<ContextData> getContextData() {
     return client_.getContextData();
   }
 
-   final Client client_;
+  final Client client_;
 }

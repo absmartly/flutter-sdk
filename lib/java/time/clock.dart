@@ -1,4 +1,3 @@
-
 import 'internal/fixed_clock.dart';
 import 'internal/system_clock_utc.dart';
 

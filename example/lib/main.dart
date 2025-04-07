@@ -1,18 +1,10 @@
+import 'dart:math';
+
 import 'package:absmartly_sdk/ab_smartly.dart';
 import 'package:absmartly_sdk/absmartly_sdk.dart';
-import 'package:absmartly_sdk/absmartly_sdk_config.dart';
-import 'package:absmartly_sdk/client.dart';
 import 'package:absmartly_sdk/client_config.dart';
-import 'package:absmartly_sdk/context.dart';
 import 'package:absmartly_sdk/context_config.dart';
 import 'package:absmartly_sdk/context_event_logger.dart';
-import 'package:absmartly_sdk/context_event_logger.dart';
-import 'package:absmartly_sdk/default_http_client.dart';
-import 'package:absmartly_sdk/default_http_client_config.dart';
-import 'package:absmartly_sdk/helper/funtions.dart';
-import 'package:absmartly_sdk/json/attribute.dart';
-import 'package:absmartly_sdk/json/exposure.dart';
-import 'package:absmartly_sdk/json/goal_achievement.dart';
 import 'package:flutter/material.dart';
 
 Future<void> main() async {
@@ -37,7 +29,7 @@ class MyApp extends StatelessWidget {
 }
 
 class AbSmartlyScreen extends StatefulWidget {
-  const AbSmartlyScreen({Key? key}) : super(key: key);
+  const AbSmartlyScreen({super.key});
 
   @override
   State<AbSmartlyScreen> createState() => _AbSmartlyScreenState();
@@ -58,12 +50,12 @@ class _AbSmartlyScreenState extends State<AbSmartlyScreen> {
         onPressed: () {
           initData();
         },
-        child: Icon(Icons.send),
+        child: const Icon(Icons.send),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Container(
-            padding: EdgeInsets.all(10),
+            padding: const EdgeInsets.all(10),
             child: Text(res),
           ),
         ),
@@ -73,19 +65,17 @@ class _AbSmartlyScreenState extends State<AbSmartlyScreen> {
 
   initData() async {
     final ClientConfig clientConfig = ClientConfig()
-      ..setEndpoint("https://dev-1.absmartly.io/v1")
-      ..setAPIKey(
-          "iwT-gtvI46SJCNeHb6SszqqLiAScmkDl4yh0kSZIo8nfFqx35kHrfV41rd9vL6Iq")
-      ..setApplication("web")
-      ..setEnvironment("prod");
+      ..setEndpoint(const String.fromEnvironment("ABSMARTLY_ENDPOINT"))
+      ..setAPIKey(const String.fromEnvironment("ABSMARTLY_API_KEY"))
+      ..setApplication(const String.fromEnvironment("ABSMARTLY_APPLICATION"))
+      ..setEnvironment(const String.fromEnvironment("ABSMARTLY_ENVIRONMENT"));
 
-
-    
     final ABSmartlyConfig sdkConfig =
         ABSmartlyConfig.create().setClient(Client.create(clientConfig));
     final ABSmartly sdk = ABSmartly(sdkConfig);
     final ContextConfig contextConfig = ContextConfig.create()
-      ..setUnit("user_id", "123456");
+      ..setUnit("user_id",
+          "${DateTime.now().millisecondsSinceEpoch}${(1000 + Random().nextInt(9000))}");
 
     contextConfig.setContextEventLogger(CustomEventLogger());
 
@@ -93,10 +83,8 @@ class _AbSmartlyScreenState extends State<AbSmartlyScreen> {
         await sdk.createContext(contextConfig).waitUntilReady();
 
     context.refresh();
-    print(context.units_);
 
-    final int treatment = await context.getTreatment("exp_test_ab");
-    print(treatment);
+    final int treatment = context.getTreatment("exp_test_ab");
 
     final Map<String, dynamic> properties = {};
     properties["value"] = 125;
@@ -117,33 +105,30 @@ class _AbSmartlyScreenState extends State<AbSmartlyScreen> {
     context.track("payment", properties);
 
     context.close();
-    sdk.close();
-    res = Helper.response ?? "";
+    res = "Variant ${treatment.toString()}";
     setState(() {});
-    Helper.response = null;
   }
 }
-
 
 class CustomEventLogger implements ContextEventLogger {
   @override
   void handleEvent(Context context, EventType event, dynamic data) {
     switch (event) {
-      case EventType.Exposure:
+      case EventType.exposure:
         final Exposure exposure = data;
         print("exposed to experiment ${exposure.name}");
         break;
-      case EventType.Goal:
+      case EventType.goal:
         final GoalAchievement goal = data;
         print("goal tracked: ${goal.name}");
         break;
-      case EventType.Error:
+      case EventType.error:
         print("error: $data");
         break;
-      case EventType.Publish:
-      case EventType.Ready:
-      case EventType.Refresh:
-      case EventType.Close:
+      case EventType.publish:
+      case EventType.ready:
+      case EventType.refresh:
+      case EventType.close:
         break;
     }
   }

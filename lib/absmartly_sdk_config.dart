@@ -1,4 +1,6 @@
-import 'dart:async';
+import 'package:absmartly_sdk/context_event_logger.dart';
+import 'package:absmartly_sdk/default_audience_deserializer.dart';
+import 'package:absmartly_sdk/default_variable_parser.dart';
 
 import 'client.dart';
 import 'context_data_provider.dart';
@@ -13,8 +15,8 @@ class ABSmartlyConfig {
   ContextDataProvider? _contextDataProvider;
   ContextEventHandler? _contextEventHandler;
   VariableParser? _variableParser;
-  Timer? _scheduler;
   AudienceDeserializer? _audienceDeserializer;
+  ContextEventLogger? _contextEventLogger;
 
   ABSmartlyConfig();
 
@@ -37,13 +39,13 @@ class ABSmartlyConfig {
     return this;
   }
 
-  ABSmartlyConfig setVariableParser(VariableParser parser) {
-    _variableParser = parser;
+  ABSmartlyConfig setContextEventLogger(ContextEventLogger logger) {
+    _contextEventLogger = logger;
     return this;
   }
 
-  ABSmartlyConfig setScheduler(Timer scheduler) {
-    _scheduler = scheduler;
+  ABSmartlyConfig setVariableParser(VariableParser parser) {
+    _variableParser = parser;
     return this;
   }
 
@@ -79,9 +81,21 @@ class ABSmartlyConfig {
     return DefaultContextEventHandler(_client!);
   }
 
-  VariableParser? getVariableParser() => _variableParser;
+  ContextEventLogger? getContextEventLogger() {
+    return _contextEventLogger;
+  }
 
-  Timer? getScheduler() => _scheduler;
+  VariableParser getVariableParser() {
+    if (_variableParser != null) {
+      return _variableParser!;
+    }
+    return DefaultVariableParser();
+  }
 
-  AudienceDeserializer? getAudienceDeserializer() => _audienceDeserializer;
+  AudienceDeserializer getAudienceDeserializer() {
+    if (_audienceDeserializer != null) {
+      return _audienceDeserializer!;
+    }
+    return DefaultAudienceDeserializer();
+  }
 }

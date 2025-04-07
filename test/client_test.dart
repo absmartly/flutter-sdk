@@ -1,21 +1,25 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:absmartly_sdk/client.dart';
 import 'package:absmartly_sdk/client_config.dart';
-import 'package:absmartly_sdk/context_data_deserializer.mocks.dart';
-import 'package:absmartly_sdk/context_event_serializer.mocks.dart';
+import 'package:absmartly_sdk/context_data_deserializer.dart';
+import 'package:absmartly_sdk/context_event_serializer.dart';
 import 'package:absmartly_sdk/default_http_client.dart';
 import 'package:absmartly_sdk/http_client.dart';
-import 'package:absmartly_sdk/http_client.mocks.dart';
 import 'package:absmartly_sdk/json/context_data.dart';
 import 'package:absmartly_sdk/json/publish_event.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 
-// some are not working
+import 'client_test.mocks.dart';
 
+@GenerateNiceMocks([
+  MockSpec<HTTPClient>(),
+  MockSpec<ContextDataDeserializer>(),
+  MockSpec<ContextEventSerializer>()
+])
 void main() {
   Future<Response> getByteResponse(List<int> bytes) async {
     return DefaultResponse(
@@ -25,8 +29,8 @@ void main() {
       contentType: 'application/json; charset=utf8',
     );
   }
-  group("Client", () {
 
+  group("Client", () {
     test(
         'create method should return a new instance of Client with a default HTTPClient if httpClient is null',
         () {
@@ -48,11 +52,6 @@ void main() {
       expect(client.headers_['X-Agent'], equals('absmartly-dart-sdk'));
       expect(client.httpClient_.runtimeType, equals(DefaultHTTPClient));
     });
-    final config = ClientConfig()
-        .setEndpoint("https://example.com")
-        .setAPIKey("test-api-key")
-        .setApplication("website")
-        .setEnvironment("dev");
 
     test('Client constructor initializes properties correctly', () {
       final config = ClientConfig()
@@ -60,7 +59,6 @@ void main() {
           .setAPIKey("test-api-key")
           .setApplication("website")
           .setEnvironment("dev");
-      ;
       final httpClient = MockHTTPClient();
       final client = Client(config, httpClient);
       expect(client.url_, equals('https://example.com/context'));
@@ -79,12 +77,6 @@ void main() {
       expect(client.deserializer_, isNotNull);
       expect(client.serializer_, isNotNull);
     });
-
-    // .setEndpoint("https://localhost/v1")
-    //     .setAPIKey("test-api-key")
-    //     .setApplication("website")
-    //     .setEnvironment("dev")
-    //     .setContextEventSerializer(ser), httpClient);
 
     test('publish', () async {
       final httpClient = MockHTTPClient();
@@ -125,7 +117,7 @@ void main() {
               content: [0]));
 
       final publishFuture = client.publish(event);
-      await publishFuture;
+      publishFuture;
 
       verify(ser.serialize(event)).called(1);
       verify(httpClient.put(
@@ -154,21 +146,14 @@ void main() {
     };
 
     when(httpClient.get("https://localhost/v1/context", expectedQuery, null))
-        .thenAnswer((_)=> getByteResponse(bytes));
+        .thenAnswer((_) => getByteResponse(bytes));
 
     final ContextData expected = ContextData();
     when(deser.deserialize(bytes, 0, bytes.length)).thenReturn(expected);
 
-    final Future<ContextData?> dataFuture = client.getContextData();
-    final ContextData actual = (await dataFuture)!;
+    final Completer<ContextData> dataFuture = client.getContextData();
+    final ContextData actual = await dataFuture.future;
 
-    print(expected);
-    print(actual);
     expect(expected, actual);
-    // expect(expected, actual);
   });
-
-
-
-
 }

@@ -6,8 +6,7 @@ class ContextConfig {
   static ContextConfig create() => ContextConfig();
 
   ContextConfig setUnit(final String unitType, final String uid) {
-    units_ ??= {};
-    units_?[unitType] = uid;
+    units_[unitType] = uid;
     return this;
   }
 
@@ -18,25 +17,23 @@ class ContextConfig {
     return this;
   }
 
-  String? getUnit(final String unitType) => units_?[unitType];
+  String? getUnit(final String unitType) => units_[unitType];
 
-  Map<String, String>? getUnits() => units_;
+  Map<String, String> getUnits() => units_;
 
   ContextConfig setAttribute(final String name, final Object value) {
-    attributes_ ??= {};
-    attributes_?[name] = value;
+    attributes_[name] = value;
     return this;
   }
 
   ContextConfig setAttributes(final Map<String, dynamic> attributes) {
-    attributes_ ??= {};
-    attributes_?.addAll(attributes);
+    attributes_.addAll(attributes);
     return this;
   }
 
-  dynamic getAttribute(final String name) => attributes_?[name];
+  dynamic getAttribute(final String name) => attributes_[name];
 
-  Map<String, dynamic>? getAttributes() => attributes_;
+  Map<String, dynamic> getAttributes() => attributes_;
 
   ContextConfig setOverride(final String experimentName, int variant) {
     overrides_[experimentName] = variant;
@@ -53,21 +50,19 @@ class ContextConfig {
   Map<String, int> getOverrides() => overrides_;
 
   ContextConfig setCustomAssignment(String experimentName, int variant) {
-    cassigmnents_ ??= <String, int>{};
-    cassigmnents_![experimentName] = variant;
+    cassigmnents_[experimentName] = variant;
     return this;
   }
 
   ContextConfig setCustomAssignments(Map<String, int> customAssignments) {
-    cassigmnents_ ??= {};
-    cassigmnents_!.addAll(customAssignments);
+    cassigmnents_.addAll(customAssignments);
     return this;
   }
 
   dynamic getCustomAssignment(String experimentName) =>
-      cassigmnents_?[experimentName];
+      cassigmnents_[experimentName];
 
-  Map<String, int>? getCustomAssignments() => cassigmnents_;
+  Map<String, int> getCustomAssignments() => cassigmnents_;
 
   ContextConfig setPublishDelay(int delayMs) {
     publishDelay = delayMs;
@@ -81,8 +76,7 @@ class ContextConfig {
     return this;
   }
 
-
-  ContextEventLogger? getContextEventLogger(){
+  ContextEventLogger? getContextEventLogger() {
     return logger_;
   }
 
@@ -90,17 +84,14 @@ class ContextConfig {
     logger_ = logger;
   }
 
-
   int getRefreshInterval() => refreshInterval;
 
-  Map<String, String>? units_;
-  Map<String, dynamic>? attributes_;
+  Map<String, String> units_ = {};
+  Map<String, dynamic> attributes_ = {};
   Map<String, int> overrides_ = {};
-  Map<String, int>? cassigmnents_ = {};
+  Map<String, int> cassigmnents_ = {};
   int publishDelay = 100;
   int refreshInterval = 0;
 
-
   ContextEventLogger? logger_;
-
 }

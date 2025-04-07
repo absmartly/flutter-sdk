@@ -1,17 +1,10 @@
-import '../helper/number_format/number_format.dart';
+import 'package:intl/intl.dart';
 import 'evaluator.dart';
 import 'operator.dart';
+import 'package:collection/collection.dart';
 
 class ExprEvaluator extends Evaluator {
-  static final NumberFormat formatter = _getValue();
-
-  static NumberFormat _getValue() {
-    final f = NumberFormat.decimalPattern();
-    f.maximumFractionDigits = 15;
-    f.minimumFractionDigits = 0;
-    f.minimumIntegerDigits = 1;
-    return formatter;
-  }
+  static final NumberFormat formatter = NumberFormat.decimalPattern();
 
   final Map<String, Operator> operators;
   final Map<String?, dynamic> vars;
@@ -26,7 +19,6 @@ class ExprEvaluator extends Evaluator {
       final map = expr as Map<String?, dynamic>;
       for (final entry in map.entries) {
         final op = operators[entry.key];
-        print(op);
         if (op != null) {
           return op.evaluate(this, entry.value);
         }
@@ -58,10 +50,12 @@ class ExprEvaluator extends Evaluator {
     } else if (x is String) {
       try {
         return double.parse(x); // use javascript semantics: numbers are doubles
-      } catch (e) {}
+      } catch (e) {
+        // ignore and return null
+      }
     }
 
-    return -1;
+    return null;
   }
 
   @override
@@ -71,6 +65,10 @@ class ExprEvaluator extends Evaluator {
     } else if (x is bool) {
       return x.toString();
     } else if (x is num) {
+      formatter.maximumFractionDigits = 15;
+      formatter.minimumFractionDigits = 0;
+      formatter.minimumIntegerDigits = 1;
+      formatter.turnOffGrouping();
       return formatter.format(x);
     }
     return null;
@@ -83,7 +81,7 @@ class ExprEvaluator extends Evaluator {
     dynamic target = vars;
 
     for (final frag in frags) {
-      dynamic? value;
+      dynamic value;
       if (target is List) {
         final list = target;
         try {
@@ -127,9 +125,15 @@ class ExprEvaluator extends Evaluator {
       }
     } else if (lhs is bool) {
       final rvalue = booleanConvert(rhs);
-      return lhs == rvalue;
-    } else if (lhs.runtimeType == rhs.runtimeType && lhs == rhs) {
-      return 0;
+      return (lhs ? 1 : 0).compareTo(rvalue ? 1 : 0);
+    } else if (lhs.runtimeType == rhs.runtimeType) {
+      if (lhs is Map && const MapEquality().equals(lhs, rhs)) {
+        return 0;
+      } else if (lhs is List && const ListEquality().equals(lhs, rhs)) {
+        return 0;
+      } else if (lhs is Comparable) {
+        return (lhs).compareTo(rhs);
+      }
     }
 
     return null;

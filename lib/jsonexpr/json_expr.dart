@@ -32,7 +32,7 @@ class JsonExpr {
   };
 
   bool evaluateBooleanExpr(dynamic expr, Map<String?, dynamic> vars) {
-   final evaluator = ExprEvaluator(operators, vars);
+    final evaluator = ExprEvaluator(operators, vars);
 
     return evaluator.booleanConvert(evaluator.evaluate(expr));
   }

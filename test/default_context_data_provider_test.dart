@@ -1,23 +1,30 @@
-import 'package:absmartly_sdk/client.mocks.dart';
-import 'package:absmartly_sdk/context.dart';
+import 'dart:async';
+
+import 'package:absmartly_sdk/client.dart';
 import 'package:absmartly_sdk/default_context_data_provider.dart';
 import 'package:absmartly_sdk/json/context_data.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 
-//  all working
+import 'default_context_data_provider_test.mocks.dart';
 
+@GenerateNiceMocks([
+  MockSpec<Client>(),
+])
 void main() {
   group('DefaultContextDataProvider', () {
     test('getContextData', () async {
       final client = MockClient();
       final provider = DefaultContextDataProvider(client);
       final expected = ContextData();
-      when(client.getContextData())
-          .thenAnswer((_) => Future.value(expected));
+
+      final completer = Completer<ContextData>();
+      completer.complete(expected);
+      when(client.getContextData()).thenReturn(completer);
 
       final dataFuture = provider.getContextData();
-      final actual = await dataFuture;
+      final actual = await dataFuture.future;
 
       expect(actual, equals(expected));
       expect(identical(expected, actual), isTrue);
@@ -28,14 +35,13 @@ void main() {
       final provider = DefaultContextDataProvider(client);
 
       final failure = Exception('FAILED');
-      final Future<ContextData> failedFuture = Future.error(failure);
-      when(client.getContextData()).thenAnswer((_) => failedFuture);
+      final completer = Completer<ContextData>();
+      completer.completeError(failure);
+      when(client.getContextData()).thenReturn(completer);
 
       final dataFuture = provider.getContextData();
-      final actual = await expectLater(
-          dataFuture, throwsA(TypeMatcher<Exception>()));
-
-      // expect(actual.cause, equals(failure));
+      await expectLater(
+          dataFuture.future, throwsA(const TypeMatcher<Exception>()));
 
       verify(client.getContextData()).called(1);
     });

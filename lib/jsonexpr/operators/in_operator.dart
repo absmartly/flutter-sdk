@@ -16,10 +16,9 @@ class InOperator extends BinaryOperator {
       return needleString != null && (lhs).contains(needleString);
     } else if (lhs is Map) {
       final needleString = evaluator.stringConvert(rhs);
-      return needleString != null && (lhs as Map<String, dynamic>).containsKey(needleString);
+      return needleString != null &&
+          (lhs as Map<String, dynamic>).containsKey(needleString);
     }
     return null;
   }
 }
-
-

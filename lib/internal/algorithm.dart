@@ -1,6 +1,6 @@
-
 class Algorithm {
-  static List<R?> mapSetToArray<T, R>(Set<T> set, List<R?> list, Function(T) mapper) {
+  static List<R?> mapSetToArray<T, R>(
+      Set<T> set, List<R?> list, Function(T) mapper) {
     final int size = set.length;
     if (list.length < size) {
       list = List<R?>.generate(size, (int index) => null, growable: true);
@@ -17,4 +17,3 @@ class Algorithm {
     return list;
   }
 }
-
