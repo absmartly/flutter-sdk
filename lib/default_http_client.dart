@@ -1,24 +1,34 @@
 import 'dart:core';
 import 'dart:io';
+import 'dart:math' as Math;
 
-import 'package:absmartly_sdk/helper/funtions.dart';
 import 'package:http/io_client.dart' as http_io;
 
+import 'package:http/retry.dart' as retry;
 import 'package:http/http.dart' as http;
 import 'package:absmartly_sdk/http_client.dart';
 import 'default_http_client_config.dart';
+
+const int minRetryInterval = 5;
 
 class DefaultHTTPClient implements HTTPClient {
   factory DefaultHTTPClient.create(final DefaultHTTPClientConfig config) {
     return DefaultHTTPClient(config);
   }
 
+  late int retryInterval;
+  late int maxRetries;
+
   late http.Client client;
 
   DefaultHTTPClient(DefaultHTTPClientConfig config) {
     client = http_io.IOClient(HttpClient()
       ..maxConnectionsPerHost = 20
+      ..connectionTimeout = Duration(milliseconds: config.getConnectTimeout())
       ..idleTimeout = Duration(milliseconds: config.getConnectionKeepAlive()));
+
+    maxRetries = config.getMaxRetries();
+    retryInterval = config.getRetryInterval();
   }
 
   @override
@@ -39,52 +49,82 @@ class DefaultHTTPClient implements HTTPClient {
     return makeRequest(url, query, headers, body, "PUT");
   }
 
-  Future<Response> makeRequest(String url, Map<String, String>? query,
-      Map<String, String>? headers, List<int>? body, String type) async {
-    var queryParams = "";
-
+  Future<Response> makeRequest(
+    String url,
+    Map<String, String>? query,
+    Map<String, String>? headers,
+    List<int>? body,
+    String type,
+  ) async {
     headers?["Content-Type"] = "application/json";
-    if (query != null) {
-      queryParams = "?";
-      query.forEach((key, value) {
-        queryParams = "$queryParams$key=$value&";
-      });
-      queryParams = queryParams.substring(0, queryParams.length - 1);
+
+    Uri parsedUri = Uri.parse(url);
+    Uri uri = parsedUri.replace(queryParameters: query ?? {});
+
+    int attempt = 0;
+
+    while (true) {
+      attempt++;
+      try {
+        http.Response response;
+        switch (type) {
+          case "GET":
+            response = await client.get(
+              uri,
+              headers: headers,
+            );
+            break;
+
+          case "POST":
+            response = await client.post(
+              uri,
+              headers: headers,
+              body: body,
+            );
+            break;
+
+          case "PUT":
+            response = await client.put(
+              uri,
+              headers: headers,
+              body: body,
+            );
+            break;
+
+          default:
+            response = await client.get(
+              uri,
+              headers: headers,
+            );
+            break;
+        }
+
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return parseHttpResponse(response);
+        }
+
+        if (attempt >= maxRetries ||
+            (response.statusCode != 502 && response.statusCode != 503)) {
+          return parseHttpResponse(response);
+        }
+      } catch (e) {
+        if (attempt >= maxRetries) {
+          rethrow;
+        }
+      }
+
+      final int interval = Math.max(
+          0, (2 * (retryInterval - minRetryInterval)) ~/ (1 << maxRetries));
+      final Duration delay = Duration(
+          milliseconds: minRetryInterval + (((1 << (attempt - 1)) * interval)));
+
+      await Future.delayed(delay);
     }
+  }
 
-    switch (type) {
-      case "GET":
-        http.Response response = await client.get(
-          Uri.parse(url + queryParams),
-          headers: headers,
-        );
-        Helper.response = response.body;
-        return parseHttpResponse(response);
-
-      case "POST":
-        http.Response response = await client.post(
-          Uri.parse(url + queryParams),
-          headers: headers,
-          body: body,
-        );
-        return parseHttpResponse(response);
-
-      case "PUT":
-        http.Response response = await client.put(
-          Uri.parse(url + queryParams),
-          headers: headers,
-          body: body,
-        );
-
-        return parseHttpResponse(response);
-
-      default:
-        http.Response response = await client.get(
-          Uri.parse(url + queryParams),
-          headers: headers,
-        );
-        return parseHttpResponse(response);
-    }
+  @override
+  close() {
+    client.close();
   }
 
   Response parseHttpResponse(http.Response response) {

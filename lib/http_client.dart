@@ -7,6 +7,8 @@ abstract class HTTPClient {
 
   Future<Response> post(String url, Map<String, String>? query,
       Map<String, String>? headers, List<int>? body);
+
+  close();
 }
 
 abstract class Response {
