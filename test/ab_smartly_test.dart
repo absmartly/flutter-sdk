@@ -99,7 +99,7 @@ void main() {
 
       final result = absmartly.getContextData();
 
-      expect(result, equals(dataCompleter));
+      expect(result, equals(dataCompleter.future));
       verify(mockDataProvider.getContextData()).called(1);
     });
 
