@@ -754,7 +754,6 @@ class Context {
   Completer<void>? refreshFuture_;
   Timer? timeout_;
   Timer? refreshTimer_;
-  Timer? scheduler_;
 }
 
 class ExperimentVariables {

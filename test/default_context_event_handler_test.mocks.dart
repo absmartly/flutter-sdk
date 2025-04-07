@@ -432,12 +432,6 @@ class MockContext extends _i1.Mock implements _i7.Context {
       );
 
   @override
-  set scheduler_(_i11.Timer? _scheduler_) => super.noSuchMethod(
-        Invocation.setter(#scheduler_, _scheduler_),
-        returnValueForMissingStub: null,
-      );
-
-  @override
   bool isReady() => (super.noSuchMethod(
         Invocation.method(#isReady, []),
         returnValue: false,
