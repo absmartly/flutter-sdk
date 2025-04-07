@@ -5,7 +5,6 @@ import 'package:absmartly_sdk/absmartly_sdk.dart';
 import 'package:absmartly_sdk/client_config.dart';
 import 'package:absmartly_sdk/context_config.dart';
 import 'package:absmartly_sdk/context_event_logger.dart';
-import 'package:absmartly_sdk/helper/funtions.dart';
 import 'package:flutter/material.dart';
 
 Future<void> main() async {
@@ -108,7 +107,6 @@ class _AbSmartlyScreenState extends State<AbSmartlyScreen> {
     context.close();
     res = "Variant ${treatment.toString()}";
     setState(() {});
-    Helper.response = null;
   }
 }
 

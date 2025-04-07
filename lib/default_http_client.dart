@@ -1,10 +1,9 @@
 import 'dart:core';
 import 'dart:io';
-import 'dart:math' as Math;
+import 'dart:math' as math;
 
 import 'package:http/io_client.dart' as http_io;
 
-import 'package:http/retry.dart' as retry;
 import 'package:http/http.dart' as http;
 import 'package:absmartly_sdk/http_client.dart';
 import 'default_http_client_config.dart';
@@ -113,7 +112,7 @@ class DefaultHTTPClient implements HTTPClient {
         }
       }
 
-      final int interval = Math.max(
+      final int interval = math.max(
           0, (2 * (retryInterval - minRetryInterval)) ~/ (1 << maxRetries));
       final Duration delay = Duration(
           milliseconds: minRetryInterval + (((1 << (attempt - 1)) * interval)));
