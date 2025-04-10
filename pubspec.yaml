@@ -1,6 +1,6 @@
 name: absmartly_sdk
 description: ABsmartly - Flutter SDK
-version: 2.1.0
+version: 2.1.1
 homepage: https://github.com/absmartly/flutter-sdk
 
 environment:
