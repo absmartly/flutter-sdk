@@ -1,6 +1,3 @@
-import 'package:mockito/annotations.dart';
-
-@GenerateNiceMocks([MockSpec<Evaluator>()])
 abstract class Evaluator {
   dynamic evaluate(dynamic expr);
 
