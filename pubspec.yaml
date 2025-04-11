@@ -1,6 +1,6 @@
 name: absmartly_sdk
 description: ABsmartly - Flutter SDK
-version: 2.1.1
+version: 2.1.2
 homepage: https://github.com/absmartly/flutter-sdk
 
 environment:
@@ -10,11 +10,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  mockito: ^5.4.2
-  build_runner: ^2.4.5
+  mockito: '>=5.4.2'
+  build_runner: '>=2.4.5'
   flutter_lints: '>=3.0.0'
   http_parser: '>=4.0.2'
-  meta: '>=1.16.0'
   async: '>=2.11.0'
   crypto: '>=3.0.6'
   http: '>=0.13.0'
