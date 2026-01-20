@@ -1,5 +1,6 @@
-import 'package:absmartly_sdk/json/unit.dart';
-import 'package:flutter/foundation.dart';
+import 'package:collection/collection.dart';
+
+import 'unit.dart';
 
 import 'attribute.dart';
 import 'exposure.dart';
@@ -27,10 +28,10 @@ class PublishEvent {
     return other is PublishEvent &&
         other.hashed == hashed &&
         other.publishedAt == publishedAt &&
-        listEquals(other.units, units) &&
-        listEquals(other.exposures, exposures) &&
-        listEquals(other.goals, goals) &&
-        listEquals(other.attributes, attributes);
+        const ListEquality().equals(other.units, units) &&
+        const ListEquality().equals(other.exposures, exposures) &&
+        const ListEquality().equals(other.goals, goals) &&
+        const ListEquality().equals(other.attributes, attributes);
   }
 
   @override
