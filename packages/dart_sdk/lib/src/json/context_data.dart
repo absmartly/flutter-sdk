@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:collection/collection.dart';
 
 import 'experiment.dart';
 
@@ -10,7 +10,7 @@ class ContextData {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is ContextData && listEquals(other.experiments, experiments);
+    return other is ContextData && const ListEquality().equals(other.experiments, experiments);
   }
 
   @override
