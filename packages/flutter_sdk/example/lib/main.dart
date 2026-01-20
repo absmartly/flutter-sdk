@@ -1,10 +1,6 @@
 import 'dart:math';
 
-import 'package:absmartly_sdk/ab_smartly.dart';
 import 'package:absmartly_sdk/absmartly_sdk.dart';
-import 'package:absmartly_sdk/client_config.dart';
-import 'package:absmartly_sdk/context_config.dart';
-import 'package:absmartly_sdk/context_event_logger.dart';
 import 'package:flutter/material.dart';
 
 Future<void> main() async {
