@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:collection/collection.dart';
 
 class GoalAchievement {
   late String name;
@@ -14,7 +14,7 @@ class GoalAchievement {
         other is GoalAchievement &&
             achievedAt == other.achievedAt &&
             name == other.name &&
-            mapEquals(properties, other.properties);
+            const MapEquality().equals(properties, other.properties);
   }
 
   @override
