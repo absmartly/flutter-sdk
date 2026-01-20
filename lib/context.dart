@@ -197,6 +197,7 @@ class Context {
 
     attributes_
         .add(Attribute(name: name, value: value, setAt: clock_.millis()));
+    attrsSeq_++;
   }
 
   Map<String, dynamic> getAttributes() {
@@ -489,6 +490,25 @@ class Context {
             .equals(experiment.trafficSplit, assignment.trafficSplit);
   }
 
+  bool audienceMatches(
+      final Experiment experiment, final Assignment assignment) {
+    if (experiment.audience != null && experiment.audience!.isNotEmpty) {
+      if (attrsSeq_ > assignment.attrsSeq) {
+        final Map<String, dynamic> attrs = {};
+        for (final Attribute attr in attributes_) {
+          attrs[attr.name] = attr.value;
+        }
+        final Result? match = audienceMatcher_.evaluate(experiment.audience!, attrs);
+        final bool newAudienceMismatch = match != null ? !match.get() : false;
+        if (newAudienceMismatch != assignment.audienceMismatch) {
+          return false;
+        }
+        assignment.attrsSeq = attrsSeq_;
+      }
+    }
+    return true;
+  }
+
   Assignment getAssignment(final String experimentName) {
     Assignment? assignment = assignmentCache_[experimentName];
     final int? custom = cassignments_[experimentName];
@@ -507,7 +527,8 @@ class Context {
           return assignment;
         }
       } else if ((custom == null) || custom == assignment.variant) {
-        if (experimentMatches(experiment.data, assignment)) {
+        if (experimentMatches(experiment.data, assignment) &&
+            audienceMatches(experiment.data, assignment)) {
           // assignment up-to-date
           return assignment;
         }
@@ -589,10 +610,12 @@ class Context {
     }
 
     if ((experiment != null) &&
+        assignment.variant >= 0 &&
         (assignment.variant < experiment.data.variants.length)) {
       assignment.variables = experiment.variables[assignment.variant] ?? {};
     }
 
+    assignment.attrsSeq = attrsSeq_;
     assignmentCache_[experimentName] = assignment;
 
     return assignment;
@@ -746,6 +769,7 @@ class Context {
   final Map<String, int> overrides_ = {};
   final Map<String, int> cassignments_ = {};
   int pendingCount_ = 0;
+  int attrsSeq_ = 0;
   bool closing_ = false;
   bool closed_ = false;
   bool refreshing_ = false;
@@ -777,4 +801,5 @@ class Assignment {
   bool audienceMismatch = false;
   Map<String, dynamic> variables = {};
   bool exposed = false;
+  int attrsSeq = 0;
 }
