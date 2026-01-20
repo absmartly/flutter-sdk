@@ -2,8 +2,8 @@ library absmartly_sdk;
 
 import 'dart:async';
 
-import 'package:absmartly_sdk/context_event_logger.dart';
-import 'package:absmartly_sdk/variable_parser.dart';
+import 'context_event_logger.dart';
+import 'variable_parser.dart';
 
 import 'absmartly_sdk_config.dart';
 import 'audience_deserializer.dart';

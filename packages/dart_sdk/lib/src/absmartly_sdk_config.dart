@@ -1,6 +1,6 @@
-import 'package:absmartly_sdk/context_event_logger.dart';
-import 'package:absmartly_sdk/default_audience_deserializer.dart';
-import 'package:absmartly_sdk/default_variable_parser.dart';
+import 'context_event_logger.dart';
+import 'default_audience_deserializer.dart';
+import 'default_variable_parser.dart';
 
 import 'client.dart';
 import 'context_data_provider.dart';

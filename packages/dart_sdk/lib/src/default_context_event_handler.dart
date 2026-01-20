@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:absmartly_sdk/json/publish_event.dart';
+import 'json/publish_event.dart';
 
 import 'context_event_handler.dart';
 import 'client.dart';

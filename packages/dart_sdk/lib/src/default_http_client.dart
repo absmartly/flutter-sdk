@@ -5,7 +5,7 @@ import 'dart:math' as math;
 import 'package:http/io_client.dart' as http_io;
 
 import 'package:http/http.dart' as http;
-import 'package:absmartly_sdk/http_client.dart';
+import 'http_client.dart';
 import 'default_http_client_config.dart';
 
 const int minRetryInterval = 5;

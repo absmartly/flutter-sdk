@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:core';
 import 'dart:typed_data';
 
-import 'package:absmartly_sdk/variable_parser.dart';
+import 'variable_parser.dart';
 import 'package:collection/collection.dart';
 
 import 'audience_matcher.dart';

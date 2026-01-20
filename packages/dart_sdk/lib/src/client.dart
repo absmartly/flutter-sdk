@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:absmartly_sdk/default_http_client.dart';
+import 'default_http_client.dart';
 import 'client_config.dart';
 import 'default_context_data_serializer.dart';
 import 'default_context_event_serializer.dart';
