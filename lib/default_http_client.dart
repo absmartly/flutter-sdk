@@ -11,8 +11,9 @@ import 'default_http_client_config.dart';
 const int minRetryInterval = 5;
 
 class DefaultHTTPClient implements HTTPClient {
-  factory DefaultHTTPClient.create(final DefaultHTTPClientConfig config) {
-    return DefaultHTTPClient(config);
+  factory DefaultHTTPClient.create(final DefaultHTTPClientConfig config,
+      {http.Client? httpClient}) {
+    return DefaultHTTPClient(config, httpClient: httpClient);
   }
 
   late int retryInterval;
@@ -20,11 +21,14 @@ class DefaultHTTPClient implements HTTPClient {
 
   late http.Client client;
 
-  DefaultHTTPClient(DefaultHTTPClientConfig config) {
-    client = http_io.IOClient(HttpClient()
-      ..maxConnectionsPerHost = 20
-      ..connectionTimeout = Duration(milliseconds: config.getConnectTimeout())
-      ..idleTimeout = Duration(milliseconds: config.getConnectionKeepAlive()));
+  DefaultHTTPClient(DefaultHTTPClientConfig config, {http.Client? httpClient}) {
+    client = httpClient ??
+        http_io.IOClient(HttpClient()
+          ..maxConnectionsPerHost = 20
+          ..connectionTimeout =
+              Duration(milliseconds: config.getConnectTimeout())
+          ..idleTimeout =
+              Duration(milliseconds: config.getConnectionKeepAlive()));
 
     maxRetries = config.getMaxRetries();
     retryInterval = config.getRetryInterval();
