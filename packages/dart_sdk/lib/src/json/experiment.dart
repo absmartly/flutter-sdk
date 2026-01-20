@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:collection/collection.dart';
 
 import 'experiment_variant.dart';
 import 'experiment_application.dart';
@@ -51,10 +51,10 @@ class Experiment {
             trafficSeedHi == other.trafficSeedHi &&
             trafficSeedLo == other.trafficSeedLo &&
             fullOnVariant == other.fullOnVariant &&
-            listEquals(split, other.split) &&
-            listEquals(trafficSplit, other.trafficSplit) &&
-            listEquals(applications, other.applications) &&
-            listEquals(variants, other.variants) &&
+            const ListEquality().equals(split, other.split) &&
+            const ListEquality().equals(trafficSplit, other.trafficSplit) &&
+            const ListEquality().equals(applications, other.applications) &&
+            const ListEquality().equals(variants, other.variants) &&
             audienceStrict == other.audienceStrict &&
             audience == other.audience;
   }
