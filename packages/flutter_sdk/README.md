@@ -243,7 +243,141 @@ contextConfig.setContextEventLogger(CustomEventLogger());
 
 ## Flutter Integration
 
-This package is designed for Flutter applications and includes all functionality from the [Dart SDK](../dart_sdk/).
+This package is designed for Flutter applications and includes all functionality from the [Dart SDK](../dart_sdk/) plus Flutter-specific widgets for declarative A/B testing in your widget tree.
+
+### ABSmartlyProvider
+
+Wrap your app with `ABSmartlyProvider` to make the SDK and context available throughout your widget tree:
+
+```dart
+import 'package:absmartly_sdk/absmartly_sdk.dart';
+
+void main() async {
+  final clientConfig = ClientConfig()
+    ..setEndpoint('https://your-company.absmartly.io/v1')
+    ..setAPIKey('YOUR-API-KEY')
+    ..setApplication('website')
+    ..setEnvironment('development');
+
+  final client = Client.create(clientConfig);
+  final sdkConfig = ABSmartlyConfig.create()..setClient(client);
+  final sdk = ABSmartly(sdkConfig);
+
+  final contextConfig = ContextConfig.create()
+    ..setUnit('user_id', 'user-123');
+  final context = sdk.createContext(contextConfig);
+
+  runApp(
+    ABSmartlyProvider(
+      sdk: sdk,
+      context: context,
+      defaultLoadingBehavior: LoadingBehavior.control,
+      child: const MyApp(),
+    ),
+  );
+}
+```
+
+**Provider Options**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `sdk` | `ABSmartly` | required | The SDK instance |
+| `context` | `Context` | required | The experiment context |
+| `defaultLoadingBehavior` | `LoadingBehavior` | `placeholder` | How to handle loading states |
+| `readyTimeout` | `Duration` | 3 seconds | Timeout before falling back to control |
+
+**Loading Behaviors**
+
+- `LoadingBehavior.placeholder` - Show empty `SizedBox` while loading, fall back to control after timeout
+- `LoadingBehavior.control` - Immediately show control variant (may cause flickering if context loads quickly)
+
+### Treatment Widget
+
+Use the `Treatment` widget to render different UI based on experiment variants:
+
+```dart
+Treatment(
+  name: 'checkout_experiment',
+  variants: {
+    0: OldCheckoutButton(),  // Control
+    1: NewCheckoutButton(),  // Variant B
+    2: MinimalCheckoutButton(),  // Variant C
+  },
+)
+```
+
+With custom loading widget:
+
+```dart
+Treatment(
+  name: 'checkout_experiment',
+  loading: CircularProgressIndicator(),
+  variants: {
+    0: OldCheckoutButton(),
+    1: NewCheckoutButton(),
+  },
+)
+```
+
+### TreatmentBuilder Widget
+
+Use `TreatmentBuilder` when you need access to experiment variables:
+
+```dart
+TreatmentBuilder(
+  name: 'price_experiment',
+  builder: (context, variant, variables) {
+    final price = variables['price'] ?? 9.99;
+    return PriceTag(
+      price: price,
+      highlighted: variant == 1,
+    );
+  },
+)
+```
+
+### TreatmentSwitch Widget
+
+Use `TreatmentSwitch` with `TreatmentVariant` children for a more declarative style:
+
+```dart
+TreatmentSwitch(
+  name: 'hero_experiment',
+  children: [
+    TreatmentVariant(
+      variant: 0,  // or 'A' for control
+      child: ClassicHero(),
+    ),
+    TreatmentVariant(
+      variant: 1,  // or 'B' for first variant
+      child: ModernHero(),
+    ),
+    TreatmentVariant(
+      variant: 'C',  // letter notation supported
+      child: MinimalHero(),
+    ),
+  ],
+)
+```
+
+### Accessing Provider Data
+
+Access the SDK and context from anywhere in the widget tree:
+
+```dart
+// In a widget
+final data = ABSmartlyProvider.of(context);
+final sdk = data.sdk;
+final abContext = data.context;
+final isReady = data.isReady;
+
+// Null-safe access
+final data = ABSmartlyProvider.maybeOf(context);
+if (data != null) {
+  // Provider available
+}
+```
 
 ### Example App
 
@@ -253,13 +387,6 @@ See the [example](example/) directory for a complete Flutter application demonst
 cd example
 flutter run
 ```
-
-### Future Flutter-Specific Features
-
-We're planning to add Flutter-specific features such as:
-- `ABSmartlyProvider` - InheritedWidget for context propagation
-- `ExperimentBuilder` - Widget that rebuilds on treatment changes
-- App lifecycle integration (pause/resume event publishing)
 
 ## Dart-Only Projects
 
