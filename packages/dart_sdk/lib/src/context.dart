@@ -277,6 +277,9 @@ class Context {
 
     final Assignment? assignment = getVariableAssignment(key);
     if (assignment != null) {
+      // Queue exposure when assignment exists, regardless of whether key is in variables
+      // This matches JavaScript SDK behavior - exposure is logged even when user
+      // is not in traffic (eligible=false) to record that the variable was accessed
       if (!assignment.exposed) {
         queueExposure(assignment);
       }
@@ -425,11 +428,6 @@ class Context {
                 type: entry.key,
                 uid: utf8.decode(getUnitHash(entry.key, entry.value))));
           }
-
-          units_.forEach((key, value) {
-            units.add(
-                Unit(type: key, uid: utf8.decode(getUnitHash(key, value))));
-          });
 
           final PublishEvent event = PublishEvent(
             hashed: true,
@@ -727,6 +725,7 @@ class Context {
     index_ = index;
     indexVariables_ = indexVariables;
     data_ = data;
+    assignmentCache_.clear();
     setRefreshTimer();
   }
 
