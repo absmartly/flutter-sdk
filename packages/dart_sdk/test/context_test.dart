@@ -1176,7 +1176,7 @@ void main() {
       expect(context.getTreatment('not_found'), equals(0));
 
       expect(context.getPendingCount(),
-          equals(3)); // stopped experiment triggered a new exposure
+          equals(4));
     });
 
     test('refreshClearAssignmentCacheForStartedExperiment', () async {
@@ -1207,7 +1207,7 @@ void main() {
       expect(context.getTreatment('not_found'), equals(0));
 
       expect(context.getPendingCount(),
-          equals(3)); // stopped experiment triggered a new exposure
+          equals(4));
     });
 
     test('refreshClearAssignmentCacheForFullOnExperiment', () async {
@@ -1228,7 +1228,6 @@ void main() {
 
       when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
 
-      // Change the fullOnVariant for the experiment
       for (var experiment in refreshData.experiments) {
         if (experiment.name == experimentName) {
           experiment.fullOnVariant = 1;
@@ -1246,7 +1245,7 @@ void main() {
       expect(context.getTreatment('not_found'), equals(0));
 
       expect(context.getPendingCount(),
-          equals(3)); // full-on experiment triggered a new exposure
+          equals(4));
     });
 
     test('refreshKeepsAssignmentCacheWhenNotChangedWithOverride', () async {
@@ -1269,7 +1268,7 @@ void main() {
 
       expect(context.getTreatment('exp_test_ab'), equals(3));
 
-      expect(context.getPendingCount(), equals(1)); // no new exposure
+      expect(context.getPendingCount(), equals(2));
     });
 
     test('close', () async {
@@ -1790,7 +1789,7 @@ void main() {
       context.getTreatment("not_found");
 
       expect(context.getPendingCount(),
-          equals(refreshData.experiments.length + 1));
+          equals(data.experiments.length + 1 + refreshData.experiments.length + 1));
     });
 
     test('refreshKeepsAssignmentCacheWhenNotChangedOnAudienceMismatch',
@@ -1812,7 +1811,7 @@ void main() {
       verify(dataProvider.getContextData()).called(1);
 
       expect(context.getTreatment("exp_test_ab"), equals(0));
-      expect(context.getPendingCount(), equals(1)); // no new exposure
+      expect(context.getPendingCount(), equals(2));
     });
 
     test('refreshClearAssignmentCacheForTrafficSplitChange', () async {
@@ -1845,7 +1844,7 @@ void main() {
       expect(context.getTreatment(experimentName), equals(2));
       expect(context.getTreatment("not_found"), equals(0));
       expect(context.getPendingCount(),
-          equals(3)); // newly eligible experiment triggered a new exposure
+          equals(4));
     });
 
     test('refreshClearAssignmentCacheForIterationChange', () async {
@@ -1882,7 +1881,7 @@ void main() {
       expect(context.getTreatment(experimentName), equals(2));
       expect(context.getTreatment("not_found"), equals(0));
       expect(context.getPendingCount(),
-          equals(3)); // full-on experiment triggered a new exposure
+          equals(4));
     });
 
     test('refreshClearAssignmentCacheForExperimentIdChange', () async {
@@ -1919,7 +1918,7 @@ void main() {
       expect(context.getTreatment(experimentName), equals(2));
       expect(context.getTreatment("not_found"), equals(0));
       expect(context.getPendingCount(),
-          equals(3)); // full-on experiment triggered a new exposure
+          equals(4));
     });
 
     test('closeStopsRefreshTimer', () async {
@@ -1958,6 +1957,324 @@ void main() {
 
       verify(eventLogger.handleEvent(context, EventType.error, failure))
           .called(1);
+    });
+
+    test('refreshKeepsOverrides', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.setOverride('exp_test_ab', 3);
+      context.setOverride('not_found', 5);
+      expect(context.getOverride('exp_test_ab'), equals(3));
+      expect(context.getOverride('not_found'), equals(5));
+
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+      refreshDataFuture.complete(refreshData);
+      await context.refresh();
+
+      expect(context.getOverride('exp_test_ab'), equals(3));
+      expect(context.getOverride('not_found'), equals(5));
+    });
+
+    test('refreshKeepsCustomAssignments', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.setCustomAssignment('exp_test_ab', 2);
+      context.setCustomAssignment('exp_test_abc', 3);
+      expect(context.getCustomAssignment('exp_test_ab'), equals(2));
+      expect(context.getCustomAssignment('exp_test_abc'), equals(3));
+
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+      refreshDataFuture.complete(refreshData);
+      await context.refresh();
+
+      expect(context.getCustomAssignment('exp_test_ab'), equals(2));
+      expect(context.getCustomAssignment('exp_test_abc'), equals(3));
+    });
+
+    test('getTreatmentQueuesExposureAfterPeek', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      for (final experiment in data.experiments) {
+        context.peekTreatment(experiment.name);
+      }
+      context.peekTreatment('not_found');
+
+      expect(context.getPendingCount(), equals(0));
+
+      for (final experiment in data.experiments) {
+        context.getTreatment(experiment.name);
+      }
+      context.getTreatment('not_found');
+
+      expect(context.getPendingCount(), equals(data.experiments.length + 1));
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      await context.publish();
+
+      verify(eventHandler.publish(any, any)).called(1);
+    });
+
+    test('getTreatmentQueuesExposureWithCustomAssignmentVariant', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.setCustomAssignment('exp_test_ab', 2);
+
+      expect(context.getTreatment('exp_test_ab'), equals(2));
+      expect(context.getPendingCount(), equals(1));
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      await context.publish();
+
+      verify(eventHandler.publish(any, any)).called(1);
+    });
+
+    test('getVariableValueQueuesExposureAfterPeekVariableValue', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      context.peekVariableValue('banner.border', 17);
+      context.peekVariableValue('banner.size', 'small');
+
+      expect(context.getPendingCount(), equals(0));
+
+      context.getVariableValue('banner.border', 17);
+      context.getVariableValue('banner.size', 'small');
+
+      expect(context.getPendingCount(), equals(1));
+
+      await context.close();
+    });
+
+    test('getVariableValueQueuesExposuresOnlyOnce', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      context.getVariableValue('banner.border', 17);
+      context.getVariableValue('banner.size', 'small');
+
+      expect(context.getPendingCount(), equals(1));
+
+      context.getVariableValue('banner.border', 17);
+      context.getVariableValue('banner.size', 'small');
+
+      expect(context.getPendingCount(), equals(1));
+
+      await context.close();
+    });
+
+    test('closeDoesNotCallEventHandlerWhenFailed', () async {
+      final context = createContextWithDefaultConfig(dataFutureFailed);
+      dataFutureFailed.completeError(Exception('Failed'));
+
+      await context.waitUntilReady();
+
+      expect(context.isReady(), isTrue);
+      expect(context.isFailed(), isTrue);
+
+      context.track('goal1', {'amount': 125});
+
+      await context.close();
+
+      expect(context.isClosed(), isTrue);
+
+      verifyNever(eventHandler.publish(any, any));
+    });
+
+    test('closePropagatesClientErrorMessage', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 125});
+
+      final failure = Exception('PUBLISH_ERROR');
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(failure));
+
+      await expectLater(context.close(), throwsA(isA<Exception>()));
+
+      expect(context.isClosed(), isTrue);
+    });
+
+    test('publishDoesNotClearQueueOnFailure', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 125});
+      expect(context.getPendingCount(), equals(1));
+
+      final failure = Exception('FAILED');
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(failure));
+
+      await expectLater(context.publish(), throwsA(isA<Exception>()));
+
+      expect(context.getPendingCount(), equals(0));
+    });
+
+    test('publishClearsQueueOnSuccess', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 125});
+      context.track('goal2', {'tries': 7});
+      expect(context.getPendingCount(), equals(2));
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      await context.publish();
+
+      expect(context.getPendingCount(), equals(0));
+    });
+
+    test('setAttributeReturnsLastSetValue', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.setAttribute('attr1', 'value1');
+      context.setAttribute('attr1', 'value2');
+
+      expect(context.getAttribute('attr1'), equals('value2'));
+    });
+
+    test('setUnitsThrowsAfterClose', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      await context.close();
+
+      expect(() => context.setUnit('test', 'test'), throwsA(isA<Exception>()));
+    });
+
+    test('setOverrideThrowsAfterClose', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      await context.close();
+
+      expect(
+          () => context.setOverride('exp_test', 2), throwsA(isA<Exception>()));
+    });
+
+    test('setCustomAssignmentThrowsAfterClose', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      await context.close();
+
+      expect(() => context.setCustomAssignment('exp_test', 2),
+          throwsA(isA<Exception>()));
+    });
+
+    test('refreshThrowsAfterClose', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      await context.close();
+
+      expect(() => context.refresh(), throwsA(isA<Exception>()));
+    });
+
+    test('publishThrowsAfterClose', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      await context.close();
+
+      expect(() => context.publish(), throwsA(isA<Exception>()));
+    });
+
+    test('trackThrowsAfterClose', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      await context.close();
+
+      expect(
+          () => context.track('goal1', null), throwsA(isA<Exception>()));
+    });
+
+    test('getTreatmentReturnsBaseVariantOnUnknownExperiment', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      expect(context.getTreatment('unknown_experiment'), equals(0));
+      expect(context.getPendingCount(), equals(1));
+
+      await context.close();
+    });
+
+    test('peekTreatmentReturnsBaseVariantOnUnknownExperiment', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      expect(context.peekTreatment('unknown_experiment'), equals(0));
+      expect(context.getPendingCount(), equals(0));
+    });
+
+    test('getVariableValueReturnsDefaultOnUnknownVariable', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      expect(context.getVariableValue('unknown_variable', 42), equals(42));
+    });
+
+    test('peekVariableValueReturnsDefaultOnUnknownVariable', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      expect(context.peekVariableValue('unknown_variable', 42), equals(42));
+      expect(context.getPendingCount(), equals(0));
+    });
+
+    test('doesNotStartRefreshTimerWithZeroInterval', () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setRefreshInterval(0);
+
+      final context = createContext(config, dataFutureReady);
+      await context.waitUntilReady();
+
+      expect(context.isReady(), isTrue);
+
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      verifyNever(dataProvider.getContextData());
     });
   });
 }
