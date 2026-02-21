@@ -1,3 +1,38 @@
+# ABsmartly SDK
+
+This repository contains the official ABsmartly SDKs for Dart and Flutter.
+
+## Packages
+
+| Package | Description | Pub |
+|---------|-------------|-----|
+| [dart_sdk](packages/dart_sdk/) | Pure Dart SDK - works in any Dart environment | [![pub](https://img.shields.io/pub/v/absmartly_dart.svg)](https://pub.dev/packages/absmartly_dart) |
+| [flutter_sdk](packages/flutter_sdk/) | Flutter SDK - includes Flutter-specific features | [![pub](https://img.shields.io/pub/v/absmartly_sdk.svg)](https://pub.dev/packages/absmartly_sdk) |
+
+## Which Package Should I Use?
+
+- **Flutter apps**: Use `absmartly_sdk` (the Flutter package)
+- **Dart CLI/Server**: Use `absmartly_dart` (the pure Dart package)
+- **Package authors**: Depend on `absmartly_dart` for maximum compatibility
+
+## Development
+
+```bash
+# Get dependencies for dart_sdk
+cd packages/dart_sdk && dart pub get
+
+# Get dependencies for flutter_sdk
+cd packages/flutter_sdk && flutter pub get
+
+# Run dart_sdk tests
+cd packages/dart_sdk && dart test
+
+# Run flutter_sdk tests
+cd packages/flutter_sdk && flutter test
+```
+
+---
+
 # A/B Smartly Flutter SDK
 
 A/B Smartly Flutter SDK
@@ -111,7 +146,7 @@ createNewContext() async{
 
   if(context != null){
     print("context ready");
-  }  
+  }
 }
 
 ```
@@ -128,7 +163,7 @@ createNewContext() async{
 
   if(context != null){
     print("context ready");
-  }  
+  }
 }
 
 ```
@@ -292,7 +327,7 @@ The `close()` and `closeAsync()` methods will ensure all events have been publis
 
 Goals are created in the A/B Smartly web console.
 
-``` 
+```
      context.track("payment",{
       "item_count": 1,
       "total_amount": 1999.99
