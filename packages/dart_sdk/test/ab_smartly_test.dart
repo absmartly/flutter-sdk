@@ -51,7 +51,7 @@ void main() {
         final _ = ABSmartly(config);
       },
           throwsA(const TypeMatcher<Exception>().having((e) => e.toString(),
-              'message', contains('Exception: Missing Client instance'))));
+              'message', contains('Cannot create DefaultContextDataProvider: missing client configuration'))));
     });
 
     test('createContext', () async {

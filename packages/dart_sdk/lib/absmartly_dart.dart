@@ -1,7 +1,7 @@
 library absmartly_dart;
 
-export 'src/ab_smartly.dart';
-export 'src/absmartly_sdk_config.dart';
+export 'src/ab_smartly.dart' show ABsmartly, ABSmartly;
+export 'src/absmartly_sdk_config.dart' show ABsmartlyConfig, ABSmartlyConfig;
 export 'src/client.dart';
 export 'src/client_config.dart';
 export 'src/context.dart';

@@ -19,30 +19,67 @@ dependencies:
 
 ### Import and Initialize the SDK
 
+#### Recommended: Simple API
+
 ```dart
 import 'package:absmartly_dart/absmartly_dart.dart';
 
 void main() async {
-  final ClientConfig clientConfig = ClientConfig()
+  // Simple, clean initialization - just provide your credentials
+  final sdk = ABsmartly.create(
+    endpoint: 'https://your-company.absmartly.io/v1',
+    apiKey: 'YOUR-API-KEY',
+    application: 'website',
+    environment: 'development',
+  );
+}
+```
+
+#### Advanced: Manual Client Configuration
+
+For advanced use cases where you need custom HTTP clients or configurations:
+
+```dart
+import 'package:absmartly_dart/absmartly_dart.dart';
+
+void main() async {
+  final clientConfig = ClientConfig()
     ..setEndpoint("https://your-company.absmartly.io/v1")
     ..setAPIKey("YOUR-API-KEY")
     ..setApplication("website")
     ..setEnvironment("development");
 
-  final ABSmartlyConfig sdkConfig = ABSmartlyConfig.create()
-      .setClient(Client.create(clientConfig));
-  final ABSmartly sdk = ABSmartly(sdkConfig);
+  final httpClientConfig = DefaultHTTPClientConfig()
+    ..setMaxRetries(3)
+    ..setConnectTimeout(5000);
+
+  final client = Client.create(
+    clientConfig,
+    httpClient: DefaultHTTPClient.create(httpClientConfig),
+  );
+
+  final sdkConfig = ABsmartlyConfig.create()
+    ..setClient(client);
+
+  final sdk = ABsmartly(sdkConfig);
 }
 ```
 
 **SDK Options**
 
-| Config      | Type                              | Required? |   Default   | Description                                                                                                                                                                   |
-| :---------- | :-------------------------------- | :-------: | :---------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| endpoint    | `String`                          |  &#9989;  | `undefined` | The URL to your API endpoint. Most commonly `"your-company.absmartly.io"`                                                                                                     |
-| apiKey      | `String`                          |  &#9989;  | `undefined` | Your API key which can be found on the Web Console.                                                                                                                           |
-| environment | `"production"` or `"development"` |  &#9989;  | `undefined` | The environment of the platform where the SDK is installed. Environments are created on the Web Console and should match the available environments in your infrastructure.   |
-| application | `String`                          |  &#9989;  | `undefined` | The name of the application where the SDK is installed. Applications are created on the Web Console and should match the applications where your experiments will be running. |
+| Config                  | Type                              | Required? |   Default   | Description                                                                                                                                                                   |
+| :---------------------- | :-------------------------------- | :-------: | :---------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| endpoint                | `String`                          |  &#9989;  | `null`      | The URL to your API endpoint. Most commonly `"your-company.absmartly.io"`                                                                                                     |
+| apiKey                  | `String`                          |  &#9989;  | `null`      | Your API key which can be found on the Web Console.                                                                                                                           |
+| environment             | `String`                          |  &#9989;  | `null`      | The environment of the platform where the SDK is installed. Environments are created on the Web Console and should match the available environments in your infrastructure.   |
+| application             | `String`                          |  &#9989;  | `null`      | The name of the application where the SDK is installed. Applications are created on the Web Console and should match the applications where your experiments will be running. |
+| retries                 | `int`                             |  &#10060; | `5`         | Number of retry attempts for failed HTTP requests                                                                                                                             |
+| timeout                 | `int`                             |  &#10060; | `3000`      | Connection timeout in milliseconds                                                                                                                                            |
+| contextEventLogger      | `ContextEventLogger`              |  &#10060; | `null`      | Callback to handle SDK events (ready, exposure, goal, etc.)                                                                                                                   |
+| contextDataProvider     | `ContextDataProvider`             |  &#10060; | auto        | Custom provider for context data (advanced usage)                                                                                                                             |
+| contextEventHandler     | `ContextEventHandler`             |  &#10060; | auto        | Custom handler for publishing events (advanced usage)                                                                                                                         |
+
+**Note:** All parameters are optional when providing custom `contextDataProvider` or `contextEventHandler` implementations.
 
 ## Create a New Context Request
 
@@ -249,6 +286,26 @@ contextConfig.setContextEventLogger(CustomEventLogger());
 ## Flutter Users
 
 For Flutter applications, use the [`absmartly_sdk`](https://pub.dev/packages/absmartly_sdk) package which wraps this SDK and may include Flutter-specific features in the future.
+
+## About A/B Smartly
+
+**A/B Smartly** is the leading provider of state-of-the-art, on-premises, full-stack experimentation platforms for engineering and product teams that want to confidently deploy features as fast as they can develop them.
+A/B Smartly's real-time analytics helps engineering and product teams ensure that new features will improve the customer experience without breaking or degrading performance and/or business metrics.
+
+### Have a look at our growing list of clients and SDKs:
+- [JavaScript SDK](https://www.github.com/absmartly/javascript-sdk)
+- [Java SDK](https://www.github.com/absmartly/java-sdk)
+- [PHP SDK](https://www.github.com/absmartly/php-sdk)
+- [Swift SDK](https://www.github.com/absmartly/swift-sdk)
+- [Vue2 SDK](https://www.github.com/absmartly/vue2-sdk)
+- [Vue3 SDK](https://www.github.com/absmartly/vue3-sdk)
+- [React SDK](https://www.github.com/absmartly/react-sdk)
+- [Python3 SDK](https://www.github.com/absmartly/python3-sdk)
+- [Go SDK](https://www.github.com/absmartly/go-sdk)
+- [Ruby SDK](https://www.github.com/absmartly/ruby-sdk)
+- [.NET SDK](https://www.github.com/absmartly/dotnet-sdk)
+- [Dart SDK](https://www.github.com/absmartly/dart-sdk) (this package)
+- [Flutter SDK](https://www.github.com/absmartly/flutter-sdk)
 
 ## Documentation
 

@@ -21,6 +21,42 @@ class Client {
     }
   }
 
+  /// Create a Client with named parameters (recommended).
+  ///
+  /// This is the easiest way to create a client:
+  /// ```dart
+  /// final client = Client.createWithParams(
+  ///   endpoint: 'https://your-company.absmartly.io',
+  ///   apiKey: 'your-api-key',
+  ///   application: 'website',
+  ///   environment: 'production',
+  /// );
+  /// ```
+  factory Client.createWithParams({
+    required String endpoint,
+    required String apiKey,
+    required String application,
+    required String environment,
+    HTTPClient? httpClient,
+    ContextDataDeserializer? deserializer,
+    ContextEventSerializer? serializer,
+  }) {
+    final config = ClientConfig()
+      ..setEndpoint(endpoint)
+      ..setAPIKey(apiKey)
+      ..setApplication(application)
+      ..setEnvironment(environment);
+
+    if (deserializer != null) {
+      config.setContextDataDeserializer(deserializer);
+    }
+    if (serializer != null) {
+      config.setContextEventSerializer(serializer);
+    }
+
+    return Client.create(config, httpClient: httpClient);
+  }
+
   Client(ClientConfig config, HTTPClient httpClient) {
     final String? endpoint = config.endpoint_;
 

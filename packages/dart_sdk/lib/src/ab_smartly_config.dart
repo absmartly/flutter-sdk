@@ -7,18 +7,18 @@ import 'context_event_handler.dart';
 import 'default_audience_deserializer.dart';
 import 'default_variable_parser.dart';
 
-class ABSmartlyConfig {
-  static ABSmartlyConfig create() {
-    return ABSmartlyConfig();
+class ABsmartlyConfig {
+  static ABsmartlyConfig create() {
+    return ABsmartlyConfig();
   }
 
-  ABSmartlyConfig();
+  ABsmartlyConfig();
 
   ContextDataProvider? getContextDataProvider() {
     return contextDataProvider_;
   }
 
-  ABSmartlyConfig setContextDataProvider(
+  ABsmartlyConfig setContextDataProvider(
       ContextDataProvider contextDataProvider) {
     contextDataProvider_ = contextDataProvider;
     return this;
@@ -28,7 +28,7 @@ class ABSmartlyConfig {
     return contextEventHandler_;
   }
 
-  ABSmartlyConfig setContextEventHandler(
+  ABsmartlyConfig setContextEventHandler(
       ContextEventHandler contextEventHandler) {
     contextEventHandler_ = contextEventHandler;
     return this;
@@ -38,7 +38,7 @@ class ABSmartlyConfig {
     return variableParser_ ?? DefaultVariableParser();
   }
 
-  ABSmartlyConfig setVariableParser(VariableParser variableParser) {
+  ABsmartlyConfig setVariableParser(VariableParser variableParser) {
     variableParser_ = variableParser;
     return this;
   }
@@ -47,7 +47,7 @@ class ABSmartlyConfig {
     return audienceDeserializer_ ?? DefaultAudienceDeserializer();
   }
 
-  ABSmartlyConfig setAudienceDeserializer(
+  ABsmartlyConfig setAudienceDeserializer(
       AudienceDeserializer audienceDeserializer) {
     audienceDeserializer_ = audienceDeserializer;
     return this;
@@ -57,9 +57,18 @@ class ABSmartlyConfig {
     return client_;
   }
 
-  ABSmartlyConfig setClient(Client client) {
+  ABsmartlyConfig setClient(Client client) {
     client_ = client;
     return this;
+  }
+
+  void validate() {
+    if (client_ == null) {
+      throw ArgumentError('ABsmartlyConfig: client is required');
+    }
+    if (contextDataProvider_ == null) {
+      throw ArgumentError('ABsmartlyConfig: contextDataProvider is required');
+    }
   }
 
   ContextDataProvider? contextDataProvider_;

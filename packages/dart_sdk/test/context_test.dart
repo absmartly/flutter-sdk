@@ -311,16 +311,16 @@ void main() {
       expect(context.isFailed(), isFalse);
 
       expect(() => context.peekTreatment('exp_test_ab'),
-          throwsA(isA<Exception>()));
+          throwsA(isA<StateError>()));
       expect(
-          () => context.getTreatment('exp_test_ab'), throwsA(isA<Exception>()));
-      expect(() => context.getData(), throwsA(isA<Exception>()));
-      expect(() => context.getExperiments(), throwsA(isA<Exception>()));
+          () => context.getTreatment('exp_test_ab'), throwsA(isA<StateError>()));
+      expect(() => context.getData(), throwsA(isA<StateError>()));
+      expect(() => context.getExperiments(), throwsA(isA<StateError>()));
       expect(() => context.getVariableValue('banner.border', 17),
-          throwsA(isA<Exception>()));
+          throwsA(isA<StateError>()));
       expect(() => context.peekVariableValue('banner.border', 17),
-          throwsA(isA<Exception>()));
-      expect(() => context.getVariableKeys(), throwsA(isA<Exception>()));
+          throwsA(isA<StateError>()));
+      expect(() => context.getVariableKeys(), throwsA(isA<StateError>()));
     });
 
     test('throwsWhenClosed', () async {
@@ -340,31 +340,31 @@ void main() {
       expect(context.isClosed(), isTrue);
 
       expect(() => context.setAttribute('attr1', 'value1'),
-          throwsA(isA<Exception>()));
+          throwsA(isA<StateError>()));
       expect(() => context.setAttributes({'attr1': 'value1'}),
-          throwsA(isA<Exception>()));
+          throwsA(isA<StateError>()));
       expect(() => context.setOverride('exp_test_ab', 2),
-          throwsA(isA<Exception>()));
+          throwsA(isA<StateError>()));
       expect(() => context.setOverrides({'exp_test_ab': 2}),
-          throwsA(isA<Exception>()));
-      expect(() => context.setUnit('test', 'test'), throwsA(isA<Exception>()));
+          throwsA(isA<StateError>()));
+      expect(() => context.setUnit('test', 'test'), throwsA(isA<StateError>()));
       expect(() => context.setCustomAssignment('exp_test_ab', 2),
-          throwsA(isA<Exception>()));
+          throwsA(isA<StateError>()));
       expect(() => context.setCustomAssignments({'exp_test_ab': 2}),
-          throwsA(isA<Exception>()));
+          throwsA(isA<StateError>()));
       expect(() => context.peekTreatment('exp_test_ab'),
-          throwsA(isA<Exception>()));
+          throwsA(isA<StateError>()));
       expect(
-          () => context.getTreatment('exp_test_ab'), throwsA(isA<Exception>()));
-      expect(() => context.track('goal1', null), throwsA(isA<Exception>()));
-      expect(() => context.publish(), throwsA(isA<Exception>()));
-      expect(() => context.getData(), throwsA(isA<Exception>()));
-      expect(() => context.getExperiments(), throwsA(isA<Exception>()));
+          () => context.getTreatment('exp_test_ab'), throwsA(isA<StateError>()));
+      expect(() => context.track('goal1', null), throwsA(isA<StateError>()));
+      expect(() => context.publish(), throwsA(isA<StateError>()));
+      expect(() => context.getData(), throwsA(isA<StateError>()));
+      expect(() => context.getExperiments(), throwsA(isA<StateError>()));
       expect(() => context.getVariableValue('banner.border', 17),
-          throwsA(isA<Exception>()));
+          throwsA(isA<StateError>()));
       expect(() => context.peekVariableValue('banner.border', 17),
-          throwsA(isA<Exception>()));
-      expect(() => context.getVariableKeys(), throwsA(isA<Exception>()));
+          throwsA(isA<StateError>()));
+      expect(() => context.getVariableKeys(), throwsA(isA<StateError>()));
     });
 
     test('getExperiments', () async {
@@ -526,7 +526,7 @@ void main() {
       await context.waitUntilReady();
 
       expect(() => context.setUnit('session_id', 'new_uid'),
-          throwsA(isA<Exception>()));
+          throwsA(isA<ArgumentError>()));
     });
 
     test('peekTreatment', () async {
@@ -1395,7 +1395,7 @@ void main() {
 
       expect(context.isReady(), isTrue);
       expect(
-          () => context.setUnit("db_user_id", ""), throwsA(isA<Exception>()));
+          () => context.setUnit("db_user_id", ""), throwsA(isA<ArgumentError>()));
     });
 
     test('setOverrideClearsAssignmentCache', () async {
@@ -2160,7 +2160,7 @@ void main() {
 
       await context.close();
 
-      expect(() => context.setUnit('test', 'test'), throwsA(isA<Exception>()));
+      expect(() => context.setUnit('test', 'test'), throwsA(isA<StateError>()));
     });
 
     test('setOverrideThrowsAfterClose', () async {
@@ -2173,7 +2173,7 @@ void main() {
       await context.close();
 
       expect(
-          () => context.setOverride('exp_test', 2), throwsA(isA<Exception>()));
+          () => context.setOverride('exp_test', 2), throwsA(isA<StateError>()));
     });
 
     test('setCustomAssignmentThrowsAfterClose', () async {
@@ -2186,7 +2186,7 @@ void main() {
       await context.close();
 
       expect(() => context.setCustomAssignment('exp_test', 2),
-          throwsA(isA<Exception>()));
+          throwsA(isA<StateError>()));
     });
 
     test('refreshThrowsAfterClose', () async {
@@ -2198,7 +2198,7 @@ void main() {
 
       await context.close();
 
-      expect(() => context.refresh(), throwsA(isA<Exception>()));
+      expect(() => context.refresh(), throwsA(isA<StateError>()));
     });
 
     test('publishThrowsAfterClose', () async {
@@ -2210,7 +2210,7 @@ void main() {
 
       await context.close();
 
-      expect(() => context.publish(), throwsA(isA<Exception>()));
+      expect(() => context.publish(), throwsA(isA<StateError>()));
     });
 
     test('trackThrowsAfterClose', () async {
@@ -2223,7 +2223,7 @@ void main() {
       await context.close();
 
       expect(
-          () => context.track('goal1', null), throwsA(isA<Exception>()));
+          () => context.track('goal1', null), throwsA(isA<StateError>()));
     });
 
     test('getTreatmentReturnsBaseVariantOnUnknownExperiment', () async {

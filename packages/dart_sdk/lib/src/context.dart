@@ -160,19 +160,19 @@ class Context {
 
     final String? previous = units_[unitType];
     if ((previous != null) && !(previous == uid)) {
-      throw Exception("Unit $unitType already set.");
+      throw ArgumentError("Unit $unitType already set.");
     }
 
     final String trimmed = uid.trim();
     if (trimmed.isEmpty) {
-      throw Exception("Unit $unitType UID must not be blank.");
+      throw ArgumentError("Unit $unitType UID must not be blank.");
     }
 
     units_[unitType] = trimmed;
   }
 
   Map<String, String> getUnits() {
-    return <String, String>{};
+    return Map.unmodifiable(units_);
   }
 
   void setUnits(Map<String, String> units) {
@@ -194,6 +194,10 @@ class Context {
 
   void setAttribute(String name, dynamic value) {
     checkNotClosed();
+
+    if (name.trim().isEmpty) {
+      throw ArgumentError('Attribute name cannot be empty');
+    }
 
     attributes_
         .add(Attribute(name: name, value: value, setAt: clock_.millis()));
@@ -305,14 +309,12 @@ class Context {
   void track(final String goalName, final Map<String, dynamic>? properties) {
     checkNotClosed();
 
+    final achievedAt = clock_.millis();
     final GoalAchievement achievement = GoalAchievement(
       name: goalName,
-      achievedAt: clock_.millis(),
-      properties: {},
+      achievedAt: achievedAt,
+      properties: properties ?? {},
     );
-    achievement.achievedAt = clock_.millis();
-    achievement.name = goalName;
-    achievement.properties = properties;
 
     pendingCount_++;
     achievements_.add(achievement);
@@ -464,15 +466,15 @@ class Context {
 
   void checkNotClosed() {
     if (closed_) {
-      throw Exception("ABSmartly Context is closed");
+      throw StateError("ABsmartly Context is closed");
     } else if (closing_) {
-      throw Exception("ABSmartly Context is closing");
+      throw StateError("ABsmartly Context is closing");
     }
   }
 
   void checkReady(final bool expectNotClosed) {
     if (!isReady()) {
-      throw Exception("ABSmartly Context is not yet ready");
+      throw StateError("ABsmartly Context is not yet ready");
     } else if (expectNotClosed) {
       checkNotClosed();
     }
@@ -657,7 +659,9 @@ class Context {
   void setTimeout() {
     if (isReady()) {
       timeout_ ??= Timer(Duration(milliseconds: publishDelay_), () {
-        flush();
+        flush().catchError((error) {
+          logError(error);
+        });
       });
     }
   }
@@ -673,7 +677,9 @@ class Context {
     if ((refreshInterval_ > 0) && (refreshTimer_ == null)) {
       refreshTimer_ =
           Timer.periodic(Duration(milliseconds: refreshInterval_), (timer) {
-        refresh();
+        refresh().catchError((error) {
+          logError(error);
+        });
       });
     }
   }
