@@ -4,20 +4,20 @@ import 'binary_operator.dart';
 class InOperator extends BinaryOperator {
   @override
   dynamic binary(Evaluator evaluator, dynamic lhs, dynamic rhs) {
-    if (lhs is List) {
-      for (final item in lhs) {
-        if (evaluator.compare(item, rhs) == 0) {
+    if (rhs is List) {
+      for (final item in rhs) {
+        if (evaluator.compare(item, lhs) == 0) {
           return true;
         }
       }
       return false;
-    } else if (lhs is String) {
-      final needleString = evaluator.stringConvert(rhs);
-      return needleString != null && (lhs).contains(needleString);
-    } else if (lhs is Map) {
-      final needleString = evaluator.stringConvert(rhs);
+    } else if (rhs is String) {
+      if (lhs is! String) return null;
+      return rhs.contains(lhs);
+    } else if (rhs is Map) {
+      final needleString = evaluator.stringConvert(lhs);
       return needleString != null &&
-          (lhs as Map<String, dynamic>).containsKey(needleString);
+          (rhs as Map<String, dynamic>).containsKey(needleString);
     }
     return null;
   }

@@ -4,16 +4,10 @@ import '../operator.dart';
 abstract class BinaryOperator implements Operator {
   @override
   dynamic evaluate(Evaluator evaluator, dynamic args) {
-    if (args is List) {
-      final argsList = args;
-      final lhs = argsList.isNotEmpty ? evaluator.evaluate(argsList[0]) : null;
-      if (lhs != null) {
-        final rhs =
-            argsList.length > 1 ? evaluator.evaluate(argsList[1]) : null;
-        if (rhs != null) {
-          return binary(evaluator, lhs, rhs);
-        }
-      }
+    if (args is List && args.length == 2) {
+      final lhs = evaluator.evaluate(args[0]);
+      final rhs = evaluator.evaluate(args[1]);
+      return binary(evaluator, lhs, rhs);
     }
     return null;
   }
