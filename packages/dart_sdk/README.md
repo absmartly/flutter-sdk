@@ -43,6 +43,24 @@ import 'package:absmartly_dart/absmartly_dart.dart';
 This example assumes an API Key, an Application, and an Environment have been created in the A/B Smartly web console.
 
 ```dart
+final clientConfig = ClientConfig.create(
+    endpoint: "https://your-company.absmartly.io/v1",
+    apiKey: "YOUR-API-KEY",
+    application: "website",
+    environment: "development",
+);
+
+final sdkConfig = ABSmartlyConfig.create(
+    client: Client.create(clientConfig),
+);
+
+final ABSmartly sdk = ABSmartly(sdkConfig);
+```
+
+<details>
+<summary>Alternative: cascade setter pattern</summary>
+
+```dart
 final ClientConfig clientConfig = ClientConfig()
     ..setEndpoint("https://your-company.absmartly.io/v1")
     ..setAPIKey("YOUR-API-KEY")
@@ -54,29 +72,31 @@ final ABSmartlyConfig sdkConfig = ABSmartlyConfig.create()
 
 final ABSmartly sdk = ABSmartly(sdkConfig);
 ```
+</details>
 
 #### Advanced Configuration
 
 For advanced use cases where you need full control over the HTTP client and configuration:
 
 ```dart
-final ClientConfig clientConfig = ClientConfig()
-    ..setEndpoint("https://your-company.absmartly.io/v1")
-    ..setAPIKey("YOUR-API-KEY")
-    ..setApplication("website")
-    ..setEnvironment("development");
+final clientConfig = ClientConfig.create(
+    endpoint: "https://your-company.absmartly.io/v1",
+    apiKey: "YOUR-API-KEY",
+    application: "website",
+    environment: "development",
+);
 
-final DefaultHTTPClientConfig httpClientConfig = DefaultHTTPClientConfig.create()
-    .setConnectTimeout(5000)
-    .setMaxRetries(3)
-    .setRetryInterval(500);
+final httpClientConfig = DefaultHTTPClientConfig.create(
+    connectTimeout: 5000,
+    maxRetries: 3,
+    retryInterval: 500,
+);
 
-final DefaultHTTPClient httpClient = DefaultHTTPClient.create(httpClientConfig);
+final httpClient = DefaultHTTPClient.create(httpClientConfig);
 
-final Client client = Client.create(clientConfig, httpClient: httpClient);
+final client = Client.create(clientConfig, httpClient: httpClient);
 
-final ABSmartlyConfig sdkConfig = ABSmartlyConfig.create()
-    .setClient(client);
+final sdkConfig = ABSmartlyConfig.create(client: client);
 
 final ABSmartly sdk = ABSmartly(sdkConfig);
 ```
@@ -116,8 +136,9 @@ final ABSmartly sdk = ABSmartly(sdkConfig);
 ### Synchronously
 
 ```dart
-final ContextConfig contextConfig = ContextConfig.create()
-    .setUnit("session_id", "5ebf06d8cb5d8137290c4abb64155584fbdb64d8");
+final contextConfig = ContextConfig.create(
+    units: {"session_id": "5ebf06d8cb5d8137290c4abb64155584fbdb64d8"},
+);
 
 final Context context = sdk.createContext(contextConfig).waitUntilReady();
 ```
@@ -131,8 +152,9 @@ final Context context = await sdk.createContext(contextConfig).waitUntilReady();
 ### Asynchronously
 
 ```dart
-final ContextConfig contextConfig = ContextConfig.create()
-    .setUnit("session_id", "5ebf06d8cb5d8137290c4abb64155584fbdb64d8");
+final contextConfig = ContextConfig.create(
+    units: {"session_id": "5ebf06d8cb5d8137290c4abb64155584fbdb64d8"},
+);
 
 final Context context = await sdk.createContext(contextConfig).waitUntilReady();
 
@@ -146,13 +168,15 @@ if (context.isReady()) {
 Creating a context involves a round-trip to the A/B Smartly event collector. You can avoid repeating the round-trip by re-using data previously retrieved.
 
 ```dart
-final ContextConfig contextConfig = ContextConfig.create()
-    .setUnit("session_id", "5ebf06d8cb5d8137290c4abb64155584fbdb64d8");
+final contextConfig = ContextConfig.create(
+    units: {"session_id": "5ebf06d8cb5d8137290c4abb64155584fbdb64d8"},
+);
 
 final Context context = await sdk.createContext(contextConfig).waitUntilReady();
 
-final ContextConfig anotherContextConfig = ContextConfig.create()
-    .setUnit("session_id", "another-user-id");
+final anotherContextConfig = ContextConfig.create(
+    units: {"session_id": "another-user-id"},
+);
 
 final Context anotherContext = sdk.createContextWith(anotherContextConfig, context.getData());
 assert(anotherContext.isReady()); // no need to wait
@@ -160,12 +184,13 @@ assert(anotherContext.isReady()); // no need to wait
 
 ### Refreshing the Context with Fresh Experiment Data
 
-For long-running contexts, the context is usually created once when the application is first started. However, any experiments started after the context was created will not be triggered. To mitigate this, use `setRefreshInterval()` on the context config.
+For long-running contexts, the context is usually created once when the application is first started. However, any experiments started after the context was created will not be triggered. To mitigate this, use `refreshInterval` on the context config.
 
 ```dart
-final ContextConfig contextConfig = ContextConfig.create()
-    .setUnit("session_id", "5ebf06d8cb5d8137290c4abb64155584fbdb64d8")
-    .setRefreshInterval(4 * 60 * 60 * 1000); // every 4 hours
+final contextConfig = ContextConfig.create(
+    units: {"session_id": "5ebf06d8cb5d8137290c4abb64155584fbdb64d8"},
+    refreshInterval: 4 * 60 * 60 * 1000, // every 4 hours
+);
 ```
 
 Alternatively, call `refresh()` manually:
@@ -329,16 +354,18 @@ Usage:
 
 ```dart
 // For all contexts, during SDK initialization
-final ABSmartlyConfig sdkConfig = ABSmartlyConfig.create()
-    .setClient(Client.create(clientConfig))
-    .setContextEventLogger(CustomEventLogger());
+final sdkConfig = ABSmartlyConfig.create(
+    client: Client.create(clientConfig),
+    contextEventLogger: CustomEventLogger(),
+);
 
 final ABSmartly sdk = ABSmartly(sdkConfig);
 
 // OR for a particular context
-final ContextConfig contextConfig = ContextConfig.create()
-    .setUnit("session_id", "5ebf06d8cb5d8137290c4abb64155584fbdb64d8");
-contextConfig.setContextEventLogger(CustomEventLogger());
+final contextConfig = ContextConfig.create(
+    units: {"session_id": "5ebf06d8cb5d8137290c4abb64155584fbdb64d8"},
+    contextEventLogger: CustomEventLogger(),
+);
 ```
 
 **Event Types**
@@ -361,19 +388,22 @@ contextConfig.setContextEventLogger(CustomEventLogger());
 import 'package:absmartly_dart/absmartly_dart.dart';
 
 void main() async {
-    final ClientConfig clientConfig = ClientConfig()
-        ..setEndpoint("https://your-company.absmartly.io/v1")
-        ..setAPIKey("YOUR-API-KEY")
-        ..setApplication("cli-tool")
-        ..setEnvironment("production");
+    final clientConfig = ClientConfig.create(
+        endpoint: "https://your-company.absmartly.io/v1",
+        apiKey: "YOUR-API-KEY",
+        application: "cli-tool",
+        environment: "production",
+    );
 
-    final ABSmartlyConfig sdkConfig = ABSmartlyConfig.create()
-        .setClient(Client.create(clientConfig));
+    final sdkConfig = ABSmartlyConfig.create(
+        client: Client.create(clientConfig),
+    );
 
     final ABSmartly sdk = ABSmartly(sdkConfig);
 
-    final ContextConfig contextConfig = ContextConfig.create()
-        .setUnit("user_id", "user-123");
+    final contextConfig = ContextConfig.create(
+        units: {"user_id": "user-123"},
+    );
 
     final Context context = await sdk.createContext(contextConfig).waitUntilReady();
 
@@ -402,14 +432,16 @@ import 'package:absmartly_dart/absmartly_dart.dart';
 late ABSmartly sdk;
 
 void initSDK() {
-    final ClientConfig clientConfig = ClientConfig()
-        ..setEndpoint("https://your-company.absmartly.io/v1")
-        ..setAPIKey("YOUR-API-KEY")
-        ..setApplication("api-server")
-        ..setEnvironment("production");
+    final clientConfig = ClientConfig.create(
+        endpoint: "https://your-company.absmartly.io/v1",
+        apiKey: "YOUR-API-KEY",
+        application: "api-server",
+        environment: "production",
+    );
 
-    final ABSmartlyConfig sdkConfig = ABSmartlyConfig.create()
-        .setClient(Client.create(clientConfig));
+    final sdkConfig = ABSmartlyConfig.create(
+        client: Client.create(clientConfig),
+    );
 
     sdk = ABSmartly(sdkConfig);
 }
@@ -419,8 +451,9 @@ Future<void> handleRequest(HttpRequest request) async {
         .firstWhere((c) => c.name == "session_id", orElse: () => Cookie("session_id", ""))
         .value;
 
-    final ContextConfig contextConfig = ContextConfig.create()
-        .setUnit("session_id", sessionId);
+    final contextConfig = ContextConfig.create(
+        units: {"session_id": sessionId},
+    );
 
     final Context context = await sdk.createContext(contextConfig).waitUntilReady();
 
@@ -462,19 +495,22 @@ class _ExperimentWidgetState extends State<ExperimentWidget> {
     }
 
     Future<void> initABSmartly() async {
-        final ClientConfig clientConfig = ClientConfig()
-            ..setEndpoint("https://your-company.absmartly.io/v1")
-            ..setAPIKey("YOUR-API-KEY")
-            ..setApplication("flutter-app")
-            ..setEnvironment("production");
+        final clientConfig = ClientConfig.create(
+            endpoint: "https://your-company.absmartly.io/v1",
+            apiKey: "YOUR-API-KEY",
+            application: "flutter-app",
+            environment: "production",
+        );
 
-        final ABSmartlyConfig sdkConfig = ABSmartlyConfig.create()
-            .setClient(Client.create(clientConfig));
+        final sdkConfig = ABSmartlyConfig.create(
+            client: Client.create(clientConfig),
+        );
 
         sdk = ABSmartly(sdkConfig);
 
-        final ContextConfig contextConfig = ContextConfig.create()
-            .setUnit("device_id", "device-unique-id");
+        final contextConfig = ContextConfig.create(
+            units: {"device_id": "device-unique-id"},
+        );
 
         abContext = await sdk.createContext(contextConfig).waitUntilReady();
 

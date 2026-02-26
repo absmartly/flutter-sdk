@@ -1,8 +1,28 @@
 import 'http_version_policy.dart';
 
 class DefaultHTTPClientConfig {
-  static DefaultHTTPClientConfig create() {
-    return DefaultHTTPClientConfig();
+  static DefaultHTTPClientConfig create({
+    int? connectTimeout,
+    int? connectionKeepAlive,
+    int? connectionRequestTimeout,
+    int? maxRetries,
+    int? retryInterval,
+    HTTPVersionPolicy? httpVersionPolicy,
+  }) {
+    final config = DefaultHTTPClientConfig();
+    if (connectTimeout != null) config.setConnectTimeout(connectTimeout);
+    if (connectionKeepAlive != null) {
+      config.setConnectionKeepAlive(connectionKeepAlive);
+    }
+    if (connectionRequestTimeout != null) {
+      config.setConnectionRequestTimeout(connectionRequestTimeout);
+    }
+    if (maxRetries != null) config.setMaxRetries(maxRetries);
+    if (retryInterval != null) config.setRetryInterval(retryInterval);
+    if (httpVersionPolicy != null) {
+      config.setHTTPVersionPolicy(httpVersionPolicy);
+    }
+    return config;
   }
 
   int getConnectTimeout() => connectTimeout_;

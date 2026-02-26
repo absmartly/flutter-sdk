@@ -54,4 +54,41 @@ void main() {
       expect(config.getClient(), equals(client));
     });
   });
+
+  group('ABSmartlyConfig.create with named parameters', () {
+    test('create with all parameters', () {
+      final handler = MockContextEventHandler();
+      final provider = MockContextDataProvider();
+      final parser = MockVariableParser();
+      final client = MockClient();
+      final eventLogger = MockContextEventLogger();
+
+      final config = ABSmartlyConfig.create(
+        client: client,
+        contextDataProvider: provider,
+        contextEventHandler: handler,
+        contextEventLogger: eventLogger,
+        variableParser: parser,
+      );
+
+      expect(config.getClient(), equals(client));
+      expect(config.getContextDataProvider(), equals(provider));
+      expect(config.getContextEventHandler(), equals(handler));
+      expect(config.getContextEventLogger(), equals(eventLogger));
+      expect(config.getVariableParser(), equals(parser));
+    });
+
+    test('create with client only', () {
+      final client = MockClient();
+
+      final config = ABSmartlyConfig.create(client: client);
+
+      expect(config.getClient(), equals(client));
+    });
+
+    test('create with no parameters is backward compatible', () {
+      final config = ABSmartlyConfig.create();
+      expect(() => config.getClient(), throwsException);
+    });
+  });
 }

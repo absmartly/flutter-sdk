@@ -96,20 +96,20 @@ class _ABSmartlyProviderState extends State<ABSmartlyProvider> {
     } else {
       _isInternallyCreated = true;
 
-      final clientConfig = ClientConfig()
-        ..setEndpoint(widget._endpoint!)
-        ..setAPIKey(widget._apiKey!)
-        ..setEnvironment(widget._environment!)
-        ..setApplication(widget._application!);
+      final clientConfig = ClientConfig.create(
+        endpoint: widget._endpoint!,
+        apiKey: widget._apiKey!,
+        environment: widget._environment!,
+        application: widget._application!,
+      );
 
       final client = Client.create(clientConfig);
 
-      final sdkConfig = ABSmartlyConfig.create()..setClient(client);
+      final sdkConfig = ABSmartlyConfig.create(client: client);
 
       _sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create()
-        ..setUnits(widget._units!);
+      final contextConfig = ContextConfig.create(units: widget._units!);
 
       _context = _sdk.createContext(contextConfig);
     }
@@ -122,7 +122,7 @@ class _ABSmartlyProviderState extends State<ABSmartlyProvider> {
 
     await _context.close();
 
-    final contextConfig = ContextConfig.create()..setUnits(units);
+    final contextConfig = ContextConfig.create(units: units);
 
     setState(() {
       _context = _sdk.createContext(contextConfig);

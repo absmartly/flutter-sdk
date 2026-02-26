@@ -68,6 +68,58 @@ void main() {
     });
   });
 
+  group('ClientConfig.create with named parameters', () {
+    test('create with all parameters', () {
+      final deserializer = MockContextDataDeserializer();
+      final serializer = MockContextEventSerializer();
+
+      final config = ClientConfig.create(
+        endpoint: 'https://test.endpoint.com',
+        apiKey: 'api-key-test',
+        environment: 'test',
+        application: 'website',
+        contextDataDeserializer: deserializer,
+        contextEventSerializer: serializer,
+      );
+
+      expect(config.getEndpoint(), equals('https://test.endpoint.com'));
+      expect(config.getAPIKey(), equals('api-key-test'));
+      expect(config.getEnvironment(), equals('test'));
+      expect(config.getApplication(), equals('website'));
+      expect(config.getContextDataDeserializer(), equals(deserializer));
+      expect(config.getContextEventSerializer(), equals(serializer));
+    });
+
+    test('create with only required-like parameters', () {
+      final config = ClientConfig.create(
+        endpoint: 'https://test.endpoint.com',
+        apiKey: 'api-key-test',
+        environment: 'test',
+        application: 'website',
+      );
+
+      expect(config.getEndpoint(), equals('https://test.endpoint.com'));
+      expect(config.getAPIKey(), equals('api-key-test'));
+      expect(config.getEnvironment(), equals('test'));
+      expect(config.getApplication(), equals('website'));
+    });
+
+    test('create with no parameters is backward compatible', () {
+      final config = ClientConfig.create();
+      expect(config.getEndpoint(), isNull);
+    });
+
+    test('create with partial parameters', () {
+      final config = ClientConfig.create(
+        endpoint: 'https://test.endpoint.com',
+        apiKey: 'api-key-test',
+      );
+
+      expect(config.getEndpoint(), equals('https://test.endpoint.com'));
+      expect(config.getAPIKey(), equals('api-key-test'));
+    });
+  });
+
   test("createFromProperties", () {
     var props = {
       "absmartly.endpoint": "https://test.endpoint.com",

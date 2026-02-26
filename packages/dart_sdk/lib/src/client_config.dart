@@ -7,8 +7,26 @@ import 'context_event_serializer.dart';
 import 'default_context_event_serializer.dart';
 
 class ClientConfig {
-  static ClientConfig create() {
-    return ClientConfig();
+  static ClientConfig create({
+    String? endpoint,
+    String? apiKey,
+    String? environment,
+    String? application,
+    ContextDataDeserializer? contextDataDeserializer,
+    ContextEventSerializer? contextEventSerializer,
+  }) {
+    final config = ClientConfig();
+    if (endpoint != null) config.setEndpoint(endpoint);
+    if (apiKey != null) config.setAPIKey(apiKey);
+    if (environment != null) config.setEnvironment(environment);
+    if (application != null) config.setApplication(application);
+    if (contextDataDeserializer != null) {
+      config.setContextDataDeserializer(contextDataDeserializer);
+    }
+    if (contextEventSerializer != null) {
+      config.setContextEventSerializer(contextEventSerializer);
+    }
+    return config;
   }
 
   static ClientConfig createFromProperties(Map<String, dynamic> properties,
@@ -16,12 +34,13 @@ class ClientConfig {
     if (prefix == null) {
       return createFromProperties(properties, "");
     } else {
-      return create()
-          .setEndpoint(properties["${prefix}endpoint"])
-          .setEnvironment(properties["${prefix}environment"])
-          .setApplication(properties["${prefix}application"])
-          .setAPIKey(properties["${prefix}apikey"])
-          .setContextDataDeserializer(DefaultContextDataDeserializer());
+      return create(
+        endpoint: properties["${prefix}endpoint"],
+        environment: properties["${prefix}environment"],
+        application: properties["${prefix}application"],
+        apiKey: properties["${prefix}apikey"],
+        contextDataDeserializer: DefaultContextDataDeserializer(),
+      );
     }
   }
 

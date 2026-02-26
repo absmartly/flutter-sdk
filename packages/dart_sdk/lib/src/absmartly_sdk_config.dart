@@ -20,8 +20,30 @@ class ABSmartlyConfig {
 
   ABSmartlyConfig();
 
-  static ABSmartlyConfig create() {
-    return ABSmartlyConfig();
+  static ABSmartlyConfig create({
+    Client? client,
+    ContextDataProvider? contextDataProvider,
+    ContextEventHandler? contextEventHandler,
+    ContextEventLogger? contextEventLogger,
+    VariableParser? variableParser,
+    AudienceDeserializer? audienceDeserializer,
+  }) {
+    final config = ABSmartlyConfig();
+    if (client != null) config.setClient(client);
+    if (contextDataProvider != null) {
+      config.setContextDataProvider(contextDataProvider);
+    }
+    if (contextEventHandler != null) {
+      config.setContextEventHandler(contextEventHandler);
+    }
+    if (contextEventLogger != null) {
+      config.setContextEventLogger(contextEventLogger);
+    }
+    if (variableParser != null) config.setVariableParser(variableParser);
+    if (audienceDeserializer != null) {
+      config.setAudienceDeserializer(audienceDeserializer);
+    }
+    return config;
   }
 
   ABSmartlyConfig setClient(Client client) {
