@@ -95,7 +95,7 @@ void main() {
 }
 ```
 
-#### Advanced Setup with Pre-created SDK and Context
+#### Alternative: Setup with Pre-created SDK and Context
 
 ```dart
 import 'package:flutter/material.dart';
