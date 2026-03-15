@@ -306,22 +306,18 @@ void main() {
       expect(context.getData(), equals(data));
     });
 
-    test('throwsWhenNotReady', () {
+    test('returnsDefaultsWhenNotReady', () {
       final Context context = createContextWithDefaultConfig(dataFuture);
       expect(context.isReady(), isFalse);
       expect(context.isFailed(), isFalse);
 
-      expect(() => context.peekTreatment('exp_test_ab'),
-          throwsA(isA<Exception>()));
-      expect(
-          () => context.getTreatment('exp_test_ab'), throwsA(isA<Exception>()));
+      expect(context.peekTreatment('exp_test_ab'), equals(0));
+      expect(context.getTreatment('exp_test_ab'), equals(0));
       expect(() => context.getData(), throwsA(isA<Exception>()));
-      expect(() => context.getExperiments(), throwsA(isA<Exception>()));
-      expect(() => context.getVariableValue('banner.border', 17),
-          throwsA(isA<Exception>()));
-      expect(() => context.peekVariableValue('banner.border', 17),
-          throwsA(isA<Exception>()));
-      expect(() => context.getVariableKeys(), throwsA(isA<Exception>()));
+      expect(context.getExperiments(), equals([]));
+      expect(context.getVariableValue('banner.border', 17), equals(17));
+      expect(context.peekVariableValue('banner.border', 17), equals(17));
+      expect(context.getVariableKeys(), equals({}));
     });
 
     test('throwsWhenClosed', () async {
@@ -351,19 +347,15 @@ void main() {
           throwsA(isA<Exception>()));
       expect(() => context.setCustomAssignments({'exp_test_ab': 2}),
           throwsA(isA<Exception>()));
-      expect(() => context.peekTreatment('exp_test_ab'),
-          throwsA(isA<Exception>()));
-      expect(
-          () => context.getTreatment('exp_test_ab'), throwsA(isA<Exception>()));
+      expect(context.peekTreatment('exp_test_ab'), equals(0));
+      expect(context.getTreatment('exp_test_ab'), equals(0));
       expect(() => context.track('goal1', null), throwsA(isA<Exception>()));
       expect(() => context.publish(), throwsA(isA<Exception>()));
       expect(() => context.getData(), throwsA(isA<Exception>()));
-      expect(() => context.getExperiments(), throwsA(isA<Exception>()));
-      expect(() => context.getVariableValue('banner.border', 17),
-          throwsA(isA<Exception>()));
-      expect(() => context.peekVariableValue('banner.border', 17),
-          throwsA(isA<Exception>()));
-      expect(() => context.getVariableKeys(), throwsA(isA<Exception>()));
+      expect(context.getExperiments(), equals([]));
+      expect(context.getVariableValue('banner.border', 17), equals(17));
+      expect(context.peekVariableValue('banner.border', 17), equals(17));
+      expect(context.getVariableKeys(), equals({}));
     });
 
     test('getExperiments', () async {

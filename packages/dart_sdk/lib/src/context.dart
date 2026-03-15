@@ -123,7 +123,9 @@ class Context {
   }
 
   List<String> getExperiments() {
-    checkReady(true);
+    if (!isReady() || isClosed()) {
+      return [];
+    }
 
     return List.generate(
         data_!.experiments.length, (index) => data_!.experiments[index].name);
@@ -230,7 +232,9 @@ class Context {
   }
 
   int getTreatment(final String experimentName) {
-    checkReady(true);
+    if (!isReady() || isClosed()) {
+      return 0;
+    }
 
     final Assignment assignment = getAssignment(experimentName);
 
@@ -267,13 +271,17 @@ class Context {
   }
 
   int peekTreatment(final String experimentName) {
-    checkReady(true);
+    if (!isReady() || isClosed()) {
+      return 0;
+    }
 
     return getAssignment(experimentName).variant;
   }
 
   Map<String, List<String>> getVariableKeys() {
-    checkReady(true);
+    if (!isReady() || isClosed()) {
+      return {};
+    }
 
     final Map<String, List<String>> variableKeys = <String, List<String>>{};
 
@@ -287,7 +295,9 @@ class Context {
   }
 
   Set<String> getCustomFieldKeys() {
-    checkReady(true);
+    if (!isReady() || isClosed()) {
+      return {};
+    }
 
     final keys = <String>{};
     for (final experiment in data_!.experiments) {
@@ -302,7 +312,9 @@ class Context {
   }
 
   dynamic getCustomFieldValue(final String experimentName, final String key) {
-    checkReady(true);
+    if (!isReady() || isClosed()) {
+      return null;
+    }
 
     final experiment = index_[experimentName];
     if (experiment != null) {
@@ -341,7 +353,9 @@ class Context {
 
   String? getCustomFieldValueType(
       final String experimentName, final String key) {
-    checkReady(true);
+    if (!isReady() || isClosed()) {
+      return null;
+    }
 
     final experiment = index_[experimentName];
     if (experiment != null) {
@@ -366,7 +380,9 @@ class Context {
       getCustomFieldValueType(experimentName, key);
 
   dynamic getVariableValue(final String key, final dynamic defaultValue) {
-    checkReady(true);
+    if (!isReady() || isClosed()) {
+      return defaultValue;
+    }
 
     final Assignment? assignment = getVariableAssignment(key);
     if (assignment != null) {
@@ -384,7 +400,9 @@ class Context {
   }
 
   dynamic peekVariableValue(final String key, final dynamic defaultValue) {
-    checkReady(true);
+    if (!isReady() || isClosed()) {
+      return defaultValue;
+    }
 
     final Assignment? assignment = getVariableAssignment(key);
     if (assignment != null) {
