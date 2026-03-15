@@ -2368,6 +2368,94 @@ void main() {
       expect(event.goals[0].properties, equals({}));
     });
 
+    test('readyErrorReturnsNullOnSuccess', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      expect(context.readyError(), isNull);
+    });
+
+    test('readyErrorReturnsErrorOnFailure', () async {
+      final Context context = createContextWithDefaultConfig(dataFutureFailed);
+
+      final Exception error = Exception('FAILED');
+      dataFutureFailed.completeError(error);
+
+      await context.waitUntilReady();
+
+      expect(context.isFailed(), isTrue);
+      expect(context.readyError(), equals(error));
+    });
+
+    test('getCustomFieldKeys', () async {
+      final Context context = createReadyContextWithData(customFieldsData);
+      await context.waitUntilReady();
+
+      final keys = context.getCustomFieldKeys();
+      expect(keys, containsAll(['country', 'overrides', 'languages']));
+    });
+
+    test('getCustomFieldKeysReturnsEmptySetWhenNoCustomFields', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      final keys = context.getCustomFieldKeys();
+      expect(keys, isEmpty);
+    });
+
+    test('getCustomFieldValue', () async {
+      final Context context = createReadyContextWithData(customFieldsData);
+      await context.waitUntilReady();
+
+      expect(context.getCustomFieldValue('exp_test_ab', 'country'),
+          equals('US,PT,ES,DE,FR'));
+      expect(context.getCustomFieldValue('exp_test_abc', 'country'),
+          equals('US,PT,ES'));
+      expect(context.getCustomFieldValue('exp_test_abc', 'languages'),
+          equals('en-US,en-GB,pt-PT,pt-BR,es-ES,es-MX'));
+      expect(
+          context.getCustomFieldValue('exp_test_ab', 'overrides'),
+          equals({'123': 1, '456': 0}));
+    });
+
+    test('getCustomFieldValueReturnsNullForMissingKeyOrExperiment', () async {
+      final Context context = createReadyContextWithData(customFieldsData);
+      await context.waitUntilReady();
+
+      expect(context.getCustomFieldValue('exp_test_ab', 'missing'), isNull);
+      expect(
+          context.getCustomFieldValue('not_an_experiment', 'country'), isNull);
+      expect(
+          context.getCustomFieldValue('exp_test_no_custom_fields', 'country'),
+          isNull);
+    });
+
+    test('getCustomFieldValueType', () async {
+      final Context context = createReadyContextWithData(customFieldsData);
+      await context.waitUntilReady();
+
+      expect(context.getCustomFieldValueType('exp_test_ab', 'country'),
+          equals('string'));
+      expect(context.getCustomFieldValueType('exp_test_ab', 'overrides'),
+          equals('json'));
+      expect(context.getCustomFieldValueType('exp_test_abc', 'languages'),
+          equals('string'));
+    });
+
+    test('getCustomFieldValueTypeReturnsNullForMissingKeyOrExperiment',
+        () async {
+      final Context context = createReadyContextWithData(customFieldsData);
+      await context.waitUntilReady();
+
+      expect(
+          context.getCustomFieldValueType('exp_test_ab', 'missing'), isNull);
+      expect(context.getCustomFieldValueType('not_an_experiment', 'country'),
+          isNull);
+      expect(
+          context.getCustomFieldValueType('exp_test_no_custom_fields', 'country'),
+          isNull);
+    });
+
     test('setDataSortsConflictingVariablesByExperimentId', () async {
       for (final experiment in data.experiments) {
         switch (experiment.name) {

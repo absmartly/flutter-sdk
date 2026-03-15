@@ -3,6 +3,22 @@ import 'package:collection/collection.dart';
 import 'experiment_variant.dart';
 import 'experiment_application.dart';
 
+class CustomFieldValue {
+  final String name;
+  final String value;
+  final String type;
+
+  CustomFieldValue({required this.name, required this.value, required this.type});
+
+  factory CustomFieldValue.fromMap(Map<String, dynamic> data) {
+    return CustomFieldValue(
+      name: data['name'],
+      value: data['value'],
+      type: data['type'],
+    );
+  }
+}
+
 class Experiment {
   late int id;
   late String name;
@@ -19,6 +35,7 @@ class Experiment {
   late List<ExperimentVariant> variants;
   late bool audienceStrict;
   late String? audience;
+  late List<CustomFieldValue>? customFieldValues;
 
   Experiment({
     required this.id,
@@ -36,6 +53,7 @@ class Experiment {
     required this.variants,
     required this.audienceStrict,
     required this.audience,
+    this.customFieldValues,
   });
 
   @override
@@ -100,6 +118,14 @@ class Experiment {
 
     audienceStrict = data["audienceStrict"] ?? false;
     audience = data["audience"];
+    final rawCustomFields = data["customFieldValues"];
+    if (rawCustomFields != null) {
+      customFieldValues = (rawCustomFields as List)
+          .map((e) => CustomFieldValue.fromMap(e as Map<String, dynamic>))
+          .toList();
+    } else {
+      customFieldValues = null;
+    }
   }
 
   Map<String, dynamic> toMap() {

@@ -88,6 +88,10 @@ class Context {
     return failed_;
   }
 
+  dynamic readyError() {
+    return failedError_;
+  }
+
   bool isClosed() {
     return closed_;
   }
@@ -268,6 +272,77 @@ class Context {
       variableKeys[key] = values;
     });
     return variableKeys;
+  }
+
+  Set<String> getCustomFieldKeys() {
+    checkReady(true);
+
+    final keys = <String>{};
+    for (final experiment in data_!.experiments) {
+      final fields = experiment.customFieldValues;
+      if (fields != null) {
+        for (final field in fields) {
+          keys.add(field.name);
+        }
+      }
+    }
+    return keys;
+  }
+
+  dynamic getCustomFieldValue(final String experimentName, final String key) {
+    checkReady(true);
+
+    final experiment = index_[experimentName];
+    if (experiment != null) {
+      final fields = experiment.data.customFieldValues;
+      if (fields != null) {
+        for (final field in fields) {
+          if (field.name == key) {
+            switch (field.type) {
+              case 'text':
+              case 'string':
+                return field.value;
+              case 'number':
+                return num.parse(field.value);
+              case 'json':
+                try {
+                  if (field.value == 'null') return null;
+                  if (field.value == '') return '';
+                  return jsonDecode(field.value);
+                } catch (e) {
+                  logError(e);
+                  return null;
+                }
+              case 'boolean':
+                return field.value == 'true';
+              default:
+                logError(Exception(
+                    "Unknown custom field type '${field.type}' for experiment '$experimentName' and key '$key' - you may need to upgrade to the latest SDK version"));
+                return null;
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  String? getCustomFieldValueType(
+      final String experimentName, final String key) {
+    checkReady(true);
+
+    final experiment = index_[experimentName];
+    if (experiment != null) {
+      final fields = experiment.data.customFieldValues;
+      if (fields != null) {
+        for (final field in fields) {
+          if (field.name == key) {
+            return field.type;
+          }
+        }
+      }
+    }
+    return null;
   }
 
   dynamic getVariableValue(final String key, final dynamic defaultValue) {
@@ -728,6 +803,7 @@ class Context {
     indexVariables_ = {};
     data_ = ContextData();
     failed_ = true;
+    failedError_ = exception;
   }
 
   void logEvent(EventType event, dynamic data) {
@@ -748,6 +824,7 @@ class Context {
   late ContextEventLogger? eventLogger_;
   final Map<String, String> units_ = {};
   bool failed_ = false;
+  dynamic failedError_;
   ContextData? data_;
   Map<String, ExperimentVariables> index_ = {};
   Map<String, List<ExperimentVariables>> indexVariables_ = {};
