@@ -100,6 +100,18 @@ class Context {
     return !closed_ && closing_;
   }
 
+  bool isFinalized() {
+    return isClosed();
+  }
+
+  bool isFinalizing() {
+    return isClosing();
+  }
+
+  Future<void> finalize() {
+    return close();
+  }
+
   Future<Context> waitUntilReady() async {
     if (isReady()) {
       return Future.value(this);
@@ -517,15 +529,15 @@ class Context {
 
   void checkNotClosed() {
     if (closed_) {
-      throw Exception("ABSmartly Context is closed");
+      throw Exception("ABSmartly Context is finalized.");
     } else if (closing_) {
-      throw Exception("ABSmartly Context is closing");
+      throw Exception("ABSmartly Context is finalizing.");
     }
   }
 
   void checkReady(final bool expectNotClosed) {
     if (!isReady()) {
-      throw Exception("ABSmartly Context is not yet ready");
+      throw Exception("ABSmartly Context is not yet ready.");
     } else if (expectNotClosed) {
       checkNotClosed();
     }
