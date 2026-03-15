@@ -120,8 +120,6 @@ class Context {
   }
 
   void setOverride(final String experimentName, final int variant) {
-    checkNotClosed();
-
     overrides_[experimentName] = variant;
   }
 
@@ -130,9 +128,9 @@ class Context {
   }
 
   void setOverrides(Map<String, int> overrides) {
-    overrides.forEach((key, value) {
-      setOverride(key, value);
-    });
+    for (final entry in overrides.entries) {
+      setOverride(entry.key, entry.value);
+    }
   }
 
   void setCustomAssignment(String experimentName, int variant) {
@@ -146,9 +144,9 @@ class Context {
   }
 
   void setCustomAssignments(Map<String, int> customAssignments) {
-    customAssignments.forEach((key, value) {
-      setCustomAssignment(key, value);
-    });
+    for (final entry in customAssignments.entries) {
+      setCustomAssignment(entry.key, entry.value);
+    }
   }
 
   String? getUnit(final String unitType) {
@@ -172,13 +170,13 @@ class Context {
   }
 
   Map<String, String> getUnits() {
-    return <String, String>{};
+    return Map.unmodifiable(units_);
   }
 
   void setUnits(Map<String, String> units) {
-    units.forEach((key, value) {
-      setUnit(key, value);
-    });
+    for (final entry in units.entries) {
+      setUnit(entry.key, entry.value);
+    }
   }
 
   dynamic getAttribute(final String name) {
@@ -210,9 +208,9 @@ class Context {
   }
 
   void setAttributes(final Map<String, dynamic> attributes) {
-    attributes.forEach((key, value) {
-      setAttribute(key, value);
-    });
+    for (final entry in attributes.entries) {
+      setAttribute(entry.key, entry.value);
+    }
   }
 
   int getTreatment(final String experimentName) {
@@ -308,11 +306,8 @@ class Context {
     final GoalAchievement achievement = GoalAchievement(
       name: goalName,
       achievedAt: clock_.millis(),
-      properties: {},
+      properties: properties ?? {},
     );
-    achievement.achievedAt = clock_.millis();
-    achievement.name = goalName;
-    achievement.properties = properties;
 
     pendingCount_++;
     achievements_.add(achievement);
@@ -400,58 +395,41 @@ class Context {
 
     if (!failed_) {
       if (pendingCount_ > 0) {
-        List<Exposure>? exposures;
-        List<GoalAchievement>? achievements;
-        int eventCount;
+        final List<Exposure> exposures = List.of(exposures_);
+        final List<GoalAchievement> achievements = List.of(achievements_);
+        final int eventCount = pendingCount_;
 
-        eventCount = pendingCount_;
+        List<Unit> units = [];
 
-        if (eventCount > 0) {
-          if (exposures_.isNotEmpty) {
-            exposures = exposures_.toList();
-            exposures_.clear();
-          }
-
-          if (achievements_.isNotEmpty) {
-            achievements = achievements_.toList();
-            achievements_.clear();
-          }
-
-          pendingCount_ = 0;
+        for (var entry in units_.entries) {
+          units.add(Unit(
+              type: entry.key,
+              uid: utf8.decode(getUnitHash(entry.key, entry.value))));
         }
 
-        if (eventCount > 0) {
-          List<Unit> units = [];
+        final PublishEvent event = PublishEvent(
+          hashed: true,
+          units: units,
+          publishedAt: clock_.millis(),
+          exposures: exposures,
+          goals: achievements,
+          attributes: attributes_.toList(),
+        );
 
-          for (var entry in units_.entries) {
-            units.add(Unit(
-                type: entry.key,
-                uid: utf8.decode(getUnitHash(entry.key, entry.value))));
-          }
+        final Completer<void> result = Completer<void>();
 
-          final PublishEvent event = PublishEvent(
-            hashed: true,
-            units: units,
-            publishedAt: clock_.millis(),
-            exposures: exposures ?? [],
-            goals: achievements ?? [],
-            attributes: attributes_.toList(),
-          );
-          event.hashed = true;
-          event.publishedAt = clock_.millis();
+        eventHandler_.publish(this, event).future.then((_) {
+          exposures_.removeRange(0, exposures.length);
+          achievements_.removeRange(0, achievements.length);
+          pendingCount_ -= eventCount;
+          logEvent(EventType.publish, event);
+          result.complete();
+        }).catchError((error) {
+          logError(error);
+          result.completeError(error);
+        });
 
-          final Completer<void> result = Completer<void>();
-
-          eventHandler_.publish(this, event).future.then((_) {
-            logEvent(EventType.publish, event);
-            result.complete();
-          }).catchError((error) {
-            logError(error);
-            result.completeError(error);
-          });
-
-          return result.future;
-        }
+        return result.future;
       }
     } else {
       exposures_.clear();
@@ -705,11 +683,16 @@ class Context {
               indexVariables[key] = keyExperimentVariables;
             }
 
-            int at = keyExperimentVariables.indexOf(experimentVariables);
-
-            if (at < 0) {
-              at = -at - 1;
-              keyExperimentVariables.insert(at, experimentVariables);
+            if (!keyExperimentVariables.contains(experimentVariables)) {
+              int insertAt = 0;
+              for (int i = 0; i < keyExperimentVariables.length; i++) {
+                if (keyExperimentVariables[i].data.id < experimentVariables.data.id) {
+                  insertAt = i + 1;
+                } else {
+                  break;
+                }
+              }
+              keyExperimentVariables.insert(insertAt, experimentVariables);
             }
           });
 
@@ -725,7 +708,18 @@ class Context {
     index_ = index;
     indexVariables_ = indexVariables;
     data_ = data;
-    assignmentCache_.clear();
+
+    assignmentCache_.removeWhere((experimentName, assignment) {
+      if (assignment.overridden) {
+        return false;
+      }
+      final ExperimentVariables? experiment = index[experimentName];
+      if (experiment == null) {
+        return assignment.assigned;
+      }
+      return !experimentMatches(experiment.data, assignment);
+    });
+
     setRefreshTimer();
   }
 
