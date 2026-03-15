@@ -2456,6 +2456,37 @@ void main() {
           isNull);
     });
 
+    test('customFieldKeysAliasMatchesGetCustomFieldKeys', () async {
+      final Context context = createReadyContextWithData(customFieldsData);
+      await context.waitUntilReady();
+
+      expect(context.customFieldKeys(), equals(context.getCustomFieldKeys()));
+    });
+
+    test('customFieldValueAliasMatchesGetCustomFieldValue', () async {
+      final Context context = createReadyContextWithData(customFieldsData);
+      await context.waitUntilReady();
+
+      expect(context.customFieldValue('exp_test_ab', 'country'),
+          equals(context.getCustomFieldValue('exp_test_ab', 'country')));
+      expect(context.customFieldValue('exp_test_ab', 'overrides'),
+          equals(context.getCustomFieldValue('exp_test_ab', 'overrides')));
+      expect(context.customFieldValue('not_found', 'country'),
+          equals(context.getCustomFieldValue('not_found', 'country')));
+    });
+
+    test('customFieldValueTypeAliasMatchesGetCustomFieldValueType', () async {
+      final Context context = createReadyContextWithData(customFieldsData);
+      await context.waitUntilReady();
+
+      expect(context.customFieldValueType('exp_test_ab', 'country'),
+          equals(context.getCustomFieldValueType('exp_test_ab', 'country')));
+      expect(context.customFieldValueType('exp_test_ab', 'overrides'),
+          equals(context.getCustomFieldValueType('exp_test_ab', 'overrides')));
+      expect(context.customFieldValueType('not_found', 'country'),
+          equals(context.getCustomFieldValueType('not_found', 'country')));
+    });
+
     test('setDataSortsConflictingVariablesByExperimentId', () async {
       for (final experiment in data.experiments) {
         switch (experiment.name) {

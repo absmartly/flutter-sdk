@@ -357,6 +357,14 @@ class Context {
     return null;
   }
 
+  Set<String> customFieldKeys() => getCustomFieldKeys();
+
+  dynamic customFieldValue(final String experimentName, final String key) =>
+      getCustomFieldValue(experimentName, key);
+
+  String? customFieldValueType(final String experimentName, final String key) =>
+      getCustomFieldValueType(experimentName, key);
+
   dynamic getVariableValue(final String key, final dynamic defaultValue) {
     checkReady(true);
 
