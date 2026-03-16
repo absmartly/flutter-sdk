@@ -176,12 +176,12 @@ class Context {
 
     final String? previous = units_[unitType];
     if ((previous != null) && !(previous == uid)) {
-      throw Exception("Unit $unitType already set.");
+      throw Exception("Unit '$unitType' UID already set.");
     }
 
     final String trimmed = uid.trim();
     if (trimmed.isEmpty) {
-      throw Exception("Unit $unitType UID must not be blank.");
+      throw Exception("Unit '$unitType' UID must not be blank.");
     }
 
     units_[unitType] = trimmed;
@@ -555,15 +555,15 @@ class Context {
 
   void checkNotClosed() {
     if (closed_) {
-      throw Exception("ABSmartly Context is finalized.");
+      throw Exception("ABsmartly Context is finalized.");
     } else if (closing_) {
-      throw Exception("ABSmartly Context is finalizing.");
+      throw Exception("ABsmartly Context is finalizing.");
     }
   }
 
   void checkReady(final bool expectNotClosed) {
     if (!isReady()) {
-      throw Exception("ABSmartly Context is not yet ready.");
+      throw Exception("ABsmartly Context is not yet ready.");
     } else if (expectNotClosed) {
       checkNotClosed();
     }
