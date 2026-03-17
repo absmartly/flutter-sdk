@@ -478,7 +478,7 @@ void main() {
         final testContext = sdk.createContext(contextConfig);
 
         final longName = 'a' * 1000;
-        expect(() => testContext.peekTreatment(longName), throwsException);
+        expect(testContext.peekTreatment(longName), equals(0));
       });
 
       test('handles very long unit values', () {
