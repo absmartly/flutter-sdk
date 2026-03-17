@@ -1,10 +1,10 @@
 import '../evaluator.dart';
 import 'binary_operator.dart';
 
-class GreaterThenOperator extends BinaryOperator {
+class LessThanOperator extends BinaryOperator {
   @override
   dynamic binary(Evaluator evaluator, dynamic lhs, dynamic rhs) {
     final result = evaluator.compare(lhs, rhs);
-    return result != null ? result > 0 : null;
+    return result != null ? result < 0 : null;
   }
 }

@@ -70,19 +70,19 @@ class ContextConfig {
   Map<String, int> getOverrides() => overrides_;
 
   ContextConfig setCustomAssignment(String experimentName, int variant) {
-    cassigmnents_[experimentName] = variant;
+    customAssignments_[experimentName] = variant;
     return this;
   }
 
   ContextConfig setCustomAssignments(Map<String, int> customAssignments) {
-    cassigmnents_.addAll(customAssignments);
+    customAssignments_.addAll(customAssignments);
     return this;
   }
 
   dynamic getCustomAssignment(String experimentName) =>
-      cassigmnents_[experimentName];
+      customAssignments_[experimentName];
 
-  Map<String, int> getCustomAssignments() => cassigmnents_;
+  Map<String, int> getCustomAssignments() => customAssignments_;
 
   ContextConfig setPublishDelay(int delayMs) {
     publishDelay = delayMs;
@@ -109,7 +109,7 @@ class ContextConfig {
   Map<String, String> units_ = {};
   Map<String, dynamic> attributes_ = {};
   Map<String, int> overrides_ = {};
-  Map<String, int> cassigmnents_ = {};
+  Map<String, int> customAssignments_ = {};
   int publishDelay = 100;
   int refreshInterval = 0;
 

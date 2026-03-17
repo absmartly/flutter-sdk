@@ -99,7 +99,11 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
           _cancelTimeout();
           _updateTreatment(ctx);
         }
-      }).catchError((_) {
+      }).catchError((error) {
+        assert(() {
+          debugPrint('ABSmartly: TreatmentBuilder "${widget.name}" error: $error');
+          return true;
+        }());
         if (mounted) {
           _cancelTimeout();
           setState(() {
@@ -127,8 +131,10 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
     final variableKeys = ctx.getVariableKeys();
     final variables = <String, dynamic>{};
 
-    for (final key in variableKeys.keys) {
-      variables[key] = ctx.peekVariableValue(key, null);
+    for (final entry in variableKeys.entries) {
+      if (entry.value.contains(widget.name)) {
+        variables[entry.key] = ctx.peekVariableValue(entry.key, null);
+      }
     }
 
     setState(() {

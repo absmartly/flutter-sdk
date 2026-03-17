@@ -90,7 +90,11 @@ class _TreatmentState extends State<Treatment> {
           _cancelTimeout();
           _updateTreatment(ctx);
         }
-      }).catchError((_) {
+      }).catchError((error) {
+        assert(() {
+          debugPrint('ABSmartly: Treatment "${widget.name}" error: $error');
+          return true;
+        }());
         if (mounted) {
           _cancelTimeout();
           setState(() {

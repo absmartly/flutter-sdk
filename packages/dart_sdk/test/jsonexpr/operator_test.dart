@@ -2,11 +2,11 @@ import 'package:absmartly_dart/src/jsonexpr/json_expr.dart';
 import 'package:absmartly_dart/src/jsonexpr/evaluator.dart';
 import 'package:absmartly_dart/src/jsonexpr/operators/and_combinator.dart';
 import 'package:absmartly_dart/src/jsonexpr/operators/equals_operator.dart';
-import 'package:absmartly_dart/src/jsonexpr/operators/greater_then_operator.dart';
-import 'package:absmartly_dart/src/jsonexpr/operators/greater_then_or_equal_operator.dart';
+import 'package:absmartly_dart/src/jsonexpr/operators/greater_than_operator.dart';
+import 'package:absmartly_dart/src/jsonexpr/operators/greater_than_or_equal_operator.dart';
 import 'package:absmartly_dart/src/jsonexpr/operators/in_operator.dart';
-import 'package:absmartly_dart/src/jsonexpr/operators/less_then_operator.dart';
-import 'package:absmartly_dart/src/jsonexpr/operators/less_then_or_eqal_operator.dart';
+import 'package:absmartly_dart/src/jsonexpr/operators/less_than_operator.dart';
+import 'package:absmartly_dart/src/jsonexpr/operators/less_than_or_equal_operator.dart';
 import 'package:absmartly_dart/src/jsonexpr/operators/match_operator.dart';
 import 'package:absmartly_dart/src/jsonexpr/operators/not_operator.dart';
 import 'package:absmartly_dart/src/jsonexpr/operators/null_operator.dart';
@@ -374,11 +374,11 @@ void main() {
 
   group('GreaterThanOperator Tests', () {
     late MockEvaluator evaluator;
-    late GreaterThenOperator operator;
+    late GreaterThanOperator operator;
 
     setUp(() {
       evaluator = MockEvaluator();
-      operator = GreaterThenOperator();
+      operator = GreaterThanOperator();
 
       when(evaluator.evaluate(any))
           .thenAnswer((invocation) => invocation.positionalArguments[0]);
@@ -417,11 +417,11 @@ void main() {
 
   group('GreaterThanOrEqualOperator Tests', () {
     late MockEvaluator evaluator;
-    late GreaterThenOrEqualOperator operator;
+    late GreaterThanOrEqualOperator operator;
 
     setUp(() {
       evaluator = MockEvaluator();
-      operator = GreaterThenOrEqualOperator();
+      operator = GreaterThanOrEqualOperator();
 
       when(evaluator.evaluate(any))
           .thenAnswer((invocation) => invocation.positionalArguments[0]);
@@ -592,11 +592,11 @@ void main() {
 
   group('LessThanOperator Tests', () {
     late MockEvaluator evaluator;
-    late LessThenOperator operator;
+    late LessThanOperator operator;
 
     setUp(() {
       evaluator = MockEvaluator();
-      operator = LessThenOperator();
+      operator = LessThanOperator();
 
       when(evaluator.evaluate(any))
           .thenAnswer((invocation) => invocation.positionalArguments[0]);
@@ -635,11 +635,11 @@ void main() {
 
   group('LessThanOrEqualOperator Tests', () {
     late MockEvaluator evaluator;
-    late LessThenOrEqualOperator operator;
+    late LessThanOrEqualOperator operator;
 
     setUp(() {
       evaluator = MockEvaluator();
-      operator = LessThenOrEqualOperator();
+      operator = LessThanOrEqualOperator();
 
       when(evaluator.evaluate(any))
           .thenAnswer((invocation) => invocation.positionalArguments[0]);

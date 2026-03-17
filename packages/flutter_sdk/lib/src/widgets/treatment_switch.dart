@@ -19,7 +19,7 @@ class TreatmentVariant extends StatelessWidget {
   /// - 0 or 'A' = control
   /// - 1 or 'B' = first variant
   /// - etc.
-  final dynamic variant;
+  final Object variant;
 
   /// The widget to display for this variant.
   final Widget child;
@@ -134,7 +134,11 @@ class _TreatmentSwitchState extends State<TreatmentSwitch> {
           _cancelTimeout();
           _updateTreatment(ctx);
         }
-      }).catchError((_) {
+      }).catchError((error) {
+        assert(() {
+          debugPrint('ABSmartly: TreatmentSwitch "${widget.name}" error: $error');
+          return true;
+        }());
         if (mounted) {
           _cancelTimeout();
           setState(() {

@@ -97,7 +97,11 @@ class _VariableValueState<T> extends State<VariableValue<T>> {
           _cancelTimeout();
           _updateValue(ctx);
         }
-      }).catchError((_) {
+      }).catchError((error) {
+        assert(() {
+          debugPrint('ABSmartly: VariableValue "${widget.name}" error: $error');
+          return true;
+        }());
         if (mounted) {
           _cancelTimeout();
           setState(() {

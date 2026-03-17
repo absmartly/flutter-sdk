@@ -120,6 +120,16 @@ void main() {
     });
   });
 
+  group('ClientConfig nullable fields', () {
+    test('fields are null by default without late initialization error', () {
+      final config = ClientConfig();
+      expect(config.getAPIKey(), isNull);
+      expect(config.getEnvironment(), isNull);
+      expect(config.getApplication(), isNull);
+      expect(config.getEndpoint(), isNull);
+    });
+  });
+
   test("createFromProperties", () {
     var props = {
       "absmartly.endpoint": "https://test.endpoint.com",

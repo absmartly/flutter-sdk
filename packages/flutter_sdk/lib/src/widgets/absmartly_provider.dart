@@ -81,6 +81,7 @@ class _ABSmartlyProviderState extends State<ABSmartlyProvider> {
   late ABSmartly _sdk;
   late Context _context;
   bool _isInternallyCreated = false;
+  late ABSmartlyData _data;
 
   @override
   void initState() {
@@ -113,6 +114,17 @@ class _ABSmartlyProviderState extends State<ABSmartlyProvider> {
 
       _context = _sdk.createContext(contextConfig);
     }
+    _updateData();
+  }
+
+  void _updateData() {
+    _data = ABSmartlyData(
+      sdk: _sdk,
+      context: _context,
+      defaultLoadingBehavior: widget.defaultLoadingBehavior,
+      readyTimeout: widget.readyTimeout,
+      resetContext: _resetContext,
+    );
   }
 
   Future<void> _resetContext({required Map<String, String> units}) async {
@@ -126,6 +138,7 @@ class _ABSmartlyProviderState extends State<ABSmartlyProvider> {
 
     setState(() {
       _context = _sdk.createContext(contextConfig);
+      _updateData();
     });
   }
 
@@ -140,13 +153,7 @@ class _ABSmartlyProviderState extends State<ABSmartlyProvider> {
   @override
   Widget build(BuildContext context) {
     return InheritedABSmartly(
-      data: ABSmartlyData(
-        sdk: _sdk,
-        context: _context,
-        defaultLoadingBehavior: widget.defaultLoadingBehavior,
-        readyTimeout: widget.readyTimeout,
-        resetContext: _resetContext,
-      ),
+      data: _data,
       child: widget.child,
     );
   }

@@ -102,9 +102,9 @@ class ClientConfig {
   }
 
   String? endpoint_;
-  late String? apiKey_;
-  late String? environment_;
-  late String? application_;
+  String? apiKey_;
+  String? environment_;
+  String? application_;
 
   ContextDataDeserializer? deserializer_;
   ContextEventSerializer? serializer_;

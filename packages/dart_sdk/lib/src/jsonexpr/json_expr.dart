@@ -2,11 +2,11 @@ import 'operator.dart';
 import 'expr_evaluator.dart';
 import 'operators/and_combinator.dart';
 import 'operators/equals_operator.dart';
-import 'operators/greater_then_operator.dart';
-import 'operators/greater_then_or_equal_operator.dart';
+import 'operators/greater_than_operator.dart';
+import 'operators/greater_than_or_equal_operator.dart';
 import 'operators/in_operator.dart';
-import 'operators/less_then_operator.dart';
-import 'operators/less_then_or_eqal_operator.dart';
+import 'operators/less_than_operator.dart';
+import 'operators/less_than_or_equal_operator.dart';
 import 'operators/match_operator.dart';
 import 'operators/not_operator.dart';
 import 'operators/null_operator.dart';
@@ -25,10 +25,10 @@ class JsonExpr {
     'in': InOperator(),
     'match': MatchOperator(),
     'eq': EqualsOperator(),
-    'gt': GreaterThenOperator(),
-    'gte': GreaterThenOrEqualOperator(),
-    'lt': LessThenOperator(),
-    'lte': LessThenOrEqualOperator(),
+    'gt': GreaterThanOperator(),
+    'gte': GreaterThanOrEqualOperator(),
+    'lt': LessThanOperator(),
+    'lte': LessThanOrEqualOperator(),
   };
 
   bool evaluateBooleanExpr(dynamic expr, Map<String?, dynamic> vars) {
