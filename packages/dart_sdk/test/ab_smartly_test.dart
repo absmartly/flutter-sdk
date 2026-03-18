@@ -10,6 +10,7 @@ import 'package:absmartly_dart/src/context_event_handler.dart';
 import 'package:absmartly_dart/src/context_event_logger.dart';
 import 'package:absmartly_dart/src/default_context_data_provider.dart';
 import 'package:absmartly_dart/src/default_context_event_handler.dart';
+import 'package:absmartly_dart/src/default_context_publisher.dart';
 import 'package:absmartly_dart/src/json/context_data.dart';
 import 'package:absmartly_dart/src/variable_parser.dart';
 import 'package:absmartly_dart/src/audience_deserializer.dart';
@@ -78,7 +79,7 @@ void main() {
       verify(mockDataProvider.getContextData()).called(1);
 
       expect(absmartly.contextDataProvider_, isA<DefaultContextDataProvider>());
-      expect(absmartly.contextEventHandler_, isA<DefaultContextEventHandler>());
+      expect(absmartly.contextEventHandler_, isA<DefaultContextPublisher>());
 
       await context.waitUntilReady();
 
@@ -149,7 +150,7 @@ void main() {
         'ABSmartly constructor creates default contextEventHandler when getContextEventHandler() returns null',
         () {
       expect(ABSmartly(config).contextEventHandler_,
-          isA<DefaultContextEventHandler>());
+          isA<DefaultContextPublisher>());
     });
 
     test('ABSmartly createContext returns a valid Context object', () async {

@@ -9,7 +9,7 @@ import 'package:collection/collection.dart';
 import 'audience_matcher.dart';
 import 'context_config.dart';
 import 'context_data_provider.dart';
-import 'context_event_handler.dart';
+import 'context_publisher.dart';
 import 'context_event_logger.dart';
 import 'internal/hashing/hashing.dart';
 import 'internal/variant_assigner.dart';
@@ -29,7 +29,7 @@ class Context {
       final ContextConfig config,
       final Completer<ContextData> dataFuture,
       final ContextDataProvider dataProvider,
-      final ContextEventHandler eventHandler,
+      final ContextPublisher eventHandler,
       final VariableParser variableParser,
       AudienceMatcher audienceMatcher,
       ContextEventLogger? eventLogger) {
@@ -42,7 +42,7 @@ class Context {
       ContextConfig config,
       Completer<ContextData> dataFuture,
       ContextDataProvider dataProvider,
-      ContextEventHandler eventHandler,
+      ContextPublisher eventHandler,
       VariableParser variableParser,
       AudienceMatcher audienceMatcher,
       ContextEventLogger? eventLogger) {
@@ -855,7 +855,7 @@ class Context {
   late Clock clock_;
   int publishDelay_ = 100;
   int refreshInterval_ = 0;
-  late ContextEventHandler eventHandler_;
+  late ContextPublisher eventHandler_;
   late ContextDataProvider dataProvider_;
   late VariableParser variableParser_;
   late AudienceMatcher audienceMatcher_;

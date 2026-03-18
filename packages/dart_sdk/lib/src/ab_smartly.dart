@@ -9,7 +9,7 @@ import 'audience_matcher.dart';
 import 'context.dart';
 import 'context_config.dart';
 import 'context_data_provider.dart';
-import 'context_event_handler.dart';
+import 'context_publisher.dart';
 import 'java/time/clock.dart';
 import 'client.dart';
 import 'json/context_data.dart';
@@ -53,7 +53,7 @@ class ABSmartly {
 
   Client client_;
   ContextDataProvider contextDataProvider_;
-  ContextEventHandler contextEventHandler_;
+  ContextPublisher contextEventHandler_;
   ContextEventLogger? contextEventLogger_;
   VariableParser variableParser_;
   AudienceDeserializer audienceDeserializer_;

@@ -4,8 +4,10 @@ import 'default_variable_parser.dart';
 
 import 'client.dart';
 import 'context_data_provider.dart';
+import 'context_publisher.dart';
 import 'context_event_handler.dart';
 import 'default_context_data_provider.dart';
+import 'default_context_publisher.dart';
 import 'default_context_event_handler.dart';
 import 'variable_parser.dart';
 import 'audience_deserializer.dart';
@@ -13,7 +15,7 @@ import 'audience_deserializer.dart';
 class ABSmartlyConfig {
   Client? _client;
   ContextDataProvider? _contextDataProvider;
-  ContextEventHandler? _contextEventHandler;
+  ContextPublisher? _contextEventHandler;
   VariableParser? _variableParser;
   AudienceDeserializer? _audienceDeserializer;
   ContextEventLogger? _contextEventLogger;
@@ -23,7 +25,7 @@ class ABSmartlyConfig {
   static ABSmartlyConfig create({
     Client? client,
     ContextDataProvider? contextDataProvider,
-    ContextEventHandler? contextEventHandler,
+    ContextPublisher? contextEventHandler,
     ContextEventLogger? contextEventLogger,
     VariableParser? variableParser,
     AudienceDeserializer? audienceDeserializer,
@@ -56,7 +58,7 @@ class ABSmartlyConfig {
     return this;
   }
 
-  ABSmartlyConfig setContextEventHandler(ContextEventHandler handler) {
+  ABSmartlyConfig setContextEventHandler(ContextPublisher handler) {
     _contextEventHandler = handler;
     return this;
   }
@@ -93,14 +95,14 @@ class ABSmartlyConfig {
     return DefaultContextDataProvider(_client!);
   }
 
-  ContextEventHandler getContextEventHandler() {
+  ContextPublisher getContextEventHandler() {
     if (_contextEventHandler != null) {
       return _contextEventHandler!;
     }
     if (_client == null) {
       throw Exception("Missing Client instance");
     }
-    return DefaultContextEventHandler(_client!);
+    return DefaultContextPublisher(_client!);
   }
 
   ContextEventLogger? getContextEventLogger() {

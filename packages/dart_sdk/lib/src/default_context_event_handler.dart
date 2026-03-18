@@ -2,16 +2,11 @@ import 'dart:async';
 
 import 'json/publish_event.dart';
 
+import 'default_context_publisher.dart';
 import 'context_event_handler.dart';
 import 'client.dart';
 
-class DefaultContextEventHandler implements ContextEventHandler {
-  DefaultContextEventHandler(this.client_);
-
-  final Client client_;
-
-  @override
-  Completer<void> publish(context, PublishEvent event) {
-    return client_.publish(event);
-  }
+@Deprecated('Use DefaultContextPublisher instead.')
+class DefaultContextEventHandler extends DefaultContextPublisher {
+  DefaultContextEventHandler(Client client) : super(client);
 }
