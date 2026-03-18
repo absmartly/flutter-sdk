@@ -74,6 +74,11 @@ class _TreatmentState extends State<Treatment> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.name != widget.name || oldWidget.context != widget.context) {
       _cancelTimeout();
+      setState(() {
+        _isReady = false;
+        _timedOut = false;
+        _variant = 0;
+      });
       _initializeTreatment();
     }
   }

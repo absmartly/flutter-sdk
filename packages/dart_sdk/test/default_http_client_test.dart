@@ -83,7 +83,7 @@ void main() {
         any,
         headers: anyNamed('headers'),
         body: anyNamed('body'),
-        encoding: anyNamed('encoding'),
+
       )).thenAnswer((_) async => http.Response(
             jsonEncode(responseBody),
             201,
@@ -107,7 +107,7 @@ void main() {
         any,
         headers: anyNamed('headers'),
         body: anyNamed('body'),
-        encoding: anyNamed('encoding'),
+
       )).called(1);
     });
 
@@ -117,7 +117,7 @@ void main() {
         any,
         headers: anyNamed('headers'),
         body: anyNamed('body'),
-        encoding: anyNamed('encoding'),
+
       )).thenAnswer((_) async => http.Response(
             jsonEncode(responseBody),
             200,
@@ -141,7 +141,7 @@ void main() {
         any,
         headers: anyNamed('headers'),
         body: anyNamed('body'),
-        encoding: anyNamed('encoding'),
+
       )).called(1);
     });
 

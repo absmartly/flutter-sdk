@@ -233,8 +233,9 @@ void main() {
         final future1 = testContext.waitUntilReady();
         final future2 = testContext.waitUntilReady();
 
-        expect(future1, isNotNull);
-        expect(future2, isNotNull);
+        final result1 = await future1;
+        final result2 = await future2;
+        expect(result1, same(result2));
       });
 
       testWidgets('widget survives pump without duration', (tester) async {

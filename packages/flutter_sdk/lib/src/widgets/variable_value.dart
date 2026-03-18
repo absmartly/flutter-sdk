@@ -81,6 +81,11 @@ class _VariableValueState<T> extends State<VariableValue<T>> {
         oldWidget.context != widget.context ||
         oldWidget.defaultValue != widget.defaultValue) {
       _cancelTimeout();
+      setState(() {
+        _isReady = false;
+        _timedOut = false;
+        _value = widget.defaultValue;
+      });
       _initializeValue();
     }
   }

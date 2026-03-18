@@ -11,11 +11,21 @@ class CustomFieldValue {
   CustomFieldValue({required this.name, required this.value, required this.type});
 
   factory CustomFieldValue.fromMap(Map<String, dynamic> data) {
-    return CustomFieldValue(
-      name: data['name'],
-      value: data['value'],
-      type: data['type'],
-    );
+    final name = data['name'];
+    final value = data['value'];
+    final type = data['type'];
+    if (name is! String || value is! String || type is! String) {
+      throw FormatException('Invalid customFieldValues entry: $data');
+    }
+    return CustomFieldValue(name: name, value: value, type: type);
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'value': value,
+      'type': type,
+    };
   }
 }
 
@@ -79,13 +89,24 @@ class Experiment {
 
   @override
   int get hashCode {
-    int result = Object.hash(id, name, unitType, iteration, seedHi, seedLo,
-        trafficSeedHi, trafficSeedLo, fullOnVariant, audienceStrict, audience);
-    result = 31 * result + split.hashCode;
-    result = 31 * result + trafficSplit.hashCode;
-    result = 31 * result + applications.hashCode;
-    result = 31 * result + variants.hashCode;
-    return result;
+    const listEquality = ListEquality();
+    return Object.hash(
+      id,
+      name,
+      unitType,
+      iteration,
+      seedHi,
+      seedLo,
+      trafficSeedHi,
+      trafficSeedLo,
+      fullOnVariant,
+      audienceStrict,
+      audience,
+      listEquality.hash(split),
+      listEquality.hash(trafficSplit),
+      listEquality.hash(applications),
+      listEquality.hash(variants),
+    );
   }
 
   @override
@@ -150,6 +171,9 @@ class Experiment {
       "variants": variants,
       "audienceStrict": audienceStrict,
       "audience": audience,
+      if (customFieldValues != null)
+        "customFieldValues":
+            customFieldValues!.map((e) => e.toMap()).toList(),
     };
   }
 }

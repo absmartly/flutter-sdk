@@ -118,6 +118,11 @@ class _TreatmentSwitchState extends State<TreatmentSwitch> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.name != widget.name || oldWidget.context != widget.context) {
       _cancelTimeout();
+      setState(() {
+        _isReady = false;
+        _timedOut = false;
+        _variant = 0;
+      });
       _initializeTreatment();
     }
   }
@@ -199,8 +204,7 @@ class _TreatmentSwitchState extends State<TreatmentSwitch> {
   }
 
   Widget _getControlChild() {
-    return _findVariantChild(0) ??
-        (widget.children.isNotEmpty ? widget.children.first.child : const SizedBox.shrink());
+    return _findVariantChild(0) ?? const SizedBox.shrink();
   }
 
   @override

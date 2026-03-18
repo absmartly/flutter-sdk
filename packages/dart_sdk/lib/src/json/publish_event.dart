@@ -36,12 +36,15 @@ class PublishEvent {
 
   @override
   int get hashCode {
-    int result = Object.hash(hashed, publishedAt);
-    result = 31 * result + units.hashCode;
-    result = 31 * result + exposures.hashCode;
-    result = 31 * result + goals.hashCode;
-    result = 31 * result + attributes.hashCode;
-    return result;
+    const listEquality = ListEquality();
+    return Object.hash(
+      hashed,
+      publishedAt,
+      listEquality.hash(units),
+      listEquality.hash(exposures),
+      listEquality.hash(goals),
+      listEquality.hash(attributes),
+    );
   }
 
   @override

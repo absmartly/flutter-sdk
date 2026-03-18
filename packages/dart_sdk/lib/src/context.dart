@@ -327,7 +327,7 @@ class Context {
               case 'string':
                 return field.value;
               case 'number':
-                return num.parse(field.value);
+                return num.tryParse(field.value);
               case 'json':
                 try {
                   if (field.value == 'null') return null;

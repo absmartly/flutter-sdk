@@ -153,7 +153,7 @@ void main() {
         expect(find.text('Fallback Control'), findsOneWidget);
       });
 
-      testWidgets('TreatmentSwitch falls back to first child when variant missing',
+      testWidgets('TreatmentSwitch shows SizedBox.shrink when no control variant exists',
           (tester) async {
         final contextConfig = ContextConfig.create()
           ..setUnit('user_id', '12345');
@@ -183,7 +183,8 @@ void main() {
         );
 
         await tester.pump();
-        expect(find.text('Variant 5'), findsOneWidget);
+        expect(find.text('Variant 5'), findsNothing);
+        expect(find.text('Variant 6'), findsNothing);
       });
 
       testWidgets('handles empty variants map', (tester) async {

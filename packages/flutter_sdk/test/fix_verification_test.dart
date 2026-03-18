@@ -168,6 +168,7 @@ void main() {
 
         final ctx = Context.create(clock, config, completer, dataProvider,
             eventHandler, variableParser, audienceMatcher, null);
+        addTearDown(() => ctx.close());
 
         await ctx.waitUntilReady();
 
@@ -184,6 +185,7 @@ void main() {
 
         final ctx = Context.create(clock, config, completer, dataProvider,
             eventHandler, variableParser, audienceMatcher, null);
+        addTearDown(() => ctx.close());
 
         await ctx.waitUntilReady();
 

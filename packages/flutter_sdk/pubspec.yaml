@@ -6,7 +6,7 @@ repository: https://github.com/absmartly/flutter-sdk/tree/main/packages/flutter_
 
 environment:
   sdk: '>=2.18.6 <4.0.0'
-  flutter: ">=1.17.0"
+  flutter: ">=3.3.0"
 
 dependencies:
   flutter:

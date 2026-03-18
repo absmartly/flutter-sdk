@@ -336,7 +336,7 @@ void main() {
       expect(find.text('Variant B'), findsNothing);
     });
 
-    testWidgets('falls back to first child when no matching variant', (tester) async {
+    testWidgets('shows SizedBox.shrink when no control variant child exists', (tester) async {
       final clientConfig = ClientConfig()
         ..setEndpoint('https://test.absmartly.io/v1')
         ..setAPIKey('test-api-key')
@@ -373,7 +373,8 @@ void main() {
 
       await tester.pump();
 
-      expect(find.text('Variant 5'), findsOneWidget);
+      expect(find.text('Variant 5'), findsNothing);
+      expect(find.text('Variant 6'), findsNothing);
     });
   });
 
