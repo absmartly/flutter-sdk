@@ -58,6 +58,12 @@ class ABSmartlyConfig {
     return this;
   }
 
+  ABSmartlyConfig setContextPublisher(ContextPublisher publisher) {
+    _contextEventHandler = publisher;
+    return this;
+  }
+
+  @Deprecated("Use setContextPublisher instead")
   ABSmartlyConfig setContextEventHandler(ContextPublisher handler) {
     _contextEventHandler = handler;
     return this;
