@@ -195,10 +195,10 @@ void main() {
     test('evaluateWithStringContains', () {
       final attributes = {'name': 'John Doe'};
 
-      // in operator with string: checks if needle is in haystack (needle first, haystack second)
+      // in operator with string: haystack-first (haystack, needle) - checks if haystack contains needle
       expect(
         audienceMatcher.evaluate(
-          '{"filter":[{"in":[{"value":"John"},{"var":"name"}]}]}',
+          '{"filter":[{"in":[{"var":"name"},{"value":"John"}]}]}',
           attributes
         )?.get(),
         isTrue
@@ -206,7 +206,7 @@ void main() {
 
       expect(
         audienceMatcher.evaluate(
-          '{"filter":[{"in":[{"value":"Jane"},{"var":"name"}]}]}',
+          '{"filter":[{"in":[{"var":"name"},{"value":"Jane"}]}]}',
           attributes
         )?.get(),
         isFalse

@@ -23,6 +23,7 @@ class JsonExpr {
     'null': NullOperator(),
     'not': NotOperator(),
     'in': InOperator(),
+    'contains': InOperator(),
     'match': MatchOperator(),
     'eq': EqualsOperator(),
     'gt': GreaterThanOperator(),

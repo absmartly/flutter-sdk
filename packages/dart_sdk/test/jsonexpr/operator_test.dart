@@ -162,8 +162,8 @@ void main() {
     test('evaluateExpr() test in operator', () {
       final expr = {
         'in': [
-          {"value": "am"},
           {"var": "value"},
+          {"value": "am"},
         ],
       };
       Map<String, dynamic> vars = {'value': "Hamza"};
@@ -472,15 +472,15 @@ void main() {
 
     test('testString', () {
       expect(
-          operator.evaluate(evaluator, ["abc", "abcdefghijk"]), equals(true));
+          operator.evaluate(evaluator, ["abcdefghijk", "abc"]), equals(true));
       expect(
-          operator.evaluate(evaluator, ["def", "abcdefghijk"]), equals(true));
+          operator.evaluate(evaluator, ["abcdefghijk", "def"]), equals(true));
       expect(
-          operator.evaluate(evaluator, ["xxx", "abcdefghijk"]), equals(false));
+          operator.evaluate(evaluator, ["abcdefghijk", "xxx"]), equals(false));
 
       when(evaluator.evaluate(null)).thenReturn(null);
-      expect(operator.evaluate(evaluator, [null, "abcdefghijk"]), equals(null));
-      expect(operator.evaluate(evaluator, ["abc", null]), equals(null));
+      expect(operator.evaluate(evaluator, ["abcdefghijk", null]), equals(null));
+      expect(operator.evaluate(evaluator, [null, "abc"]), equals(null));
 
       verify(evaluator.evaluate("abcdefghijk")).called(4);
       verify(evaluator.evaluate("abc")).called(2);
@@ -491,13 +491,13 @@ void main() {
     });
 
     test('testArrayEmpty', () {
-      expect(operator.evaluate(evaluator, [1, []]), equals(false));
-      expect(operator.evaluate(evaluator, ["1", []]), equals(false));
-      expect(operator.evaluate(evaluator, [true, []]), equals(false));
-      expect(operator.evaluate(evaluator, [false, []]), equals(false));
+      expect(operator.evaluate(evaluator, [[], 1]), equals(false));
+      expect(operator.evaluate(evaluator, [[], "1"]), equals(false));
+      expect(operator.evaluate(evaluator, [[], true]), equals(false));
+      expect(operator.evaluate(evaluator, [[], false]), equals(false));
 
       when(evaluator.evaluate(null)).thenReturn(null);
-      expect(operator.evaluate(evaluator, [null, []]), equals(false));
+      expect(operator.evaluate(evaluator, [[], null]), equals(false));
 
       verifyNever(evaluator.booleanConvert(any));
       verifyNever(evaluator.numberConvert(any));
@@ -516,7 +516,7 @@ void main() {
       when(evaluator.compare(1, 1)).thenReturn(0);
       when(evaluator.compare(2, 2)).thenReturn(0);
 
-      expect(operator.evaluate(evaluator, [2, haystack01]), equals(false));
+      expect(operator.evaluate(evaluator, [haystack01, 2]), equals(false));
       verify(evaluator.evaluate(2)).called(1);
       verify(evaluator.evaluate(haystack01)).called(1);
       verify(evaluator.compare(0, 2)).called(1);
@@ -524,7 +524,7 @@ void main() {
 
       clearInteractions(evaluator);
 
-      expect(operator.evaluate(evaluator, [0, haystack12]), equals(false));
+      expect(operator.evaluate(evaluator, [haystack12, 0]), equals(false));
       verify(evaluator.evaluate(0)).called(1);
       verify(evaluator.evaluate(haystack12)).called(1);
       verify(evaluator.compare(1, 0)).called(1);
@@ -532,14 +532,14 @@ void main() {
 
       clearInteractions(evaluator);
 
-      expect(operator.evaluate(evaluator, [1, haystack12]), equals(true));
+      expect(operator.evaluate(evaluator, [haystack12, 1]), equals(true));
       verify(evaluator.evaluate(1)).called(1);
       verify(evaluator.evaluate(haystack12)).called(1);
       verify(evaluator.compare(1, 1)).called(1);
 
       clearInteractions(evaluator);
 
-      expect(operator.evaluate(evaluator, [2, haystack12]), equals(true));
+      expect(operator.evaluate(evaluator, [haystack12, 2]), equals(true));
       verify(evaluator.evaluate(2)).called(1);
       verify(evaluator.evaluate(haystack12)).called(1);
       verify(evaluator.compare(1, 2)).called(1);
@@ -555,35 +555,35 @@ void main() {
       when(evaluator.stringConvert("c")).thenReturn("c");
       when(evaluator.stringConvert(0)).thenReturn("0");
 
-      expect(operator.evaluate(evaluator, ["c", haystackab]), equals(false));
+      expect(operator.evaluate(evaluator, [haystackab, "c"]), equals(false));
       verify(evaluator.evaluate("c")).called(1);
       verify(evaluator.evaluate(haystackab)).called(1);
       verify(evaluator.stringConvert("c")).called(1);
 
       clearInteractions(evaluator);
 
-      expect(operator.evaluate(evaluator, ["a", haystackbc]), equals(false));
+      expect(operator.evaluate(evaluator, [haystackbc, "a"]), equals(false));
       verify(evaluator.evaluate("a")).called(1);
       verify(evaluator.evaluate(haystackbc)).called(1);
       verify(evaluator.stringConvert("a")).called(1);
 
       clearInteractions(evaluator);
 
-      expect(operator.evaluate(evaluator, ["b", haystackbc]), equals(true));
+      expect(operator.evaluate(evaluator, [haystackbc, "b"]), equals(true));
       verify(evaluator.evaluate("b")).called(1);
       verify(evaluator.evaluate(haystackbc)).called(1);
       verify(evaluator.stringConvert("b")).called(1);
 
       clearInteractions(evaluator);
 
-      expect(operator.evaluate(evaluator, ["c", haystackbc]), equals(true));
+      expect(operator.evaluate(evaluator, [haystackbc, "c"]), equals(true));
       verify(evaluator.evaluate("c")).called(1);
       verify(evaluator.evaluate(haystackbc)).called(1);
       verify(evaluator.stringConvert("c")).called(1);
 
       clearInteractions(evaluator);
 
-      expect(operator.evaluate(evaluator, [0, haystackbc]), equals(true));
+      expect(operator.evaluate(evaluator, [haystackbc, 0]), equals(true));
       verify(evaluator.evaluate(0)).called(1);
       verify(evaluator.evaluate(haystackbc)).called(1);
       verify(evaluator.stringConvert(0)).called(1);
