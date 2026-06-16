@@ -43,7 +43,8 @@ void main() {
                         padding: EdgeInsets.zero,
                         child: Builder(
                           builder: (nestedCtx) {
-                            nestedCapturedData = ABSmartlyProvider.of(nestedCtx);
+                            nestedCapturedData =
+                                ABSmartlyProvider.of(nestedCtx);
                             return const SizedBox();
                           },
                         ),
@@ -62,7 +63,8 @@ void main() {
         expect(capturedData!.context, equals(nestedCapturedData!.context));
       });
 
-      testWidgets('context is accessible from multiple branches', (tester) async {
+      testWidgets('context is accessible from multiple branches',
+          (tester) async {
         ABSmartlyData? leftBranchData;
         ABSmartlyData? rightBranchData;
 
@@ -131,7 +133,8 @@ void main() {
     });
 
     group('1.2 Treatment Widget State Management', () {
-      testWidgets('Treatment widget shows control variant initially in control mode',
+      testWidgets(
+          'Treatment widget shows control variant initially in control mode',
           (tester) async {
         await tester.pumpWidget(
           ABSmartlyProvider(
@@ -183,8 +186,8 @@ void main() {
                           experimentName = 'experiment_2';
                         });
                       },
-                      child:
-                          const Text('Change', textDirection: TextDirection.ltr),
+                      child: const Text('Change',
+                          textDirection: TextDirection.ltr),
                     ),
                   ],
                 ),
@@ -208,7 +211,8 @@ void main() {
             defaultLoadingBehavior: LoadingBehavior.placeholder,
             child: Treatment(
               name: 'test_experiment',
-              loading: const Text('Loading...', textDirection: TextDirection.ltr),
+              loading:
+                  const Text('Loading...', textDirection: TextDirection.ltr),
               variants: {
                 0: const Text('Control', textDirection: TextDirection.ltr),
                 1: const Text('Variant', textDirection: TextDirection.ltr),
@@ -220,7 +224,8 @@ void main() {
         await tester.pump(Duration.zero);
       });
 
-      testWidgets('shows empty SizedBox in placeholder mode without loading widget',
+      testWidgets(
+          'shows empty SizedBox in placeholder mode without loading widget',
           (tester) async {
         await tester.pumpWidget(
           ABSmartlyProvider(
@@ -262,7 +267,8 @@ void main() {
     });
 
     group('1.4 Nested Treatment Widgets', () {
-      testWidgets('nested Treatment widgets work independently', (tester) async {
+      testWidgets('nested Treatment widgets work independently',
+          (tester) async {
         await tester.pumpWidget(
           ABSmartlyProvider(
             sdk: sdk,
@@ -307,22 +313,28 @@ void main() {
                 Treatment(
                   name: 'experiment_a',
                   variants: {
-                    0: const Text('A Control', textDirection: TextDirection.ltr),
-                    1: const Text('A Variant', textDirection: TextDirection.ltr),
+                    0: const Text('A Control',
+                        textDirection: TextDirection.ltr),
+                    1: const Text('A Variant',
+                        textDirection: TextDirection.ltr),
                   },
                 ),
                 Treatment(
                   name: 'experiment_b',
                   variants: {
-                    0: const Text('B Control', textDirection: TextDirection.ltr),
-                    1: const Text('B Variant', textDirection: TextDirection.ltr),
+                    0: const Text('B Control',
+                        textDirection: TextDirection.ltr),
+                    1: const Text('B Variant',
+                        textDirection: TextDirection.ltr),
                   },
                 ),
                 Treatment(
                   name: 'experiment_c',
                   variants: {
-                    0: const Text('C Control', textDirection: TextDirection.ltr),
-                    1: const Text('C Variant', textDirection: TextDirection.ltr),
+                    0: const Text('C Control',
+                        textDirection: TextDirection.ltr),
+                    1: const Text('C Variant',
+                        textDirection: TextDirection.ltr),
                   },
                 ),
               ],
@@ -336,7 +348,8 @@ void main() {
         expect(find.text('C Control'), findsOneWidget);
       });
 
-      testWidgets('TreatmentBuilder and Treatment can be nested', (tester) async {
+      testWidgets('TreatmentBuilder and Treatment can be nested',
+          (tester) async {
         await tester.pumpWidget(
           ABSmartlyProvider(
             sdk: sdk,
@@ -363,7 +376,8 @@ void main() {
     });
 
     group('1.5 Widget Disposal', () {
-      testWidgets('Treatment widget cleans up timer on dispose', (tester) async {
+      testWidgets('Treatment widget cleans up timer on dispose',
+          (tester) async {
         final key = GlobalKey();
 
         await tester.pumpWidget(
@@ -395,7 +409,8 @@ void main() {
         await tester.pump(const Duration(seconds: 11));
       });
 
-      testWidgets('TreatmentBuilder widget cleans up on dispose', (tester) async {
+      testWidgets('TreatmentBuilder widget cleans up on dispose',
+          (tester) async {
         await tester.pumpWidget(
           ABSmartlyProvider(
             sdk: sdk,
@@ -423,7 +438,8 @@ void main() {
         await tester.pump();
       });
 
-      testWidgets('TreatmentSwitch widget cleans up on dispose', (tester) async {
+      testWidgets('TreatmentSwitch widget cleans up on dispose',
+          (tester) async {
         await tester.pumpWidget(
           ABSmartlyProvider(
             sdk: sdk,
@@ -434,7 +450,8 @@ void main() {
               children: [
                 TreatmentVariant(
                   variant: 0,
-                  child: const Text('Control', textDirection: TextDirection.ltr),
+                  child:
+                      const Text('Control', textDirection: TextDirection.ltr),
                 ),
               ],
             ),
@@ -535,7 +552,8 @@ void main() {
               future: completer.future,
               builder: (ctx, snapshot) {
                 if (!snapshot.hasData) {
-                  return const Text('Waiting', textDirection: TextDirection.ltr);
+                  return const Text('Waiting',
+                      textDirection: TextDirection.ltr);
                 }
                 return TreatmentBuilder(
                   name: 'test_experiment',
@@ -639,7 +657,8 @@ void main() {
       context = sdk.createContext(contextConfig);
     });
 
-    testWidgets('VariableValue widget renders with default value', (tester) async {
+    testWidgets('VariableValue widget renders with default value',
+        (tester) async {
       await tester.pumpWidget(
         ABSmartlyProvider(
           sdk: sdk,
@@ -705,15 +724,18 @@ void main() {
             children: [
               TreatmentVariant(
                 variant: 0,
-                child: const Text('Classic Hero', textDirection: TextDirection.ltr),
+                child: const Text('Classic Hero',
+                    textDirection: TextDirection.ltr),
               ),
               TreatmentVariant(
                 variant: 1,
-                child: const Text('Modern Hero', textDirection: TextDirection.ltr),
+                child:
+                    const Text('Modern Hero', textDirection: TextDirection.ltr),
               ),
               TreatmentVariant(
                 variant: 'C',
-                child: const Text('Minimal Hero', textDirection: TextDirection.ltr),
+                child: const Text('Minimal Hero',
+                    textDirection: TextDirection.ltr),
               ),
             ],
           ),
@@ -727,7 +749,8 @@ void main() {
     });
 
     testWidgets('widgets handle context passed directly', (tester) async {
-      final contextConfig2 = ContextConfig.create()..setUnit('user_id', '67890');
+      final contextConfig2 = ContextConfig.create()
+        ..setUnit('user_id', '67890');
       final context2 = sdk.createContext(contextConfig2);
 
       await tester.pumpWidget(

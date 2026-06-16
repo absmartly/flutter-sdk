@@ -141,7 +141,8 @@ class _TreatmentSwitchState extends State<TreatmentSwitch> {
         }
       }).catchError((error) {
         assert(() {
-          debugPrint('ABSmartly: TreatmentSwitch "${widget.name}" error: $error');
+          debugPrint(
+              'ABSmartly: TreatmentSwitch "${widget.name}" error: $error');
           return true;
         }());
         if (mounted) {
@@ -218,7 +219,8 @@ class _TreatmentSwitchState extends State<TreatmentSwitch> {
     }
 
     final providerData = _providerData;
-    final loadingBehavior = providerData?.defaultLoadingBehavior ?? LoadingBehavior.control;
+    final loadingBehavior =
+        providerData?.defaultLoadingBehavior ?? LoadingBehavior.control;
 
     if (_timedOut || loadingBehavior == LoadingBehavior.control) {
       return _getControlChild();

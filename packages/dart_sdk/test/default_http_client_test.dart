@@ -46,8 +46,8 @@ void main() {
       expect(response.getContent(), isNotNull);
 
       verify(mockHttpClient.get(
-        argThat(predicate<Uri>((uri) =>
-            uri.host == 'example.com' && uri.path == '/api/posts/1')),
+        argThat(predicate<Uri>(
+            (uri) => uri.host == 'example.com' && uri.path == '/api/posts/1')),
         headers: anyNamed('headers'),
       )).called(1);
     });
@@ -83,7 +83,6 @@ void main() {
         any,
         headers: anyNamed('headers'),
         body: anyNamed('body'),
-
       )).thenAnswer((_) async => http.Response(
             jsonEncode(responseBody),
             201,
@@ -107,7 +106,6 @@ void main() {
         any,
         headers: anyNamed('headers'),
         body: anyNamed('body'),
-
       )).called(1);
     });
 
@@ -117,7 +115,6 @@ void main() {
         any,
         headers: anyNamed('headers'),
         body: anyNamed('body'),
-
       )).thenAnswer((_) async => http.Response(
             jsonEncode(responseBody),
             200,
@@ -141,7 +138,6 @@ void main() {
         any,
         headers: anyNamed('headers'),
         body: anyNamed('body'),
-
       )).called(1);
     });
 

@@ -587,7 +587,8 @@ class Context {
         for (final Attribute attr in attributes_) {
           attrs[attr.name] = attr.value;
         }
-        final Result? match = audienceMatcher_.evaluate(experiment.audience!, attrs);
+        final Result? match =
+            audienceMatcher_.evaluate(experiment.audience!, attrs);
         final bool newAudienceMismatch = match != null ? !match.get() : false;
         if (newAudienceMismatch != assignment.audienceMismatch) {
           return false;
@@ -799,7 +800,8 @@ class Context {
             if (!keyExperimentVariables.contains(experimentVariables)) {
               int insertAt = 0;
               for (int i = 0; i < keyExperimentVariables.length; i++) {
-                if (keyExperimentVariables[i].data.id < experimentVariables.data.id) {
+                if (keyExperimentVariables[i].data.id <
+                    experimentVariables.data.id) {
                   insertAt = i + 1;
                 } else {
                   break;

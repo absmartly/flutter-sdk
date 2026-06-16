@@ -8,7 +8,8 @@ class CustomFieldValue {
   final String value;
   final String type;
 
-  CustomFieldValue({required this.name, required this.value, required this.type});
+  CustomFieldValue(
+      {required this.name, required this.value, required this.type});
 
   factory CustomFieldValue.fromMap(Map<String, dynamic> data) {
     final name = data['name'];
@@ -172,8 +173,7 @@ class Experiment {
       "audienceStrict": audienceStrict,
       "audience": audience,
       if (customFieldValues != null)
-        "customFieldValues":
-            customFieldValues!.map((e) => e.toMap()).toList(),
+        "customFieldValues": customFieldValues!.map((e) => e.toMap()).toList(),
     };
   }
 }

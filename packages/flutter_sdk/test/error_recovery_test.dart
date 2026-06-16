@@ -153,7 +153,8 @@ void main() {
         expect(find.text('Fallback Control'), findsOneWidget);
       });
 
-      testWidgets('TreatmentSwitch shows SizedBox.shrink when no control variant exists',
+      testWidgets(
+          'TreatmentSwitch shows SizedBox.shrink when no control variant exists',
           (tester) async {
         final contextConfig = ContextConfig.create()
           ..setUnit('user_id', '12345');
@@ -208,7 +209,8 @@ void main() {
         expect(find.byType(SizedBox), findsWidgets);
       });
 
-      testWidgets('TreatmentSwitch handles empty children list', (tester) async {
+      testWidgets('TreatmentSwitch handles empty children list',
+          (tester) async {
         final contextConfig = ContextConfig.create()
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);

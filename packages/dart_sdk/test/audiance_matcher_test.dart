@@ -21,69 +21,65 @@ void main() {
 
     test('evaluateReturnsBooleanForValueExpressions', () {
       // Test with truthy values
-      expect(audienceMatcher.evaluate('{"filter":[{"value":5}]}', null)?.get(), isTrue);
-      expect(audienceMatcher.evaluate('{"filter":[{"value":true}]}', null)?.get(), isTrue);
-      expect(audienceMatcher.evaluate('{"filter":[{"value":1}]}', null)?.get(), isTrue);
+      expect(audienceMatcher.evaluate('{"filter":[{"value":5}]}', null)?.get(),
+          isTrue);
+      expect(
+          audienceMatcher.evaluate('{"filter":[{"value":true}]}', null)?.get(),
+          isTrue);
+      expect(audienceMatcher.evaluate('{"filter":[{"value":1}]}', null)?.get(),
+          isTrue);
 
       // Test with falsy values
-      expect(audienceMatcher.evaluate('{"filter":[{"value":null}]}', null)?.get(), isFalse);
-      expect(audienceMatcher.evaluate('{"filter":[{"value":0}]}', null)?.get(), isFalse);
-      expect(audienceMatcher.evaluate('{"filter":[{"value":false}]}', null)?.get(), isFalse);
+      expect(
+          audienceMatcher.evaluate('{"filter":[{"value":null}]}', null)?.get(),
+          isFalse);
+      expect(audienceMatcher.evaluate('{"filter":[{"value":0}]}', null)?.get(),
+          isFalse);
+      expect(
+          audienceMatcher.evaluate('{"filter":[{"value":false}]}', null)?.get(),
+          isFalse);
     });
 
     test('evaluateReturnsBooleanForVarExpressions', () {
       // Test not operator with var
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"not":{"var":"returning"}}]}',
-          {'returning': true}
-        )?.get(),
-        isFalse
-      );
+          audienceMatcher.evaluate('{"filter":[{"not":{"var":"returning"}}]}',
+              {'returning': true})?.get(),
+          isFalse);
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"not":{"var":"returning"}}]}',
-          {'returning': false}
-        )?.get(),
-        isTrue
-      );
+          audienceMatcher.evaluate('{"filter":[{"not":{"var":"returning"}}]}',
+              {'returning': false})?.get(),
+          isTrue);
     });
 
     test('evaluateWithMapFilter', () {
       // Filter as map (single expression)
+      expect(audienceMatcher.evaluate('{"filter":{"value":true}}', null)?.get(),
+          isTrue);
       expect(
-        audienceMatcher.evaluate('{"filter":{"value":true}}', null)?.get(),
-        isTrue
-      );
-      expect(
-        audienceMatcher.evaluate('{"filter":{"value":false}}', null)?.get(),
-        isFalse
-      );
+          audienceMatcher.evaluate('{"filter":{"value":false}}', null)?.get(),
+          isFalse);
     });
 
     test('evaluateWithComplexExpressions', () {
-      final attributes = {
-        'age': 25,
-        'country': 'US',
-        'returning': true
-      };
+      final attributes = {'age': 25, 'country': 'US', 'returning': true};
 
       // Test equality check
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"eq":[{"var":"country"},{"value":"US"}]}]}',
-          attributes
-        )?.get(),
-        isTrue
-      );
+          audienceMatcher
+              .evaluate(
+                  '{"filter":[{"eq":[{"var":"country"},{"value":"US"}]}]}',
+                  attributes)
+              ?.get(),
+          isTrue);
 
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"eq":[{"var":"country"},{"value":"UK"}]}]}',
-          attributes
-        )?.get(),
-        isFalse
-      );
+          audienceMatcher
+              .evaluate(
+                  '{"filter":[{"eq":[{"var":"country"},{"value":"UK"}]}]}',
+                  attributes)
+              ?.get(),
+          isFalse);
     });
 
     test('evaluateWithComparisonOperators', () {
@@ -91,79 +87,70 @@ void main() {
 
       // Greater than or equal
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"gte":[{"var":"age"},{"value":18}]}]}',
-          attributes
-        )?.get(),
-        isTrue
-      );
+          audienceMatcher
+              .evaluate('{"filter":[{"gte":[{"var":"age"},{"value":18}]}]}',
+                  attributes)
+              ?.get(),
+          isTrue);
 
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"gte":[{"var":"age"},{"value":30}]}]}',
-          attributes
-        )?.get(),
-        isFalse
-      );
+          audienceMatcher
+              .evaluate('{"filter":[{"gte":[{"var":"age"},{"value":30}]}]}',
+                  attributes)
+              ?.get(),
+          isFalse);
 
       // Less than
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"lt":[{"var":"age"},{"value":30}]}]}',
-          attributes
-        )?.get(),
-        isTrue
-      );
+          audienceMatcher
+              .evaluate('{"filter":[{"lt":[{"var":"age"},{"value":30}]}]}',
+                  attributes)
+              ?.get(),
+          isTrue);
     });
 
     test('evaluateWithAndConditions', () {
-      final attributes = {
-        'age': 25,
-        'country': 'US'
-      };
+      final attributes = {'age': 25, 'country': 'US'};
 
       // Both conditions true (implicit AND with list)
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"eq":[{"var":"country"},{"value":"US"}]},{"gte":[{"var":"age"},{"value":18}]}]}',
-          attributes
-        )?.get(),
-        isTrue
-      );
+          audienceMatcher
+              .evaluate(
+                  '{"filter":[{"eq":[{"var":"country"},{"value":"US"}]},{"gte":[{"var":"age"},{"value":18}]}]}',
+                  attributes)
+              ?.get(),
+          isTrue);
 
       // One condition false
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"eq":[{"var":"country"},{"value":"UK"}]},{"gte":[{"var":"age"},{"value":18}]}]}',
-          attributes
-        )?.get(),
-        isFalse
-      );
+          audienceMatcher
+              .evaluate(
+                  '{"filter":[{"eq":[{"var":"country"},{"value":"UK"}]},{"gte":[{"var":"age"},{"value":18}]}]}',
+                  attributes)
+              ?.get(),
+          isFalse);
     });
 
     test('evaluateWithOrConditions', () {
-      final attributes = {
-        'age': 25,
-        'country': 'US'
-      };
+      final attributes = {'age': 25, 'country': 'US'};
 
       // OR condition - one true
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"or":[[{"eq":[{"var":"country"},{"value":"UK"}]}],[{"eq":[{"var":"country"},{"value":"US"}]}]]}]}',
-          attributes
-        )?.get(),
-        isTrue
-      );
+          audienceMatcher
+              .evaluate(
+                  '{"filter":[{"or":[[{"eq":[{"var":"country"},{"value":"UK"}]}],[{"eq":[{"var":"country"},{"value":"US"}]}]]}]}',
+                  attributes)
+              ?.get(),
+          isTrue);
 
       // OR condition - both false
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"or":[[{"eq":[{"var":"country"},{"value":"UK"}]}],[{"eq":[{"var":"country"},{"value":"DE"}]}]]}]}',
-          attributes
-        )?.get(),
-        isFalse
-      );
+          audienceMatcher
+              .evaluate(
+                  '{"filter":[{"or":[[{"eq":[{"var":"country"},{"value":"UK"}]}],[{"eq":[{"var":"country"},{"value":"DE"}]}]]}]}',
+                  attributes)
+              ?.get(),
+          isFalse);
     });
 
     test('evaluateReturnsNullOnInvalidJson', () {
@@ -174,9 +161,8 @@ void main() {
     test('evaluateWithNullAttributes', () {
       // Should work with null attributes when not accessing vars
       expect(
-        audienceMatcher.evaluate('{"filter":[{"value":true}]}', null)?.get(),
-        isTrue
-      );
+          audienceMatcher.evaluate('{"filter":[{"value":true}]}', null)?.get(),
+          isTrue);
     });
 
     test('evaluateWithMissingAttribute', () {
@@ -184,12 +170,10 @@ void main() {
 
       // Accessing non-existent attribute
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"var":"age"}]}',
-          attributes
-        )?.get(),
-        isFalse
-      );
+          audienceMatcher
+              .evaluate('{"filter":[{"var":"age"}]}', attributes)
+              ?.get(),
+          isFalse);
     });
 
     test('evaluateWithStringContains', () {
@@ -197,40 +181,38 @@ void main() {
 
       // in operator with string: haystack-first (haystack, needle) - checks if haystack contains needle
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"in":[{"var":"name"},{"value":"John"}]}]}',
-          attributes
-        )?.get(),
-        isTrue
-      );
+          audienceMatcher
+              .evaluate('{"filter":[{"in":[{"var":"name"},{"value":"John"}]}]}',
+                  attributes)
+              ?.get(),
+          isTrue);
 
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"in":[{"var":"name"},{"value":"Jane"}]}]}',
-          attributes
-        )?.get(),
-        isFalse
-      );
+          audienceMatcher
+              .evaluate('{"filter":[{"in":[{"var":"name"},{"value":"Jane"}]}]}',
+                  attributes)
+              ?.get(),
+          isFalse);
     });
 
     test('evaluateWithMatchOperator', () {
       final attributes = {'email': 'test@example.com'};
 
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"match":[{"var":"email"},{"value":".*@example\\\\.com"}]}]}',
-          attributes
-        )?.get(),
-        isTrue
-      );
+          audienceMatcher
+              .evaluate(
+                  '{"filter":[{"match":[{"var":"email"},{"value":".*@example\\\\.com"}]}]}',
+                  attributes)
+              ?.get(),
+          isTrue);
 
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"match":[{"var":"email"},{"value":".*@other\\\\.com"}]}]}',
-          attributes
-        )?.get(),
-        isFalse
-      );
+          audienceMatcher
+              .evaluate(
+                  '{"filter":[{"match":[{"var":"email"},{"value":".*@other\\\\.com"}]}]}',
+                  attributes)
+              ?.get(),
+          isFalse);
     });
 
     test('evaluateWithNullOperator', () {
@@ -238,20 +220,18 @@ void main() {
       final attributesWithValue = {'value': 'test'};
 
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"null":{"var":"value"}}]}',
-          attributesWithNull
-        )?.get(),
-        isTrue
-      );
+          audienceMatcher
+              .evaluate(
+                  '{"filter":[{"null":{"var":"value"}}]}', attributesWithNull)
+              ?.get(),
+          isTrue);
 
       expect(
-        audienceMatcher.evaluate(
-          '{"filter":[{"null":{"var":"value"}}]}',
-          attributesWithValue
-        )?.get(),
-        isFalse
-      );
+          audienceMatcher
+              .evaluate(
+                  '{"filter":[{"null":{"var":"value"}}]}', attributesWithValue)
+              ?.get(),
+          isFalse);
     });
   });
 }

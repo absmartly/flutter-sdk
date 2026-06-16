@@ -16,7 +16,8 @@ class ABSmartlyData {
   final Context context;
   final LoadingBehavior defaultLoadingBehavior;
   final Duration readyTimeout;
-  final Future<void> Function({required Map<String, String> units}) resetContext;
+  final Future<void> Function({required Map<String, String> units})
+      resetContext;
 
   bool get isReady => context.isReady();
   bool get isFailed => context.isFailed();

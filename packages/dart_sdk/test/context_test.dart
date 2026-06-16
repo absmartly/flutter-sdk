@@ -1166,8 +1166,7 @@ void main() {
       expect(context.getTreatment(experimentName), equals(0));
       expect(context.getTreatment('not_found'), equals(0));
 
-      expect(context.getPendingCount(),
-          equals(3));
+      expect(context.getPendingCount(), equals(3));
     });
 
     test('refreshClearAssignmentCacheForStartedExperiment', () async {
@@ -1197,8 +1196,7 @@ void main() {
           equals(expectedVariants[experimentName]));
       expect(context.getTreatment('not_found'), equals(0));
 
-      expect(context.getPendingCount(),
-          equals(3));
+      expect(context.getPendingCount(), equals(3));
     });
 
     test('refreshClearAssignmentCacheForFullOnExperiment', () async {
@@ -1235,8 +1233,7 @@ void main() {
       expect(context.getTreatment(experimentName), equals(1));
       expect(context.getTreatment('not_found'), equals(0));
 
-      expect(context.getPendingCount(),
-          equals(3));
+      expect(context.getPendingCount(), equals(3));
     });
 
     test('refreshKeepsAssignmentCacheWhenNotChangedWithOverride', () async {
@@ -1779,8 +1776,8 @@ void main() {
       }
       context.getTreatment("not_found");
 
-      expect(context.getPendingCount(),
-          equals(data.experiments.length + 1 + 1));
+      expect(
+          context.getPendingCount(), equals(data.experiments.length + 1 + 1));
     });
 
     test('refreshKeepsAssignmentCacheWhenNotChangedOnAudienceMismatch',
@@ -1834,8 +1831,7 @@ void main() {
 
       expect(context.getTreatment(experimentName), equals(2));
       expect(context.getTreatment("not_found"), equals(0));
-      expect(context.getPendingCount(),
-          equals(3));
+      expect(context.getPendingCount(), equals(3));
     });
 
     test('refreshClearAssignmentCacheForIterationChange', () async {
@@ -1871,8 +1867,7 @@ void main() {
 
       expect(context.getTreatment(experimentName), equals(2));
       expect(context.getTreatment("not_found"), equals(0));
-      expect(context.getPendingCount(),
-          equals(3));
+      expect(context.getPendingCount(), equals(3));
     });
 
     test('refreshClearAssignmentCacheForExperimentIdChange', () async {
@@ -1908,8 +1903,7 @@ void main() {
 
       expect(context.getTreatment(experimentName), equals(2));
       expect(context.getTreatment("not_found"), equals(0));
-      expect(context.getPendingCount(),
-          equals(3));
+      expect(context.getPendingCount(), equals(3));
     });
 
     test('closeStopsRefreshTimer', () async {
@@ -2140,8 +2134,8 @@ void main() {
       context.track('goal2', {'tries': 7});
       expect(context.getPendingCount(), equals(2));
 
-      when(eventHandler.publish(any, any))
-          .thenAnswer((_) => createErrorVoidCompleter(Exception('publish error')));
+      when(eventHandler.publish(any, any)).thenAnswer(
+          (_) => createErrorVoidCompleter(Exception('publish error')));
 
       await expectLater(context.publish(), throwsException);
 
@@ -2249,8 +2243,7 @@ void main() {
 
       await context.close();
 
-      expect(
-          () => context.track('goal1', null), throwsA(isA<Exception>()));
+      expect(() => context.track('goal1', null), throwsA(isA<Exception>()));
     });
 
     test('getTreatmentReturnsBaseVariantOnUnknownExperiment', () async {
@@ -2310,7 +2303,8 @@ void main() {
 
       final returnedUnits = context.getUnits();
       expect(returnedUnits, equals(units));
-      expect(returnedUnits['session_id'], equals('e791e240fcd3df7d238cfc285f475e8152fcc0ec'));
+      expect(returnedUnits['session_id'],
+          equals('e791e240fcd3df7d238cfc285f475e8152fcc0ec'));
       expect(returnedUnits['user_id'], equals('123456789'));
       expect(returnedUnits['email'], equals('bleh@absmartly.com'));
     });
@@ -2337,7 +2331,8 @@ void main() {
 
       await context.publish();
 
-      final captured = verify(eventHandler.publish(context, captureAny)).captured;
+      final captured =
+          verify(eventHandler.publish(context, captureAny)).captured;
       final event = captured.first as PublishEvent;
       expect(event.goals.length, equals(1));
       expect(event.goals[0].name, equals('goal1'));
@@ -2355,7 +2350,8 @@ void main() {
 
       await context.publish();
 
-      final captured = verify(eventHandler.publish(context, captureAny)).captured;
+      final captured =
+          verify(eventHandler.publish(context, captureAny)).captured;
       final event = captured.first as PublishEvent;
       expect(event.goals[0].properties, equals({}));
     });
@@ -2405,8 +2401,7 @@ void main() {
           equals('US,PT,ES'));
       expect(context.getCustomFieldValue('exp_test_abc', 'languages'),
           equals('en-US,en-GB,pt-PT,pt-BR,es-ES,es-MX'));
-      expect(
-          context.getCustomFieldValue('exp_test_ab', 'overrides'),
+      expect(context.getCustomFieldValue('exp_test_ab', 'overrides'),
           equals({'123': 1, '456': 0}));
     });
 
@@ -2439,12 +2434,12 @@ void main() {
       final Context context = createReadyContextWithData(customFieldsData);
       await context.waitUntilReady();
 
-      expect(
-          context.getCustomFieldValueType('exp_test_ab', 'missing'), isNull);
+      expect(context.getCustomFieldValueType('exp_test_ab', 'missing'), isNull);
       expect(context.getCustomFieldValueType('not_an_experiment', 'country'),
           isNull);
       expect(
-          context.getCustomFieldValueType('exp_test_no_custom_fields', 'country'),
+          context.getCustomFieldValueType(
+              'exp_test_no_custom_fields', 'country'),
           isNull);
     });
 

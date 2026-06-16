@@ -64,7 +64,8 @@ void main() {
     }
 
     group('Fix #2: TreatmentBuilder scopes variables to experiment', () {
-      testWidgets('only returns variables belonging to named experiment', (tester) async {
+      testWidgets('only returns variables belonging to named experiment',
+          (tester) async {
         final exp1 = Experiment(
           id: 1,
           name: 'exp_button',
@@ -82,7 +83,8 @@ void main() {
           applications: [],
           variants: [
             ExperimentVariant(name: 'control', config: null),
-            ExperimentVariant(name: 'treatment', config: '{"button_color":"red"}'),
+            ExperimentVariant(
+                name: 'treatment', config: '{"button_color":"red"}'),
           ],
         );
 
@@ -103,7 +105,8 @@ void main() {
           applications: [],
           variants: [
             ExperimentVariant(name: 'control', config: null),
-            ExperimentVariant(name: 'treatment', config: '{"header_size":"large"}'),
+            ExperimentVariant(
+                name: 'treatment', config: '{"header_size":"large"}'),
           ],
         );
 
@@ -202,12 +205,14 @@ void main() {
 
         expect(config.getCustomAssignment('exp_test'), equals(2));
         expect(config.getCustomAssignment('exp_test_2'), equals(1));
-        expect(config.getCustomAssignments(), equals({'exp_test': 2, 'exp_test_2': 1}));
+        expect(config.getCustomAssignments(),
+            equals({'exp_test': 2, 'exp_test_2': 1}));
       });
     });
 
     group('Fix Q3: ClientConfig fields without late', () {
-      test('ClientConfig fields are null by default without late init error', () {
+      test('ClientConfig fields are null by default without late init error',
+          () {
         final config = ClientConfig();
         expect(config.getAPIKey(), isNull);
         expect(config.getEnvironment(), isNull);

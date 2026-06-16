@@ -70,8 +70,8 @@ void main() {
       expect(config.getConnectionRequestTimeout(), equals(1000));
       expect(config.getMaxRetries(), equals(3));
       expect(config.getRetryInterval(), equals(333));
-      expect(config.getHTTPVersionPolicy(),
-          equals(HTTPVersionPolicy.negotiate));
+      expect(
+          config.getHTTPVersionPolicy(), equals(HTTPVersionPolicy.negotiate));
     });
 
     test('create with no parameters is backward compatible', () {
@@ -81,8 +81,8 @@ void main() {
       expect(config.getConnectionRequestTimeout(), equals(1000));
       expect(config.getMaxRetries(), equals(5));
       expect(config.getRetryInterval(), equals(333));
-      expect(config.getHTTPVersionPolicy(),
-          equals(HTTPVersionPolicy.negotiate));
+      expect(
+          config.getHTTPVersionPolicy(), equals(HTTPVersionPolicy.negotiate));
     });
   });
 }

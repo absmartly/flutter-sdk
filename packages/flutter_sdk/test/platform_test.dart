@@ -47,8 +47,8 @@ void main() {
       test('ContextConfig setUnits with unicode characters', () {
         final config = ContextConfig.create()
           ..setUnit('user_id', 'user-\u4e2d\u6587-\u0391\u0392\u0393');
-        expect(
-            config.getUnit('user_id'), equals('user-\u4e2d\u6587-\u0391\u0392\u0393'));
+        expect(config.getUnit('user_id'),
+            equals('user-\u4e2d\u6587-\u0391\u0392\u0393'));
       });
 
       test('ContextConfig setAttributes with various types', () {
@@ -88,12 +88,12 @@ void main() {
       });
 
       test('multiple contexts can be created from same SDK', () {
-        final context1 = sdk.createContext(
-            ContextConfig.create()..setUnit('user_id', 'user1'));
-        final context2 = sdk.createContext(
-            ContextConfig.create()..setUnit('user_id', 'user2'));
-        final context3 = sdk.createContext(
-            ContextConfig.create()..setUnit('user_id', 'user3'));
+        final context1 = sdk
+            .createContext(ContextConfig.create()..setUnit('user_id', 'user1'));
+        final context2 = sdk
+            .createContext(ContextConfig.create()..setUnit('user_id', 'user2'));
+        final context3 = sdk
+            .createContext(ContextConfig.create()..setUnit('user_id', 'user3'));
 
         expect(context1, isNotNull);
         expect(context2, isNotNull);
@@ -224,7 +224,8 @@ void main() {
         expect(find.text('Async Test'), findsOneWidget);
       });
 
-      test('context waitUntilReady returns same future when called multiple times',
+      test(
+          'context waitUntilReady returns same future when called multiple times',
           () async {
         final contextConfig = ContextConfig.create()
           ..setUnit('user_id', '12345');
@@ -546,8 +547,7 @@ void main() {
       });
 
       test('ContextConfig handles negative override values', () {
-        final config = ContextConfig.create()
-          ..setOverride('experiment', -1);
+        final config = ContextConfig.create()..setOverride('experiment', -1);
         expect(config.getOverride('experiment'), equals(-1));
       });
 

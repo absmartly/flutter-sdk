@@ -42,8 +42,10 @@ void main() {
                       Treatment(
                         name: 'login_button_experiment',
                         variants: {
-                          0: const Text('Login', textDirection: TextDirection.ltr),
-                          1: const Text('Sign In', textDirection: TextDirection.ltr),
+                          0: const Text('Login',
+                              textDirection: TextDirection.ltr),
+                          1: const Text('Sign In',
+                              textDirection: TextDirection.ltr),
                         },
                       ),
                       GestureDetector(
@@ -225,8 +227,8 @@ void main() {
                       GestureDetector(
                         key: const Key('next_button'),
                         onTap: () => setState(() => onboardingStep++),
-                        child:
-                            const Text('Next', textDirection: TextDirection.ltr),
+                        child: const Text('Next',
+                            textDirection: TextDirection.ltr),
                       ),
                   ],
                 ),
@@ -341,7 +343,8 @@ void main() {
         expect(find.text('Child: child'), findsOneWidget);
       });
 
-      testWidgets('context switching updates all child widgets', (tester) async {
+      testWidgets('context switching updates all child widgets',
+          (tester) async {
         Context currentContext = context;
 
         await tester.pumpWidget(

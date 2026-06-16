@@ -63,8 +63,7 @@ void main() {
         expect(testContext, isNotNull);
 
         for (int i = 0; i < 100; i++) {
-          expect(
-              contextConfig.getOverride('experiment_$i'), equals(i % 3));
+          expect(contextConfig.getOverride('experiment_$i'), equals(i % 3));
         }
       });
 
@@ -272,8 +271,8 @@ void main() {
                           showFirst = !showFirst;
                         });
                       },
-                      child:
-                          const Text('Toggle', textDirection: TextDirection.ltr),
+                      child: const Text('Toggle',
+                          textDirection: TextDirection.ltr),
                     ),
                   ],
                 ),
@@ -407,7 +406,8 @@ void main() {
                           updateCount++;
                         });
                       },
-                      child: const Text('Update', textDirection: TextDirection.ltr),
+                      child: const Text('Update',
+                          textDirection: TextDirection.ltr),
                     ),
                   ],
                 );

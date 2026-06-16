@@ -107,7 +107,8 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
         }
       }).catchError((error) {
         assert(() {
-          debugPrint('ABSmartly: TreatmentBuilder "${widget.name}" error: $error');
+          debugPrint(
+              'ABSmartly: TreatmentBuilder "${widget.name}" error: $error');
           return true;
         }());
         if (mounted) {
@@ -193,7 +194,8 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
     }
 
     final providerData = _providerData;
-    final loadingBehavior = providerData?.defaultLoadingBehavior ?? LoadingBehavior.control;
+    final loadingBehavior =
+        providerData?.defaultLoadingBehavior ?? LoadingBehavior.control;
 
     if (_timedOut || loadingBehavior == LoadingBehavior.control) {
       return widget.builder(context, 0, {});

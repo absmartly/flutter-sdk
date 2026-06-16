@@ -153,7 +153,9 @@ class _TreatmentState extends State<Treatment> {
   @override
   Widget build(BuildContext context) {
     if (_isReady) {
-      return widget.variants[_variant] ?? widget.variants[0] ?? const SizedBox.shrink();
+      return widget.variants[_variant] ??
+          widget.variants[0] ??
+          const SizedBox.shrink();
     }
 
     if (widget.loading != null) {
@@ -161,7 +163,8 @@ class _TreatmentState extends State<Treatment> {
     }
 
     final providerData = _providerData;
-    final loadingBehavior = providerData?.defaultLoadingBehavior ?? LoadingBehavior.control;
+    final loadingBehavior =
+        providerData?.defaultLoadingBehavior ?? LoadingBehavior.control;
 
     if (_timedOut || loadingBehavior == LoadingBehavior.control) {
       return widget.variants[0] ?? const SizedBox.shrink();

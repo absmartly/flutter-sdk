@@ -16,7 +16,8 @@ class ContextConfig {
     if (units != null) config.setUnits(units);
     if (attributes != null) config.setAttributes(attributes);
     if (overrides != null) config.setOverrides(overrides);
-    if (customAssignments != null) config.setCustomAssignments(customAssignments);
+    if (customAssignments != null)
+      config.setCustomAssignments(customAssignments);
     if (publishDelay != null) config.setPublishDelay(publishDelay);
     if (refreshInterval != null) config.setRefreshInterval(refreshInterval);
     if (contextEventLogger != null) {

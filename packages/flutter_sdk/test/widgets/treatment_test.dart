@@ -4,7 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Treatment', () {
-    testWidgets('shows control variant in control loading mode', (tester) async {
+    testWidgets('shows control variant in control loading mode',
+        (tester) async {
       final clientConfig = ClientConfig()
         ..setEndpoint('https://test.absmartly.io/v1')
         ..setAPIKey('test-api-key')
@@ -39,7 +40,8 @@ void main() {
       expect(find.text('Variant'), findsNothing);
     });
 
-    testWidgets('falls back to first variant when requested variant missing', (tester) async {
+    testWidgets('falls back to first variant when requested variant missing',
+        (tester) async {
       final clientConfig = ClientConfig()
         ..setEndpoint('https://test.absmartly.io/v1')
         ..setAPIKey('test-api-key')
@@ -72,7 +74,8 @@ void main() {
       expect(find.text('Control'), findsOneWidget);
     });
 
-    testWidgets('shows SizedBox.shrink when no variants provided', (tester) async {
+    testWidgets('shows SizedBox.shrink when no variants provided',
+        (tester) async {
       final clientConfig = ClientConfig()
         ..setEndpoint('https://test.absmartly.io/v1')
         ..setAPIKey('test-api-key')
@@ -168,7 +171,8 @@ void main() {
             builder: (context, variant, variables) {
               capturedVariant = variant;
               capturedVariables = variables;
-              return Text('Variant: $variant', textDirection: TextDirection.ltr);
+              return Text('Variant: $variant',
+                  textDirection: TextDirection.ltr);
             },
           ),
         ),
@@ -181,7 +185,8 @@ void main() {
       expect(find.textContaining('Variant:'), findsOneWidget);
     });
 
-    testWidgets('builder receives 0 as default variant in control mode', (tester) async {
+    testWidgets('builder receives 0 as default variant in control mode',
+        (tester) async {
       final clientConfig = ClientConfig()
         ..setEndpoint('https://test.absmartly.io/v1')
         ..setAPIKey('test-api-key')
@@ -206,7 +211,8 @@ void main() {
             name: 'test_experiment',
             builder: (context, variant, variables) {
               capturedVariant = variant;
-              return Text('Variant: $variant', textDirection: TextDirection.ltr);
+              return Text('Variant: $variant',
+                  textDirection: TextDirection.ltr);
             },
           ),
         ),
@@ -241,7 +247,8 @@ void main() {
             name: 'test_experiment',
             context: context2,
             builder: (context, variant, variables) {
-              return Text('Variant: $variant', textDirection: TextDirection.ltr);
+              return Text('Variant: $variant',
+                  textDirection: TextDirection.ltr);
             },
           ),
         ),
@@ -254,7 +261,8 @@ void main() {
   });
 
   group('TreatmentSwitch', () {
-    testWidgets('shows control variant with TreatmentVariant children', (tester) async {
+    testWidgets('shows control variant with TreatmentVariant children',
+        (tester) async {
       final clientConfig = ClientConfig()
         ..setEndpoint('https://test.absmartly.io/v1')
         ..setAPIKey('test-api-key')
@@ -282,7 +290,8 @@ void main() {
               ),
               TreatmentVariant(
                 variant: 1,
-                child: const Text('Variant B', textDirection: TextDirection.ltr),
+                child:
+                    const Text('Variant B', textDirection: TextDirection.ltr),
               ),
             ],
           ),
@@ -319,11 +328,13 @@ void main() {
             children: [
               TreatmentVariant(
                 variant: 'A',
-                child: const Text('Control A', textDirection: TextDirection.ltr),
+                child:
+                    const Text('Control A', textDirection: TextDirection.ltr),
               ),
               TreatmentVariant(
                 variant: 'B',
-                child: const Text('Variant B', textDirection: TextDirection.ltr),
+                child:
+                    const Text('Variant B', textDirection: TextDirection.ltr),
               ),
             ],
           ),
@@ -336,7 +347,8 @@ void main() {
       expect(find.text('Variant B'), findsNothing);
     });
 
-    testWidgets('shows SizedBox.shrink when no control variant child exists', (tester) async {
+    testWidgets('shows SizedBox.shrink when no control variant child exists',
+        (tester) async {
       final clientConfig = ClientConfig()
         ..setEndpoint('https://test.absmartly.io/v1')
         ..setAPIKey('test-api-key')
@@ -360,11 +372,13 @@ void main() {
             children: [
               TreatmentVariant(
                 variant: 5,
-                child: const Text('Variant 5', textDirection: TextDirection.ltr),
+                child:
+                    const Text('Variant 5', textDirection: TextDirection.ltr),
               ),
               TreatmentVariant(
                 variant: 6,
-                child: const Text('Variant 6', textDirection: TextDirection.ltr),
+                child:
+                    const Text('Variant 6', textDirection: TextDirection.ltr),
               ),
             ],
           ),
