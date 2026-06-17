@@ -47,4 +47,19 @@ void main() {
     expect(utf8.decode(Hashing.hashUnit(sb.toString())),
         equals('Rxnq-eM9eE1SEoMnkEMOIw'));
   });
+
+  test('Test hashUnit astral and multibyte', () {
+    // Characters outside the Basic Multilingual Plane are stored as UTF-16
+    // surrogate pairs and must encode to 4-byte UTF-8. These canonical hashes
+    // are shared across all SDKs (computed from correct UTF-8 bytes); a buggy
+    // per-code-unit encoder produces a different hash and fails here.
+    expect(utf8.decode(Hashing.hashUnit('😀')),
+        equals('KgLqw51xanDs83V5GFkntg'));
+    expect(utf8.decode(Hashing.hashUnit('😀😁')),
+        equals('ZJuDalvUWRJnVtkspj-2bQ'));
+    expect(utf8.decode(Hashing.hashUnit('世界你好')),
+        equals('v2CJG7YcjjWncKOSCzF2GA'));
+    expect(utf8.decode(Hashing.hashUnit('user_世界_123')),
+        equals('SCgk4OzXlFMvo1UMsP88fA'));
+  });
 }

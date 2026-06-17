@@ -1,4 +1,5 @@
 import 'dart:core';
+import 'dart:convert';
 import 'dart:typed_data';
 
 abstract class Buffers {
@@ -31,22 +32,14 @@ abstract class Buffers {
   }
 
   static int encodeUTF8(Uint8List buf, int offset, String value) {
-    final int n = value.length;
-
-    int out = offset;
-    for (int i = 0; i < n; ++i) {
-      final c = value[i].codeUnitAt(0);
-      if (c < 0x80) {
-        buf[out++] = c;
-      } else if (c < 0x800) {
-        buf[out++] = ((c >> 6) | 192);
-        buf[out++] = ((c & 63) | 128);
-      } else {
-        buf[out++] = ((c >> 12) | 224);
-        buf[out++] = (((c >> 6) & 63) | 128);
-        buf[out++] = ((c & 63) | 128);
-      }
-    }
-    return out - offset;
+    // Delegate to the platform UTF-8 encoder so characters outside the Basic
+    // Multilingual Plane (e.g. emoji, stored as UTF-16 surrogate pairs) produce
+    // correct 4-byte UTF-8 sequences. The previous hand-rolled loop processed
+    // each UTF-16 code unit independently and emitted invalid CESU-8 for
+    // surrogate pairs, yielding a different unit hash than the other SDKs and
+    // the collector.
+    final List<int> bytes = utf8.encode(value);
+    buf.setRange(offset, offset + bytes.length, bytes);
+    return bytes.length;
   }
 }
