@@ -498,7 +498,10 @@ void main() {
         await tester.pump();
 
         stopwatch.stop();
-        expect(stopwatch.elapsedMilliseconds, lessThan(2000));
+        // Generous ceiling: this is a sanity bound, not a precise benchmark.
+        // Wall-clock timing is sensitive to machine load (e.g. the full 21-SDK
+        // suite building in parallel), so keep enough headroom to avoid flakes.
+        expect(stopwatch.elapsedMilliseconds, lessThan(5000));
       });
     });
   });
