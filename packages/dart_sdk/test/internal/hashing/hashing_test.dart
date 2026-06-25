@@ -53,8 +53,8 @@ void main() {
     // surrogate pairs and must encode to 4-byte UTF-8. These canonical hashes
     // are shared across all SDKs (computed from correct UTF-8 bytes); a buggy
     // per-code-unit encoder produces a different hash and fails here.
-    expect(utf8.decode(Hashing.hashUnit('😀')),
-        equals('KgLqw51xanDs83V5GFkntg'));
+    expect(
+        utf8.decode(Hashing.hashUnit('😀')), equals('KgLqw51xanDs83V5GFkntg'));
     expect(utf8.decode(Hashing.hashUnit('😀😁')),
         equals('ZJuDalvUWRJnVtkspj-2bQ'));
     expect(utf8.decode(Hashing.hashUnit('世界你好')),
