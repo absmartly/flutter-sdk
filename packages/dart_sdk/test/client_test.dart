@@ -156,4 +156,35 @@ void main() {
 
     expect(expected, actual);
   });
+
+  test('getContextDataCompletesWithErrorWhenDeserializationFails', () async {
+    final httpClient = MockHTTPClient();
+    final deser = MockContextDataDeserializer();
+    var config = ClientConfig()
+        .setAPIKey('test-api-key')
+        .setEndpoint('https://localhost/v1')
+        .setApplication('website')
+        .setEnvironment('dev')
+        .setContextDataDeserializer(deser);
+
+    final client = Client.create(config, httpClient: httpClient);
+
+    var bytes = utf8.encode('not json');
+
+    final Map<String, String> expectedQuery = {
+      'application': 'website',
+      'environment': 'dev'
+    };
+
+    when(httpClient.get('https://localhost/v1/context', expectedQuery, null))
+        .thenAnswer((_) => getByteResponse(bytes));
+    when(deser.deserialize(bytes, 0, bytes.length)).thenReturn(null);
+
+    final Completer<ContextData> dataFuture = client.getContextData();
+
+    await expectLater(
+        dataFuture.future,
+        throwsA(isA<Exception>().having((e) => e.toString(), 'message',
+            contains('Failed to deserialize context data'))));
+  });
 }

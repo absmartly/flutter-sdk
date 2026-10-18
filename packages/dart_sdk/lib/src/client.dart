@@ -74,10 +74,14 @@ class Client {
       if ((code / 100) == 2) {
         final Uint8List content =
             Uint8List.fromList(response.getContent() ?? []);
-        dataFuture.complete(deserializer_!.deserialize(
-            Uint8List.fromList(response.getContent() ?? []),
-            0,
-            content.length));
+        final ContextData? data =
+            deserializer_!.deserialize(content, 0, content.length);
+        if (data != null) {
+          dataFuture.complete(data);
+        } else {
+          dataFuture.completeError(
+              Exception('Failed to deserialize context data response'));
+        }
       } else {
         dataFuture.completeError(Exception(response.getStatusMessage()));
       }

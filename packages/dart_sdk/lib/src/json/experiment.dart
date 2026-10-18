@@ -122,13 +122,10 @@ class Experiment {
     iteration = data["iteration"];
     seedHi = data["seedHi"];
     seedLo = data["seedLo"];
-    List split = data["split"];
-    this.split = List.generate(split.length, (index) => split[index]);
+    split = _parseDoubleList(data, 'split');
     trafficSeedHi = data["trafficSeedHi"];
     trafficSeedLo = data["trafficSeedLo"];
-    List trafficSplit = data["trafficSplit"];
-    this.trafficSplit =
-        List.generate(trafficSplit.length, (index) => trafficSplit[index]);
+    trafficSplit = _parseDoubleList(data, 'trafficSplit');
     fullOnVariant = data["fullOnVariant"];
     List applications = data["applications"] ?? [];
     this.applications = List.generate(applications.length,
@@ -148,6 +145,23 @@ class Experiment {
     } else {
       customFieldValues = null;
     }
+  }
+
+  // JSON has a single number type, so a producer may legitimately encode a
+  // whole-number split weight as `1` instead of `1.0`. jsonDecode yields an
+  // int for those on the VM, which cannot be stored in a List<double> as-is.
+  static List<double> _parseDoubleList(Map<String, dynamic> data, String key) {
+    final value = data[key];
+    if (value is! List) {
+      throw FormatException('Invalid experiment $key: $value');
+    }
+    return List<double>.generate(value.length, (index) {
+      final element = value[index];
+      if (element is! num) {
+        throw FormatException('Invalid experiment $key element: $element');
+      }
+      return element.toDouble();
+    });
   }
 
   Map<String, dynamic> toMap() {

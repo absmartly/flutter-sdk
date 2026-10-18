@@ -163,4 +163,66 @@ void main() {
       await server.stop();
     }
   });
+
+  // A context payload whose split weights are JSON integers (`[0, 1]` instead
+  // of `[0.0, 1.0]`) is valid JSON and must load the same as the
+  // fractional-literal form via the real Client/deserializer path.
+  test('integer split weights load and assign like their double form',
+      () async {
+    final doubleJson = await File('test/resources/context.json').readAsString();
+    final decoded = jsonDecode(doubleJson) as Map<String, dynamic>;
+    var integerWeights = 0;
+    for (final experiment in decoded['experiments'] as List) {
+      for (final key in ['split', 'trafficSplit']) {
+        final weights = experiment[key] as List;
+        experiment[key] = weights.map((w) {
+          final d = (w as num).toDouble();
+          if (d == d.truncateToDouble()) {
+            integerWeights++;
+            return d.toInt();
+          }
+          return d;
+        }).toList();
+      }
+    }
+    final integerJson = jsonEncode(decoded);
+    expect(integerWeights, greaterThan(0));
+    expect(integerJson, contains('"trafficSplit":[0,1]'));
+
+    Future<Map<String, int>> treatmentsFor(String contextData) async {
+      final server = await LocalServer.start(contextData);
+      try {
+        final client = Client.create(ClientConfig.create(
+          endpoint: server.baseUrl,
+          apiKey: 'test-api-key',
+          application: 'website',
+          environment: 'test',
+        ));
+        final absmartly = ABSmartly(ABSmartlyConfig.create().setClient(client));
+        final context = absmartly.createContext(ContextConfig.create()
+          ..setUnit('session_id', 'e791e240fcd3df7d238cfc285f475e8152fcc0ec')
+          ..setUnit('user_id', '123456789'));
+        await context.waitUntilReady();
+
+        expect(context.isReady(), isTrue);
+        expect(context.isFailed(), isFalse);
+        expect(context.readyError(), isNull);
+
+        final treatments = {
+          for (final name in context.getExperiments())
+            name: context.getTreatment(name),
+        };
+        await context.close();
+        return treatments;
+      } finally {
+        await server.stop();
+      }
+    }
+
+    final fromIntegers = await treatmentsFor(integerJson);
+    final fromDoubles = await treatmentsFor(doubleJson);
+
+    expect(fromIntegers, isNotEmpty);
+    expect(fromIntegers, equals(fromDoubles));
+  });
 }

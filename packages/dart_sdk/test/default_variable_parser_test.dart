@@ -38,4 +38,22 @@ main() {
       'g': 9.123,
     });
   });
+
+  for (final config in ['{"a":', 'not json']) {
+    test('parse returns null for invalid JSON: $config', () {
+      final variables =
+          DefaultVariableParser().parse(MockContext(), 'test_exp', 'B', config);
+
+      expect(variables, isNull);
+    });
+  }
+
+  for (final config in ['[1,2]', '"text"', '42', 'true', 'null']) {
+    test('parse returns null for non-object JSON: $config', () {
+      final variables =
+          DefaultVariableParser().parse(MockContext(), 'test_exp', 'B', config);
+
+      expect(variables, isNull);
+    });
+  }
 }
