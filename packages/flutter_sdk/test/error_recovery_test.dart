@@ -124,6 +124,7 @@ void main() {
 
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
+        expect(find.text('Control After Timeout'), findsOneWidget);
       });
     });
 
@@ -293,7 +294,7 @@ void main() {
           ),
         );
 
-        expect(capturedIsFailed, isNotNull);
+        expect(capturedIsFailed, equals(context.isFailed()));
       });
 
       testWidgets('widgets remain interactive even with failed context',
@@ -337,6 +338,9 @@ void main() {
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);
 
+        Future<void>? first;
+        Future<void>? second;
+
         await tester.pumpWidget(
           ABSmartlyProvider(
             sdk: sdk,
@@ -344,8 +348,8 @@ void main() {
             child: Builder(
               builder: (ctx) {
                 final data = ABSmartlyProvider.of(ctx);
-                data.context.waitUntilReady();
-                data.context.waitUntilReady();
+                first = data.context.waitUntilReady();
+                second = data.context.waitUntilReady();
                 return const SizedBox();
               },
             ),
@@ -353,6 +357,9 @@ void main() {
         );
 
         await tester.pump();
+        expect(first, isNotNull);
+        expect(second, isNotNull);
+        await expectLater(Future.wait([first!, second!]), completes);
       });
 
       testWidgets('resetContext function is available', (tester) async {

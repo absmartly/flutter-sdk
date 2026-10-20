@@ -897,8 +897,8 @@ class ExperimentVariables {
 
 class Assignment {
   int id = 0;
-  late int iteration;
-  late int fullOnVariant;
+  int iteration = 0;
+  int fullOnVariant = 0;
   late String name;
   String? unitType;
   List<double> trafficSplit = [];

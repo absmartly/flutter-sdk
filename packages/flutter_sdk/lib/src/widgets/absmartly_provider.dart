@@ -89,6 +89,37 @@ class _ABSmartlyProviderState extends State<ABSmartlyProvider> {
     _initializeSDK();
   }
 
+  @override
+  void didUpdateWidget(ABSmartlyProvider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final sourceChanged = oldWidget.sdk != widget.sdk ||
+        oldWidget.context != widget.context ||
+        oldWidget._endpoint != widget._endpoint ||
+        oldWidget._apiKey != widget._apiKey ||
+        oldWidget._environment != widget._environment ||
+        oldWidget._application != widget._application ||
+        !_sameUnits(oldWidget._units, widget._units);
+    if (sourceChanged) {
+      if (_isInternallyCreated) {
+        _context.close();
+      }
+      _initializeSDK();
+    } else if (oldWidget.defaultLoadingBehavior !=
+            widget.defaultLoadingBehavior ||
+        oldWidget.readyTimeout != widget.readyTimeout) {
+      _updateData();
+    }
+  }
+
+  static bool _sameUnits(Map<String, String>? a, Map<String, String>? b) {
+    if (identical(a, b)) return true;
+    if (a == null || b == null || a.length != b.length) return false;
+    for (final e in a.entries) {
+      if (b[e.key] != e.value) return false;
+    }
+    return true;
+  }
+
   void _initializeSDK() {
     if (widget.sdk != null && widget.context != null) {
       _sdk = widget.sdk!;

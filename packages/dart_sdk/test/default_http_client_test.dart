@@ -295,14 +295,16 @@ void main() {
         headers: anyNamed('headers'),
       )).thenThrow(Exception('Connection failed'));
 
-      expect(
-        () => clientWithRetries.get(
+      await expectLater(
+        clientWithRetries.get(
           'https://example.com/api/posts',
           null,
           null,
         ),
         throwsException,
       );
+      verify(mockHttpClient.get(any, headers: anyNamed('headers')))
+          .called(greaterThan(1));
     });
 
     test('close calls client.close', () {

@@ -60,6 +60,8 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
   int _variant = 0;
   Map<String, dynamic> _variables = {};
   Timer? _timeoutTimer;
+  int _generation = 0;
+  Context? _boundContext;
 
   Context get _context {
     if (widget.context != null) {
@@ -79,6 +81,24 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (widget.context != null) return;
+    // Subscribe to provider changes so a replaced context is picked up.
+    final providerContext = ABSmartlyProvider.maybeOf(context)?.context;
+    if (providerContext != null &&
+        _boundContext != null &&
+        !identical(providerContext, _boundContext)) {
+      _cancelTimeout();
+      _isReady = false;
+      _timedOut = false;
+      _variant = 0;
+      _variables = {};
+      _initializeTreatment();
+    }
+  }
+
+  @override
   void didUpdateWidget(TreatmentBuilder oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.name != widget.name || oldWidget.context != widget.context) {
@@ -95,13 +115,15 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
 
   void _initializeTreatment() {
     final ctx = _context;
+    _boundContext = ctx;
+    final generation = ++_generation;
 
     if (ctx.isReady()) {
       _updateTreatment(ctx);
     } else {
       _startTimeoutIfNeeded();
       ctx.waitUntilReady().then((_) {
-        if (mounted) {
+        if (mounted && generation == _generation) {
           _cancelTimeout();
           _updateTreatment(ctx);
         }
@@ -111,7 +133,7 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
               'ABSmartly: TreatmentBuilder "${widget.name}" error: $error');
           return true;
         }());
-        if (mounted) {
+        if (mounted && generation == _generation) {
           _cancelTimeout();
           setState(() {
             _isReady = true;

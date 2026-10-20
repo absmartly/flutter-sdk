@@ -100,35 +100,53 @@ void main() {
       testWidgets('listen parameter controls rebuild behavior', (tester) async {
         int listenBuildCount = 0;
         int noListenBuildCount = 0;
+        var loadingBehavior = LoadingBehavior.placeholder;
+        late StateSetter rebuild;
+
+        // Built once and reused so only InheritedWidget notification (not the
+        // parent rebuild) can cause these builders to run again.
+        final child = Row(
+          textDirection: TextDirection.ltr,
+          children: [
+            Builder(
+              builder: (ctx) {
+                ABSmartlyProvider.of(ctx, listen: true);
+                listenBuildCount++;
+                return const SizedBox();
+              },
+            ),
+            Builder(
+              builder: (ctx) {
+                ABSmartlyProvider.of(ctx, listen: false);
+                noListenBuildCount++;
+                return const SizedBox();
+              },
+            ),
+          ],
+        );
 
         await tester.pumpWidget(
-          ABSmartlyProvider(
-            sdk: sdk,
-            context: context,
-            child: Row(
-              textDirection: TextDirection.ltr,
-              children: [
-                Builder(
-                  builder: (ctx) {
-                    ABSmartlyProvider.of(ctx, listen: true);
-                    listenBuildCount++;
-                    return const SizedBox();
-                  },
-                ),
-                Builder(
-                  builder: (ctx) {
-                    ABSmartlyProvider.of(ctx, listen: false);
-                    noListenBuildCount++;
-                    return const SizedBox();
-                  },
-                ),
-              ],
-            ),
+          StatefulBuilder(
+            builder: (outerCtx, setState) {
+              rebuild = setState;
+              return ABSmartlyProvider(
+                sdk: sdk,
+                context: context,
+                defaultLoadingBehavior: loadingBehavior,
+                child: child,
+              );
+            },
           ),
         );
 
-        expect(listenBuildCount, greaterThan(0));
-        expect(noListenBuildCount, greaterThan(0));
+        expect(listenBuildCount, 1);
+        expect(noListenBuildCount, 1);
+
+        rebuild(() => loadingBehavior = LoadingBehavior.control);
+        await tester.pump();
+
+        expect(listenBuildCount, 2);
+        expect(noListenBuildCount, 1);
       });
     });
 
@@ -198,6 +216,11 @@ void main() {
 
         await tester.pump();
         expect(find.text('Control for experiment_1'), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('change_button')));
+        await tester.pump();
+        expect(find.text('Control for experiment_2'), findsOneWidget);
+        expect(find.text('Control for experiment_1'), findsNothing);
       });
     });
 
@@ -222,6 +245,7 @@ void main() {
         );
 
         await tester.pump(Duration.zero);
+        expect(find.text('Loading...'), findsOneWidget);
       });
 
       testWidgets(

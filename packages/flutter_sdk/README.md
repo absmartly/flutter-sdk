@@ -50,28 +50,25 @@ void main() async {
 
 ## Create a New Context Request
 
-### Synchronously
+### Waiting for the context to be ready
 
 ```dart
 final ContextConfig contextConfig = ContextConfig.create()
     .setUnit("session_id", "5ebf06d8cb5d8137290c4abb64155584fbdb64d8");
 
-final Context? context = await sdk.createContext(contextConfig).waitUntilReady();
-
-if (context != null) {
-  print("context ready");
-}
+final Context context = await sdk.createContext(contextConfig).waitUntilReady();
+print("context ready");
 ```
 
-### Asynchronously
+### Without waiting
+
+`createContext` returns immediately; the context loads in the background.
+Check `isReady()` before relying on treatments, or call `waitUntilReady()` later.
 
 ```dart
-final ContextConfig contextConfig = ContextConfig.create()
-    .setUnit("session_id", "5ebf06d8cb5d8137290c4abb64155584fbdb64d8");
+final Context context = sdk.createContext(contextConfig);
 
-final Context? context = await sdk.createContext(contextConfig).waitUntilReady();
-
-if (context != null) {
+if (context.isReady()) {
   print("context ready");
 }
 ```
