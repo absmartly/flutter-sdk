@@ -306,18 +306,27 @@ void main() {
       expect(context.getData(), equals(data));
     });
 
-    test('returnsDefaultsWhenNotReady', () {
+    test('readsThrowWhenNotReady', () {
       final Context context = createContextWithDefaultConfig(dataFuture);
       expect(context.isReady(), isFalse);
       expect(context.isFailed(), isFalse);
 
-      expect(context.peekTreatment('exp_test_ab'), equals(0));
-      expect(context.getTreatment('exp_test_ab'), equals(0));
-      expect(() => context.getData(), throwsA(isA<Exception>()));
-      expect(context.getExperiments(), equals([]));
-      expect(context.getVariableValue('banner.border', 17), equals(17));
-      expect(context.peekVariableValue('banner.border', 17), equals(17));
-      expect(context.getVariableKeys(), equals({}));
+      final notReady = throwsA(predicate((e) =>
+          e is Exception &&
+          e.toString().contains('ABsmartly Context is not yet ready.')));
+      expect(() => context.peekTreatment('exp_test_ab'), notReady);
+      expect(() => context.getTreatment('exp_test_ab'), notReady);
+      expect(() => context.getData(), notReady);
+      expect(() => context.getExperiments(), notReady);
+      expect(() => context.getVariableValue('banner.border', 17), notReady);
+      expect(() => context.peekVariableValue('banner.border', 17), notReady);
+      expect(() => context.getVariableKeys(), notReady);
+      expect(() => context.getCustomFieldKeys(), notReady);
+      expect(() => context.getCustomFieldValue('exp_test_ab', 'x'), notReady);
+      expect(
+          () => context.getCustomFieldValueType('exp_test_ab', 'x'), notReady);
+      expect(() => context.publish(), notReady);
+      expect(() => context.refresh(), notReady);
     });
 
     test('throwsWhenClosed', () async {
@@ -347,15 +356,21 @@ void main() {
           throwsA(isA<Exception>()));
       expect(() => context.setCustomAssignments({'exp_test_ab': 2}),
           throwsA(isA<Exception>()));
-      expect(context.peekTreatment('exp_test_ab'), equals(0));
-      expect(context.getTreatment('exp_test_ab'), equals(0));
-      expect(() => context.track('goal1', null), throwsA(isA<Exception>()));
-      expect(() => context.publish(), throwsA(isA<Exception>()));
-      expect(() => context.getData(), throwsA(isA<Exception>()));
-      expect(context.getExperiments(), equals([]));
-      expect(context.getVariableValue('banner.border', 17), equals(17));
-      expect(context.peekVariableValue('banner.border', 17), equals(17));
-      expect(context.getVariableKeys(), equals({}));
+      final finalized = throwsA(predicate((e) =>
+          e is Exception &&
+          e.toString().contains('ABsmartly Context is finalized.')));
+      expect(() => context.peekTreatment('exp_test_ab'), finalized);
+      expect(() => context.getTreatment('exp_test_ab'), finalized);
+      expect(() => context.track('goal1', null), finalized);
+      expect(() => context.publish(), finalized);
+      expect(() => context.refresh(), finalized);
+      expect(() => context.getVariableValue('banner.border', 17), finalized);
+      expect(() => context.peekVariableValue('banner.border', 17), finalized);
+      expect(() => context.getVariableKeys(), finalized);
+      expect(() => context.getCustomFieldKeys(), finalized);
+      // data() and experiments() only require readiness (JS context.ts).
+      expect(context.getData(), equals(data));
+      expect(context.getExperiments(), isNotEmpty);
     });
 
     test('getExperiments', () async {
@@ -1078,7 +1093,8 @@ void main() {
 
       await context.close();
 
-      verify(eventLogger.handleEvent(context, EventType.close, null)).called(1);
+      verify(eventLogger.handleEvent(context, EventType.finalize, null))
+          .called(1);
     });
 
     test('closeCallsEventLoggerWithPendingEvents', () async {
@@ -1096,7 +1112,8 @@ void main() {
 
       verify(eventLogger.handleEvent(context, EventType.publish, any))
           .called(1);
-      verify(eventLogger.handleEvent(context, EventType.close, null)).called(1);
+      verify(eventLogger.handleEvent(context, EventType.finalize, null))
+          .called(1);
     });
 
     test('closeCallsEventLoggerOnError', () async {
@@ -2091,7 +2108,20 @@ void main() {
 
       await expectLater(context.close(), throwsA(isA<Exception>()));
 
+      // A failed final publish leaves the context open and retryable with
+      // its events still queued (JS context.ts _finalize).
+      expect(context.isClosed(), isFalse);
+      expect(context.isClosing(), isFalse);
+      expect(context.getPendingCount(), equals(1));
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      await context.close();
+
       expect(context.isClosed(), isTrue);
+      expect(context.getPendingCount(), equals(0));
+      verify(eventLogger.handleEvent(context, EventType.finalize, null))
+          .called(1);
     });
 
     test('publishDoesNotClearQueueOnFailure', () async {
@@ -2499,5 +2529,242 @@ void main() {
       expect(variableKeys['shared_var'], isNotNull);
       expect(variableKeys['shared_var']!.first, equals('exp_test_abc'));
     });
+
+    test('concurrentPublishSendsEachEventOnce', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 1});
+      context.track('goal2', {'amount': 2});
+
+      final List<PublishEvent> sent = [];
+      final List<Completer<void>> pending = [];
+      when(eventHandler.publish(any, any)).thenAnswer((invocation) {
+        sent.add(invocation.positionalArguments[1] as PublishEvent);
+        final completer = Completer<void>();
+        pending.add(completer);
+        return completer;
+      });
+
+      final first = context.publish();
+      final second = context.publish();
+      await Future.delayed(Duration.zero);
+
+      // The second publish waits for the in-flight one instead of resending.
+      expect(sent.length, equals(1));
+      expect(sent[0].goals!.map((g) => g.name), equals(['goal1', 'goal2']));
+      expect(context.getPendingCount(), equals(0));
+
+      context.track('goal3', {'amount': 3});
+      pending[0].complete();
+      await first;
+      await Future.delayed(Duration.zero);
+
+      expect(sent.length, equals(2));
+      expect(sent[1].goals!.map((g) => g.name), equals(['goal3']));
+      pending[1].complete();
+      await second;
+
+      expect(context.getPendingCount(), equals(0));
+    });
+
+    test('failedPublishRestoresBatchAheadOfNewerEvents', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 1});
+
+      final List<PublishEvent> sent = [];
+      final List<Completer<void>> pending = [];
+      when(eventHandler.publish(any, any)).thenAnswer((invocation) {
+        sent.add(invocation.positionalArguments[1] as PublishEvent);
+        final completer = Completer<void>();
+        pending.add(completer);
+        return completer;
+      });
+
+      final first = context.publish();
+      context.track('goal2', {'amount': 2});
+      pending[0].completeError(Exception('FAILED'));
+      await expectLater(first, throwsA(isA<Exception>()));
+
+      expect(context.getPendingCount(), equals(2));
+
+      final retry = context.publish();
+      pending[1].complete();
+      await retry;
+
+      expect(sent[1].goals!.map((g) => g.name), equals(['goal1', 'goal2']));
+      expect(context.getPendingCount(), equals(0));
+    });
+
+    test('publisherThrowingSynchronouslyKeepsEventsQueued', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 1});
+      when(eventHandler.publish(any, any)).thenThrow(Exception('SYNC'));
+
+      await expectLater(context.publish(), throwsA(isA<Exception>()));
+      expect(context.getPendingCount(), equals(1));
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      await context.publish();
+      expect(context.getPendingCount(), equals(0));
+    });
+
+    test('closeWaitsForInFlightPublish', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 1});
+
+      final inFlight = Completer<void>();
+      when(eventHandler.publish(any, any)).thenAnswer((_) => inFlight);
+
+      final publishing = context.publish();
+      expect(context.getPendingCount(), equals(0));
+
+      final closing1 = context.close();
+      final closing2 = context.close();
+      expect(context.isClosing(), isTrue);
+      expect(context.isClosed(), isFalse);
+
+      inFlight.complete();
+      await publishing;
+      await closing1;
+      await closing2;
+
+      expect(context.isClosed(), isTrue);
+      verify(eventHandler.publish(any, any)).called(1);
+      verify(eventLogger.handleEvent(context, EventType.finalize, null))
+          .called(1);
+    });
+
+    test('throwingEventLoggerDoesNotFailPublish', () async {
+      final context = Context.create(
+          clock,
+          ContextConfig.create()..setUnits(units),
+          dataFutureReady,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          _ThrowingEventLogger());
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 1});
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      await context.publish();
+      expect(context.getPendingCount(), equals(0));
+      verify(eventHandler.publish(any, any)).called(1);
+    });
+
+    test('refreshOnFailedContextIsNoOp', () async {
+      final context = createContextWithDefaultConfig(dataFutureFailed);
+      dataFutureFailed.completeError(Exception('FAILED'));
+      await context.waitUntilReady();
+      expect(context.isFailed(), isTrue);
+
+      await context.refresh();
+
+      verifyNever(dataProvider.getContextData());
+      expect(context.isFailed(), isTrue);
+    });
+
+    test('refreshCompletingAfterCloseDoesNotRearmRefreshTimer', () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setRefreshInterval(60000);
+      final context = createContext(config, dataFutureReady);
+      await context.waitUntilReady();
+      expect(context.refreshTimer_, isNotNull);
+
+      final refreshing = Completer<ContextData>();
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshing);
+      final refresh = context.refresh();
+
+      await context.close();
+      expect(context.refreshTimer_, isNull);
+
+      refreshing.complete(refreshData);
+      await refresh;
+
+      expect(context.refreshTimer_, isNull);
+    });
+
+    test('assignmentsStickyAcrossRefreshWhenOnlySeedsSplitConfigChange',
+        () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      const String experimentName = 'exp_test_ab';
+      final int variant = context.getTreatment(experimentName);
+      expect(context.getPendingCount(), equals(1));
+
+      final contextBytes = await getResourceBytes("context.json");
+      final changed = deser.deserialize(contextBytes, 0, contextBytes.length)!;
+      final experiment =
+          changed.experiments.firstWhere((e) => e.name == experimentName);
+      experiment.seedHi = experiment.seedHi + 1;
+      experiment.seedLo = experiment.seedLo + 1;
+      experiment.split = [0.99, 0.01];
+      experiment.audience = '{"filter":[{"value":false}]}';
+      experiment.variants[1].config = '{"banner.border":2}';
+
+      final refreshing = Completer<ContextData>()..complete(changed);
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshing);
+      await context.refresh();
+
+      expect(context.getTreatment(experimentName), equals(variant));
+      expect(context.getPendingCount(), equals(1));
+
+      // A trafficSplit change invalidates the cached assignment.
+      final contextBytes2 = await getResourceBytes("context.json");
+      final moved = deser.deserialize(contextBytes2, 0, contextBytes2.length)!;
+      moved.experiments
+          .firstWhere((e) => e.name == experimentName)
+          .trafficSplit = [0.5, 0.5];
+      final refreshing2 = Completer<ContextData>()..complete(moved);
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshing2);
+      await context.refresh();
+
+      context.getTreatment(experimentName);
+      expect(context.getPendingCount(), equals(2));
+    });
+
+    test('indeterminateAudienceKeepsCachedMismatchAssignment', () async {
+      final context = createReadyContextWithData(audienceData);
+      await context.waitUntilReady();
+      context.setAttribute('age', 10);
+
+      context.getTreatment('exp_test_ab');
+      expect(context.getPendingCount(), equals(1));
+      expect(context.exposures_.last.audienceMismatch, isTrue);
+
+      final bytes = await getResourceBytes("audience_context.json");
+      final changed = deser.deserialize(bytes, 0, bytes.length)!;
+      changed.experiments.firstWhere((e) => e.name == 'exp_test_ab').audience =
+          'not json';
+      final refreshing = Completer<ContextData>()..complete(changed);
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshing);
+      await context.refresh();
+
+      // The audience now evaluates to null: JS keeps the cached flag rather
+      // than treating it as a change, so no second exposure is queued.
+      context.setAttribute('other', 1);
+      context.getTreatment('exp_test_ab');
+      expect(context.getPendingCount(), equals(1));
+    });
   });
+}
+
+class _ThrowingEventLogger implements ContextEventLogger {
+  @override
+  void handleEvent(Context context, EventType type, dynamic data) {
+    throw Exception('logger failure');
+  }
 }

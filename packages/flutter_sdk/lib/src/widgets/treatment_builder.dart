@@ -155,15 +155,27 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
       return;
     }
 
-    final variant = ctx.getTreatment(widget.name);
-
-    final variableKeys = ctx.getVariableKeys();
+    // Reads throw once the context is finalized; a widget still bound to such
+    // a context renders the control instead of failing the build.
+    int variant = 0;
     final variables = <String, dynamic>{};
+    try {
+      variant = ctx.getTreatment(widget.name);
 
-    for (final entry in variableKeys.entries) {
-      if (entry.value.contains(widget.name)) {
-        variables[entry.key] = ctx.peekVariableValue(entry.key, null);
+      final variableKeys = ctx.getVariableKeys();
+      for (final entry in variableKeys.entries) {
+        if (entry.value.contains(widget.name)) {
+          variables[entry.key] = ctx.peekVariableValue(entry.key, null);
+        }
       }
+    } catch (error) {
+      assert(() {
+        debugPrint(
+            'ABSmartly: TreatmentBuilder "${widget.name}" error: $error');
+        return true;
+      }());
+      variant = 0;
+      variables.clear();
     }
 
     setState(() {

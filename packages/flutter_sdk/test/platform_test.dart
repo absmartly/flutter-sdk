@@ -474,10 +474,11 @@ void main() {
     });
 
     group('Edge Case Boundary Tests', () {
-      test('handles very long experiment names', () {
+      test('handles very long experiment names', () async {
         final contextConfig = ContextConfig.create()
           ..setUnit('user_id', '12345');
-        final testContext = sdk.createContext(contextConfig);
+        final testContext = sdk.createContextWith(contextConfig, ContextData());
+        await testContext.waitUntilReady();
 
         final longName = 'a' * 1000;
         expect(testContext.peekTreatment(longName), equals(0));

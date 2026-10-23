@@ -180,8 +180,25 @@ class _TreatmentSwitchState extends State<TreatmentSwitch> {
   void _updateTreatment(Context ctx) {
     setState(() {
       _isReady = true;
-      _variant = ctx.isFailed() ? 0 : ctx.getTreatment(widget.name);
+      _variant = _readVariant(ctx);
     });
+  }
+
+  // Reads throw once the context is finalized; a widget still bound to such
+  // a context renders the control instead of failing the build.
+  int _readVariant(Context ctx) {
+    if (ctx.isFailed()) {
+      return 0;
+    }
+    try {
+      return ctx.getTreatment(widget.name);
+    } catch (error) {
+      assert(() {
+        debugPrint('ABSmartly: TreatmentSwitch "${widget.name}" error: $error');
+        return true;
+      }());
+      return 0;
+    }
   }
 
   void _startTimeoutIfNeeded() {

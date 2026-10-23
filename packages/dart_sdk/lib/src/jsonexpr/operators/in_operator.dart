@@ -17,8 +17,8 @@ class InOperator extends BinaryOperator {
       }
       return false;
     } else if (haystack is String) {
-      if (needle is! String) return null;
-      return haystack.contains(needle);
+      final needleString = evaluator.stringConvert(needle);
+      return needleString != null && haystack.contains(needleString);
     } else if (haystack is Map) {
       final needleString = evaluator.stringConvert(needle);
       return needleString != null &&

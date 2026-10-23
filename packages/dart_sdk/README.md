@@ -343,7 +343,7 @@ class CustomEventLogger implements ContextEventLogger {
             case EventType.publish:
             case EventType.ready:
             case EventType.refresh:
-            case EventType.close:
+            case EventType.finalize:
                 break;
         }
     }

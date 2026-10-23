@@ -121,13 +121,26 @@ class _VariableValueState<T> extends State<VariableValue<T>> {
   void _updateValue(Context ctx) {
     setState(() {
       _isReady = true;
-      if (ctx.isFailed()) {
-        _value = widget.defaultValue;
-      } else {
-        final result = ctx.getVariableValue(widget.name, widget.defaultValue);
-        _value = result is T ? result : widget.defaultValue;
-      }
+      _value = _readValue(ctx);
     });
+  }
+
+  // Reads throw once the context is finalized; a widget still bound to such
+  // a context renders the default value instead of failing the build.
+  T _readValue(Context ctx) {
+    if (ctx.isFailed()) {
+      return widget.defaultValue;
+    }
+    try {
+      final result = ctx.getVariableValue(widget.name, widget.defaultValue);
+      return result is T ? result : widget.defaultValue;
+    } catch (error) {
+      assert(() {
+        debugPrint('ABSmartly: VariableValue "${widget.name}" error: $error');
+        return true;
+      }());
+      return widget.defaultValue;
+    }
   }
 
   void _startTimeoutIfNeeded() {

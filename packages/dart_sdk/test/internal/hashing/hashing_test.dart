@@ -1,6 +1,9 @@
+import 'dart:typed_data';
 import 'dart:convert';
 
+import 'package:absmartly_dart/src/internal/buffers.dart';
 import 'package:absmartly_dart/src/internal/hashing/hashing.dart';
+import 'package:absmartly_dart/src/internal/variant_assigner.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -61,5 +64,63 @@ void main() {
         equals('v2CJG7YcjjWncKOSCzF2GA'));
     expect(utf8.decode(Hashing.hashUnit('user_世界_123')),
         equals('SCgk4OzXlFMvo1UMsP88fA'));
+  });
+
+  group('cross-SDK UTF-8 vectors', () {
+    // Shared vectors validated against the JS SDK's stringToUint8Array and
+    // hashUnit: standard 4-byte UTF-8 for non-BMP characters (never CESU-8)
+    // and U+FFFD for a lone surrogate.
+    final vectors = <String, List<Object>>{
+      'user\u{1F600}id': [
+        [117, 115, 101, 114, 240, 159, 152, 128, 105, 100],
+        'nnPMxN6wY36LGRnuJ6jZrw'
+      ],
+      '\u{1F600}': [
+        [240, 159, 152, 128],
+        'KgLqw51xanDs83V5GFkntg'
+      ],
+      '\u{2000B}': [
+        [240, 160, 128, 139],
+        '8mWvgvNGn-DZqb6Ft0HVjA'
+      ],
+      'a€\u{1D11E}z': [
+        [97, 226, 130, 172, 240, 157, 132, 158, 122],
+        'AGGq8R9K1XjO77q33izhLg'
+      ],
+      '\u{1F1F5}\u{1F1F9}': [
+        [240, 159, 135, 181, 240, 159, 135, 185],
+        '1RRpVphazpblARsm5DaSkg'
+      ],
+      'ab\uD83Dcd': [
+        [97, 98, 239, 191, 189, 99, 100],
+        'jvDxBUzS9Tdsml3QQStWSg'
+      ],
+    };
+
+    vectors.forEach((value, expected) {
+      test('encodes and hashes ${jsonEncode(value)}', () {
+        final buf = Uint8List(64);
+        final n = Buffers.encodeUTF8(buf, 0, value);
+        expect(buf.sublist(0, n), equals(expected[0]));
+        expect(utf8.decode(Hashing.hashUnit(value)), equals(expected[1]));
+      });
+    });
+
+    test('assigns non-BMP units like the JS VariantAssigner', () {
+      const split = [0.5, 0.5];
+      const seedHi = 3603583;
+      const seedLo = 233373918;
+      final expected = {
+        '\u{1F600}': 1,
+        '\u{1F1F5}\u{1F1F9}': 0,
+        'a€\u{1D11E}z': 1,
+        'user\u{1F600}id': 0,
+      };
+      expected.forEach((unit, variant) {
+        final assigner = VariantAssigner(Hashing.hashUnit(unit));
+        expect(assigner.assign(split, seedHi, seedLo), equals(variant),
+            reason: unit);
+      });
+    });
   });
 }

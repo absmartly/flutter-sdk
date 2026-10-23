@@ -11,5 +11,5 @@ enum EventType {
   publish,
   exposure,
   goal,
-  close,
+  finalize,
 }

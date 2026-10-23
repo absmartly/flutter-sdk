@@ -123,16 +123,14 @@ class Context {
   }
 
   List<String> getExperiments() {
-    if (!isReady() || isClosed()) {
-      return [];
-    }
+    checkReady(false);
 
     return List.generate(
         data_!.experiments.length, (index) => data_!.experiments[index].name);
   }
 
   ContextData getData() {
-    checkReady(true);
+    checkReady(false);
 
     return data_!;
   }
@@ -232,9 +230,7 @@ class Context {
   }
 
   int getTreatment(final String experimentName) {
-    if (!isReady() || isClosed()) {
-      return 0;
-    }
+    checkReady(true);
 
     final Assignment assignment = getAssignment(experimentName);
 
@@ -271,17 +267,13 @@ class Context {
   }
 
   int peekTreatment(final String experimentName) {
-    if (!isReady() || isClosed()) {
-      return 0;
-    }
+    checkReady(true);
 
     return getAssignment(experimentName).variant;
   }
 
   Map<String, List<String>> getVariableKeys() {
-    if (!isReady() || isClosed()) {
-      return {};
-    }
+    checkReady(true);
 
     final Map<String, List<String>> variableKeys = <String, List<String>>{};
 
@@ -295,9 +287,7 @@ class Context {
   }
 
   Set<String> getCustomFieldKeys() {
-    if (!isReady() || isClosed()) {
-      return {};
-    }
+    checkReady(true);
 
     final keys = <String>{};
     for (final experiment in data_!.experiments) {
@@ -312,9 +302,7 @@ class Context {
   }
 
   dynamic getCustomFieldValue(final String experimentName, final String key) {
-    if (!isReady() || isClosed()) {
-      return null;
-    }
+    checkReady(true);
 
     final experiment = index_[experimentName];
     if (experiment != null) {
@@ -353,9 +341,7 @@ class Context {
 
   String? getCustomFieldValueType(
       final String experimentName, final String key) {
-    if (!isReady() || isClosed()) {
-      return null;
-    }
+    checkReady(true);
 
     final experiment = index_[experimentName];
     if (experiment != null) {
@@ -380,9 +366,7 @@ class Context {
       getCustomFieldValueType(experimentName, key);
 
   dynamic getVariableValue(final String key, final dynamic defaultValue) {
-    if (!isReady() || isClosed()) {
-      return defaultValue;
-    }
+    checkReady(true);
 
     final Assignment? assignment = getVariableAssignment(key);
     if (assignment != null) {
@@ -400,9 +384,7 @@ class Context {
   }
 
   dynamic peekVariableValue(final String key, final dynamic defaultValue) {
-    if (!isReady() || isClosed()) {
-      return defaultValue;
-    }
+    checkReady(true);
 
     final Assignment? assignment = getVariableAssignment(key);
     if (assignment != null) {
@@ -431,7 +413,7 @@ class Context {
   }
 
   Future<void> publish() {
-    checkNotClosed();
+    checkReady(true);
 
     return flush();
   }
@@ -441,22 +423,34 @@ class Context {
   }
 
   Future<void> refresh() async {
-    checkNotClosed();
+    checkReady(true);
+
+    // A failed context is not recovered by a refresh (JS context.ts _refresh).
+    if (failed_) {
+      return;
+    }
 
     if (!refreshing_) {
       refreshing_ = true;
-      refreshFuture_ = Completer<void>();
+      final Completer<void> refreshing = Completer<void>();
+      refreshFuture_ = refreshing;
 
-      dataProvider_.getContextData().future.then((data) {
-        setData(data);
+      void fail(dynamic error) {
         refreshing_ = false;
-        refreshFuture_!.complete();
-        logEvent(EventType.refresh, data);
-      }).catchError((error) {
-        refreshing_ = false;
-        refreshFuture_!.completeError(error);
+        refreshing.completeError(error);
         logError(error);
-      });
+      }
+
+      try {
+        dataProvider_.getContextData().future.then((data) {
+          setData(data);
+          refreshing_ = false;
+          refreshing.complete();
+          logEvent(EventType.refresh, data);
+        }, onError: fail);
+      } catch (error) {
+        fail(error);
+      }
     }
 
     if (refreshFuture_ != null) {
@@ -466,91 +460,123 @@ class Context {
     return Future.value();
   }
 
-  Future<void> close() async {
-    if (!closed_) {
-      if (closing_ == false) {
-        closing_ = true;
-        clearRefreshTimer();
-
-        if (pendingCount_ > 0) {
-          closingFuture_ = Completer<void>();
-
-          flush().then((_) {
-            closed_ = true;
-            closing_ = false;
-            closingFuture_!.complete();
-            logEvent(EventType.close, null);
-          }).catchError((exception) {
-            closed_ = true;
-            closing_ = false;
-            closingFuture_!.completeError(exception);
-            // event logger gets this error during publish
-          });
-
-          return closingFuture_!.future;
-        } else {
-          closed_ = true;
-          closing_ = false;
-          logEvent(EventType.close, null);
-        }
-      }
-
-      if (closingFuture_ != null) {
-        return closingFuture_!.future;
-      }
+  Future<void> close() {
+    if (closed_) {
+      return Future.value();
     }
 
-    return Future.value();
+    final Completer<void>? inProgress = closingFuture_;
+    if (inProgress != null) {
+      return inProgress.future;
+    }
+
+    clearRefreshTimer();
+
+    // A flush may be in flight with the queue already drained, so only take
+    // the fast path when nothing is pending and nothing is being published.
+    if (pendingCount_ == 0 && flushFuture_ == null) {
+      closed_ = true;
+      logEvent(EventType.finalize, null);
+      return Future.value();
+    }
+
+    final Completer<void> closing = Completer<void>();
+    closingFuture_ = closing;
+    closing_ = true;
+
+    flush().then((_) {
+      closing_ = false;
+      closingFuture_ = null;
+      closed_ = true;
+      closing.complete();
+      logEvent(EventType.finalize, null);
+    }).catchError((exception) {
+      // A failed final publish leaves the context open with its events
+      // queued, so close() can be retried (JS context.ts _finalize).
+      closing_ = false;
+      closingFuture_ = null;
+      closing.completeError(exception);
+    });
+
+    return closing.future;
   }
 
-  Future<void> flush() async {
+  Future<void> flush() {
     clearTimeout();
 
-    if (!failed_) {
-      if (pendingCount_ > 0) {
-        final List<Exposure> exposures = List.of(exposures_);
-        final List<GoalAchievement> achievements = List.of(achievements_);
-        final int eventCount = pendingCount_;
+    // One publish at a time: a second caller waits for the in-flight one and
+    // then flushes whatever was queued meanwhile (JS context.ts _flushPromise).
+    final Future<void>? inFlight = flushFuture_;
+    if (inFlight != null) {
+      return inFlight.then((_) => flush(), onError: (_) => flush());
+    }
 
-        List<Unit> units = [];
+    if (pendingCount_ == 0) {
+      return Future.value();
+    }
 
-        for (var entry in units_.entries) {
-          units.add(Unit(
-              type: entry.key,
-              uid: utf8.decode(getUnitHash(entry.key, entry.value))));
-        }
-
-        final PublishEvent event = PublishEvent(
-          hashed: true,
-          units: units,
-          publishedAt: clock_.millis(),
-          exposures: exposures,
-          goals: achievements,
-          attributes: attributes_.toList(),
-        );
-
-        final Completer<void> result = Completer<void>();
-
-        eventHandler_.publish(this, event).future.then((_) {
-          exposures_.removeRange(0, exposures.length);
-          achievements_.removeRange(0, achievements.length);
-          pendingCount_ -= eventCount;
-          logEvent(EventType.publish, event);
-          result.complete();
-        }).catchError((error) {
-          logError(error);
-          result.completeError(error);
-        });
-
-        return result.future;
-      }
-    } else {
+    if (failed_) {
+      logError(Exception(
+          "Discarding ${exposures_.length} exposures and ${achievements_.length} goals because context failed to initialize"));
       exposures_.clear();
       achievements_.clear();
       pendingCount_ = 0;
+      return Future.value();
     }
 
-    return Future.value();
+    // Snapshot and drain the queue before the async publish, so events
+    // queued while it is in flight are not resent and a failed batch can be
+    // put back in front of them.
+    final List<Exposure> exposures = List.of(exposures_);
+    final List<GoalAchievement> achievements = List.of(achievements_);
+    final int eventCount = pendingCount_;
+    exposures_.clear();
+    achievements_.clear();
+    pendingCount_ = 0;
+
+    final Completer<void> result = Completer<void>();
+
+    void restore(dynamic error) {
+      exposures_.insertAll(0, exposures);
+      achievements_.insertAll(0, achievements);
+      pendingCount_ += eventCount;
+      logError(error);
+      result.completeError(error);
+    }
+
+    try {
+      final List<Unit> units = [];
+      for (var entry in units_.entries) {
+        units.add(Unit(
+            type: entry.key,
+            uid: utf8.decode(getUnitHash(entry.key, entry.value))));
+      }
+
+      final PublishEvent event = PublishEvent(
+        hashed: true,
+        units: units,
+        publishedAt: clock_.millis(),
+        exposures: exposures,
+        goals: achievements,
+        attributes: attributes_.toList(),
+      );
+
+      eventHandler_.publish(this, event).future.then((_) {
+        result.complete();
+        logEvent(EventType.publish, event);
+      }, onError: restore);
+    } catch (error) {
+      restore(error);
+    }
+
+    final Future<void> future = result.future;
+    flushFuture_ = future;
+    future.then((_) {}, onError: (_) {}).whenComplete(() {
+      if (identical(flushFuture_, future)) {
+        flushFuture_ = null;
+      }
+    });
+    return future;
   }
 
   void checkNotClosed() {
@@ -581,20 +607,22 @@ class Context {
 
   bool audienceMatches(
       final Experiment experiment, final Assignment assignment) {
-    if (experiment.audience != null && experiment.audience!.isNotEmpty) {
-      if (attrsSeq_ > assignment.attrsSeq) {
+    if (attrsSeq_ > assignment.attrsSeq) {
+      if (experiment.audience != null && experiment.audience!.isNotEmpty) {
         final Map<String, dynamic> attrs = {};
         for (final Attribute attr in attributes_) {
           attrs[attr.name] = attr.value;
         }
         final Result? match =
             audienceMatcher_.evaluate(experiment.audience!, attrs);
-        final bool newAudienceMismatch = match != null ? !match.get() : false;
+        // An indeterminate (null) result keeps the cached flag.
+        final bool newAudienceMismatch =
+            match != null ? !match.get() : assignment.audienceMismatch;
         if (newAudienceMismatch != assignment.audienceMismatch) {
           return false;
         }
-        assignment.attrsSeq = attrsSeq_;
       }
+      assignment.attrsSeq = attrsSeq_;
     }
     return true;
   }
@@ -747,9 +775,12 @@ class Context {
   }
 
   void setTimeout() {
-    if (isReady()) {
+    // A negative publish delay disables the automatic publish.
+    if (isReady() && publishDelay_ >= 0) {
       timeout_ ??= Timer(Duration(milliseconds: publishDelay_), () {
-        flush();
+        // The failure is already reported through the event logger and the
+        // events stay queued for the next publish.
+        flush().catchError((_) {});
       });
     }
   }
@@ -762,10 +793,14 @@ class Context {
   }
 
   void setRefreshTimer() {
-    if ((refreshInterval_ > 0) && (refreshTimer_ == null)) {
+    if ((refreshInterval_ > 0) &&
+        (refreshTimer_ == null) &&
+        !closing_ &&
+        !closed_) {
       refreshTimer_ =
           Timer.periodic(Duration(milliseconds: refreshInterval_), (timer) {
-        refresh();
+        // Refresh failures are reported through the event logger.
+        refresh().catchError((_) {});
       });
     }
   }
@@ -846,12 +881,18 @@ class Context {
     failedError_ = exception;
   }
 
+  // A throwing event logger must not change control flow (JS context.ts
+  // _logEvent/_logError swallow observer exceptions).
   void logEvent(EventType event, dynamic data) {
-    eventLogger_?.handleEvent(this, event, data);
+    try {
+      eventLogger_?.handleEvent(this, event, data);
+    } catch (_) {}
   }
 
   void logError(error) {
-    eventLogger_?.handleEvent(this, EventType.error, error);
+    try {
+      eventLogger_?.handleEvent(this, EventType.error, error);
+    } catch (_) {}
   }
 
   late Clock clock_;
@@ -886,6 +927,7 @@ class Context {
   Completer<void>? readyFuture_;
   Completer<void>? closingFuture_;
   Completer<void>? refreshFuture_;
+  Future<void>? flushFuture_;
   Timer? timeout_;
   Timer? refreshTimer_;
 }

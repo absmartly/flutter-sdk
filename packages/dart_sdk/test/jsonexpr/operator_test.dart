@@ -178,6 +178,69 @@ void main() {
       expect(result, equals(true));
     });
 
+    test('evaluateExpr() binary operators short-circuit null operands', () {
+      for (final op in ['eq', 'gt', 'gte', 'lt', 'lte', 'match', 'in']) {
+        expect(
+            JsonExpr().evaluateExpr({
+              op: [
+                {"value": null},
+                {"value": null}
+              ]
+            }, {}),
+            isNull,
+            reason: '$op(null, null)');
+      }
+      // A list containing null does not match a null needle.
+      expect(
+          JsonExpr().evaluateExpr({
+            'in': [
+              {"var": "list"},
+              {"var": "missing"}
+            ]
+          }, <String, dynamic>{
+            'list': [null]
+          }),
+          isNull);
+      // Too few operands is null; extra operands are ignored.
+      expect(
+          JsonExpr().evaluateExpr({
+            'eq': [
+              {"value": 1}
+            ]
+          }, {}),
+          isNull);
+      expect(
+          JsonExpr().evaluateExpr({
+            'eq': [
+              {"value": 1},
+              {"value": 1},
+              {"value": 2}
+            ]
+          }, {}),
+          equals(true));
+    });
+
+    test('evaluateExpr() in operator converts a non-string needle', () {
+      dynamic inExpr(dynamic needle) => JsonExpr().evaluateExpr({
+            'in': [
+              {"value": "a1true"},
+              {"value": needle}
+            ]
+          }, {});
+      expect(inExpr(1), equals(true));
+      expect(inExpr(true), equals(true));
+      expect(inExpr(2), equals(false));
+      expect(inExpr(false), equals(false));
+      expect(
+          JsonExpr().evaluateExpr({
+            'in': [
+              {"value": 5},
+              {"value": 5}
+            ]
+          }, {}),
+          isNull);
+    });
+
     test('evaluateExpr() test null operator', () {
       final expr = {
         'null': null,
@@ -332,7 +395,7 @@ void main() {
 
       when(evaluator.evaluate(null)).thenReturn(null);
       expect(operator.evaluate(evaluator, [null, null]), equals(null));
-      verify(evaluator.evaluate(null)).called(2);
+      verify(evaluator.evaluate(null)).called(1);
 
       clearInteractions(evaluator);
 
@@ -411,7 +474,7 @@ void main() {
 
       when(evaluator.evaluate(null)).thenReturn(null);
       expect(operator.evaluate(evaluator, [null, null]), equals(null));
-      verify(evaluator.evaluate(null)).called(2);
+      verify(evaluator.evaluate(null)).called(1);
     });
   });
 
@@ -454,7 +517,7 @@ void main() {
 
       when(evaluator.evaluate(null)).thenReturn(null);
       expect(operator.evaluate(evaluator, [null, null]), equals(null));
-      verify(evaluator.evaluate(null)).called(2);
+      verify(evaluator.evaluate(null)).called(1);
     });
   });
 
@@ -471,6 +534,9 @@ void main() {
     });
 
     test('testString', () {
+      when(evaluator.stringConvert(any))
+          .thenAnswer((invocation) => invocation.positionalArguments[0]);
+
       expect(
           operator.evaluate(evaluator, ["abcdefghijk", "abc"]), equals(true));
       expect(
@@ -483,11 +549,14 @@ void main() {
       expect(operator.evaluate(evaluator, [null, "abc"]), equals(null));
 
       verify(evaluator.evaluate("abcdefghijk")).called(4);
-      verify(evaluator.evaluate("abc")).called(2);
+      verify(evaluator.evaluate("abc")).called(1);
       verify(evaluator.evaluate("def")).called(1);
       verify(evaluator.evaluate("xxx")).called(1);
 
-      verifyNever(evaluator.stringConvert(any));
+      verify(evaluator.stringConvert("abc")).called(1);
+      verify(evaluator.stringConvert("def")).called(1);
+      verify(evaluator.stringConvert("xxx")).called(1);
+      verifyNever(evaluator.stringConvert(null));
     });
 
     test('testArrayEmpty', () {
@@ -497,7 +566,7 @@ void main() {
       expect(operator.evaluate(evaluator, [[], false]), equals(false));
 
       when(evaluator.evaluate(null)).thenReturn(null);
-      expect(operator.evaluate(evaluator, [[], null]), equals(false));
+      expect(operator.evaluate(evaluator, [[], null]), equals(null));
 
       verifyNever(evaluator.booleanConvert(any));
       verifyNever(evaluator.numberConvert(any));
@@ -629,7 +698,7 @@ void main() {
 
       when(evaluator.evaluate(null)).thenReturn(null);
       expect(operator.evaluate(evaluator, [null, null]), equals(null));
-      verify(evaluator.evaluate(null)).called(2);
+      verify(evaluator.evaluate(null)).called(1);
     });
   });
 
@@ -672,7 +741,7 @@ void main() {
 
       when(evaluator.evaluate(null)).thenReturn(null);
       expect(operator.evaluate(evaluator, [null, null]), equals(null));
-      verify(evaluator.evaluate(null)).called(2);
+      verify(evaluator.evaluate(null)).called(1);
     });
   });
 

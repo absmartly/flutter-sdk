@@ -344,4 +344,23 @@ void main() {
     expect(evaluator.compare("9", "100"), equals(1));
     expect(evaluator.compare("100", "9"), equals(-1));
   });
+
+  test('testCompareDeepNestedCollections', () {
+    final evaluator = ExprEvaluator({}, {});
+
+    expect(
+        evaluator.compare(<dynamic>[1, <dynamic>[2, 3], 4], <dynamic>[1, <dynamic>[2, 3], 4]),
+        equals(0));
+    expect(
+        evaluator.compare(<String, dynamic>{
+          'a': <String, dynamic>{'x': 1},
+          'b': <dynamic>[1, 2]
+        }, <String, dynamic>{
+          'b': <dynamic>[1, 2],
+          'a': <String, dynamic>{'x': 1}
+        }),
+        equals(0));
+    expect(evaluator.compare(<dynamic>[1, 2], <int>[1, 2]), equals(0));
+    expect(evaluator.compare(<dynamic>[1, <dynamic>[2, 3]], <dynamic>[1, <dynamic>[3, 2]]), isNull);
+  });
 }

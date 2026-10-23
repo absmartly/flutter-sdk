@@ -441,4 +441,71 @@ void main() {
       expect(variant.variantIndex, equals(0));
     });
   });
+
+  group('finalized context', () {
+    testWidgets('widgets render control/default instead of throwing',
+        (tester) async {
+      final clientConfig = ClientConfig()
+        ..setEndpoint('https://test.absmartly.io/v1')
+        ..setAPIKey('test-api-key')
+        ..setApplication('test-app')
+        ..setEnvironment('development');
+
+      final client = Client.create(clientConfig);
+      final sdk = ABSmartly(ABSmartlyConfig.create()..setClient(client));
+
+      final context = sdk.createContextWith(
+          ContextConfig.create()..setUnit('user_id', '12345'), ContextData());
+      await tester.runAsync(() => context.close());
+      expect(context.isFinalized(), isTrue);
+      expect(() => context.getTreatment('test_experiment'), throwsException);
+
+      await tester.pumpWidget(
+        ABSmartlyProvider(
+          sdk: sdk,
+          context: context,
+          child: Column(
+            textDirection: TextDirection.ltr,
+            children: [
+              Treatment(
+                name: 'test_experiment',
+                variants: {
+                  0: const Text('T-Control', textDirection: TextDirection.ltr),
+                  1: const Text('T-Variant', textDirection: TextDirection.ltr),
+                },
+              ),
+              TreatmentSwitch(
+                name: 'test_experiment',
+                children: [
+                  TreatmentVariant(
+                      variant: 0,
+                      child: const Text('S-Control',
+                          textDirection: TextDirection.ltr)),
+                ],
+              ),
+              TreatmentBuilder(
+                name: 'test_experiment',
+                builder: (context, variant, variables) => Text(
+                    'B-$variant-${variables.length}',
+                    textDirection: TextDirection.ltr),
+              ),
+              VariableValue<String>(
+                name: 'button.text',
+                defaultValue: 'V-Default',
+                builder: (value) =>
+                    Text(value, textDirection: TextDirection.ltr),
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('T-Control'), findsOneWidget);
+      expect(find.text('S-Control'), findsOneWidget);
+      expect(find.text('B-0-0'), findsOneWidget);
+      expect(find.text('V-Default'), findsOneWidget);
+    });
+  });
 }

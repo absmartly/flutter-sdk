@@ -1,6 +1,6 @@
 name: absmartly_dart
 description: ABsmartly A/B Testing SDK for Dart - Pure Dart implementation with no Flutter dependencies
-version: 2.1.2
+version: 2.2.0
 homepage: https://github.com/absmartly/flutter-sdk
 repository: https://github.com/absmartly/flutter-sdk/tree/main/packages/dart_sdk
 
