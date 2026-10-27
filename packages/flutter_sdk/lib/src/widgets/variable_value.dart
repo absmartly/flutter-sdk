@@ -125,12 +125,10 @@ class _VariableValueState<T> extends State<VariableValue<T>> {
     });
   }
 
-  // Reads throw once the context is finalized; a widget still bound to such
-  // a context renders the default value instead of failing the build.
+  // A failed context still goes through the SDK, which returns the default
+  // value. Reads throw once the context is finalized; a widget still bound to
+  // such a context renders the default value instead of failing the build.
   T _readValue(Context ctx) {
-    if (ctx.isFailed()) {
-      return widget.defaultValue;
-    }
     try {
       final result = ctx.getVariableValue(widget.name, widget.defaultValue);
       return result is T ? result : widget.defaultValue;

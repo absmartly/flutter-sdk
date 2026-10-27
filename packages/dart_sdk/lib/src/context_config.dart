@@ -4,7 +4,7 @@ class ContextConfig {
   ContextConfig();
 
   static ContextConfig create({
-    Map<String, String>? units,
+    Map<String, Object>? units,
     Map<String, dynamic>? attributes,
     Map<String, int>? overrides,
     Map<String, int>? customAssignments,
@@ -26,21 +26,21 @@ class ContextConfig {
     return config;
   }
 
-  ContextConfig setUnit(final String unitType, final String uid) {
+  ContextConfig setUnit(final String unitType, final Object uid) {
     units_[unitType] = uid;
     return this;
   }
 
-  ContextConfig setUnits(final Map<String, String> units) {
+  ContextConfig setUnits(final Map<String, Object> units) {
     for (final entry in units.entries) {
       setUnit(entry.key, entry.value);
     }
     return this;
   }
 
-  String? getUnit(final String unitType) => units_[unitType];
+  Object? getUnit(final String unitType) => units_[unitType];
 
-  Map<String, String> getUnits() => units_;
+  Map<String, Object> getUnits() => units_;
 
   ContextConfig setAttribute(final String name, final Object value) {
     attributes_[name] = value;
@@ -107,7 +107,7 @@ class ContextConfig {
 
   int getRefreshInterval() => refreshInterval;
 
-  Map<String, String> units_ = {};
+  Map<String, Object> units_ = {};
   Map<String, dynamic> attributes_ = {};
   Map<String, int> overrides_ = {};
   Map<String, int> customAssignments_ = {};

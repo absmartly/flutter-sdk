@@ -7,6 +7,16 @@ abstract class Hashing {
   static Uint8List threadBuffer =
       Uint8List.fromList(List.generate(512, (index) => 0));
 
+  /// Hashes a unit UID. A number is first written with no decimals, rounded
+  /// like JavaScript's toFixed(0) (JS utils.ts hashUnit), so 125.75 hashes
+  /// as "126".
+  static Uint8List hashUnitValue(Object unit) {
+    if (unit is num) {
+      return hashUnit(unit.toStringAsFixed(0));
+    }
+    return hashUnit(unit as String);
+  }
+
   static Uint8List hashUnit(String unit) {
     final int n = unit.length;
     // Up to 4 UTF-8 bytes per UTF-16 code unit (3-byte BMP chars, and 4-byte

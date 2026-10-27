@@ -187,9 +187,6 @@ class _TreatmentSwitchState extends State<TreatmentSwitch> {
   // Reads throw once the context is finalized; a widget still bound to such
   // a context renders the control instead of failing the build.
   int _readVariant(Context ctx) {
-    if (ctx.isFailed()) {
-      return 0;
-    }
     try {
       return ctx.getTreatment(widget.name);
     } catch (error) {

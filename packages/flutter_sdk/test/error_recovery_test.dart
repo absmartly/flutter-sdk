@@ -23,7 +23,7 @@ void main() {
     group('2.1 Recovery From Network Timeout', () {
       testWidgets('Treatment shows control when context fails to load',
           (tester) async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);
 
@@ -49,7 +49,7 @@ void main() {
 
       testWidgets('TreatmentBuilder returns variant 0 when context fails',
           (tester) async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);
 
@@ -77,7 +77,7 @@ void main() {
 
       testWidgets('VariableValue returns default value when context fails',
           (tester) async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);
 
@@ -101,7 +101,7 @@ void main() {
       testWidgets(
           'timeout fallback shows control after readyTimeout in placeholder mode',
           (tester) async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);
 
@@ -131,7 +131,7 @@ void main() {
     group('2.2 Recovery From Partial Data', () {
       testWidgets('handles missing experiment in variants map gracefully',
           (tester) async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);
 
@@ -157,7 +157,7 @@ void main() {
       testWidgets(
           'TreatmentSwitch shows SizedBox.shrink when no control variant exists',
           (tester) async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);
 
@@ -190,7 +190,7 @@ void main() {
       });
 
       testWidgets('handles empty variants map', (tester) async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);
 
@@ -212,7 +212,7 @@ void main() {
 
       testWidgets('TreatmentSwitch handles empty children list',
           (tester) async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);
 
@@ -236,7 +236,7 @@ void main() {
     group('2.3 Graceful Degradation No Network', () {
       testWidgets('app continues to function with failed context',
           (tester) async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);
 
@@ -274,7 +274,7 @@ void main() {
       });
 
       testWidgets('isFailed reflects context state', (tester) async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);
 
@@ -299,7 +299,7 @@ void main() {
 
       testWidgets('widgets remain interactive even with failed context',
           (tester) async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);
 
@@ -334,7 +334,7 @@ void main() {
     group('2.4 Retry Mechanism Verification', () {
       testWidgets('context waitUntilReady can be called multiple times',
           (tester) async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);
 
@@ -363,7 +363,7 @@ void main() {
       });
 
       testWidgets('resetContext function is available', (tester) async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);
 
@@ -389,7 +389,7 @@ void main() {
 
       testWidgets('multiple widgets recover independently from errors',
           (tester) async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);
 
@@ -446,7 +446,7 @@ void main() {
     group('Additional Error Recovery Tests', () {
       testWidgets('handles rapid widget updates during loading',
           (tester) async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final context = sdk.createContext(contextConfig);
 
@@ -472,7 +472,7 @@ void main() {
 
       testWidgets('widget tree remains stable after context changes',
           (tester) async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final context1 = sdk.createContext(contextConfig);
 

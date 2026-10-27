@@ -20,7 +20,7 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create()..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
       context = sdk.createContext(contextConfig);
     });
 
@@ -677,7 +677,7 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create()..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
       context = sdk.createContext(contextConfig);
     });
 
@@ -773,7 +773,7 @@ void main() {
     });
 
     testWidgets('widgets handle context passed directly', (tester) async {
-      final contextConfig2 = ContextConfig.create()
+      final contextConfig2 = ContextConfig.create(publishDelay: -1)
         ..setUnit('user_id', '67890');
       final context2 = sdk.createContext(contextConfig2);
 

@@ -20,13 +20,13 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create()..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
       context = sdk.createContext(contextConfig);
     });
 
     group('4.1 Large Context Data Handling', () {
       test('handles context with many units', () {
-        final contextConfig = ContextConfig.create();
+        final contextConfig = ContextConfig.create(publishDelay: -1);
         for (int i = 0; i < 100; i++) {
           contextConfig.setUnit('unit_$i', 'value_$i');
         }
@@ -36,7 +36,7 @@ void main() {
       });
 
       test('handles context with many attributes', () {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
 
         final attributes = <String, dynamic>{};
@@ -50,7 +50,7 @@ void main() {
       });
 
       test('handles context with many overrides', () {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
 
         final overrides = <String, int>{};
@@ -68,7 +68,7 @@ void main() {
       });
 
       test('handles context with many custom assignments', () {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
 
         final customAssignments = <String, int>{};
@@ -119,7 +119,7 @@ void main() {
 
     group('4.2 Cache and Memory Efficiency', () {
       test('context config reuses attribute map', () {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345')
           ..setAttribute('key1', 'value1')
           ..setAttribute('key2', 'value2')
@@ -133,7 +133,7 @@ void main() {
       });
 
       test('context config reuses units map', () {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345')
           ..setUnit('session_id', 'session123')
           ..setUnit('device_id', 'device456');
@@ -175,7 +175,7 @@ void main() {
       test('creating multiple contexts does not cause memory issues', () {
         final contexts = <Context>[];
         for (int i = 0; i < 50; i++) {
-          final contextConfig = ContextConfig.create()
+          final contextConfig = ContextConfig.create(publishDelay: -1)
             ..setUnit('user_id', 'user_$i')
             ..setAttributes({'iteration': i});
           contexts.add(sdk.createContext(contextConfig));
@@ -315,7 +315,7 @@ void main() {
                       key: const Key('switch_button'),
                       onTap: () {
                         setState(() {
-                          final newConfig = ContextConfig.create()
+                          final newConfig = ContextConfig.create(publishDelay: -1)
                             ..setUnit('user_id',
                                 'user_${DateTime.now().millisecondsSinceEpoch}');
                           currentContext = sdk.createContext(newConfig);
@@ -433,7 +433,7 @@ void main() {
         final stopwatch = Stopwatch()..start();
 
         for (int i = 0; i < 100; i++) {
-          final contextConfig = ContextConfig.create()
+          final contextConfig = ContextConfig.create(publishDelay: -1)
             ..setUnit('user_id', 'user_$i');
           sdk.createContext(contextConfig);
         }
@@ -443,7 +443,7 @@ void main() {
       });
 
       test('attribute setting is fast', () {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
 
         final stopwatch = Stopwatch()..start();
@@ -457,7 +457,7 @@ void main() {
       });
 
       test('override setting is fast', () {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
 
         final stopwatch = Stopwatch()..start();

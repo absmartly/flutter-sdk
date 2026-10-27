@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:absmartly_dart/src/internal/hashing/hashing.dart';
 import 'package:absmartly_dart/src/audience_matcher.dart';
 import 'package:absmartly_dart/src/context.dart';
 import 'package:absmartly_dart/src/context_config.dart';
@@ -1001,6 +1002,66 @@ void main() {
       await context.publish();
 
       verify(eventHandler.publish(any, any)).called(1);
+    });
+
+    test('trackKeepsNullProperties', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      final captured = <dynamic>[];
+      when(eventLogger.handleEvent(any, EventType.goal, any))
+          .thenAnswer((inv) => captured.add(inv.positionalArguments[2]));
+      when(eventHandler.publish(any, any)).thenAnswer((inv) {
+        captured.add(inv.positionalArguments[1]);
+        return createCompleteVoidCompleter();
+      });
+
+      context.track('goal_null', null);
+      final props = {'amount': 1};
+      context.track('goal_props', props);
+      props['amount'] = 2;
+
+      final GoalAchievement first = captured[0];
+      final GoalAchievement second = captured[1];
+      expect(first.properties, isNull);
+      expect(first.toMap()['properties'], isNull);
+      expect(second.properties, equals({'amount': 1}));
+
+      await context.publish();
+      final PublishEvent event = captured[2];
+      expect(event.goals[0].toMap()['properties'], isNull);
+    });
+
+    test('unitsKeepTheirType', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.setUnit('int_id', 125);
+      context.setUnit('float_id', 125.75);
+      context.setUnit('text_id', ' 007 ');
+
+      expect(context.getUnit('int_id'), equals(125));
+      expect(context.getUnit('int_id'), isA<int>());
+      expect(context.getUnit('float_id'), equals(125.75));
+      expect(context.getUnit('text_id'), equals('007'));
+      expect(context.getUnits()['int_id'], isA<int>());
+
+      expect(() => context.setUnit('int_id', '125'),
+          throwsA(predicate((e) =>
+              e.toString().contains("Unit 'int_id' UID already set."))));
+      context.setUnit('int_id', 125);
+
+      expect(() => context.setUnit('bad', true),
+          throwsA(predicate((e) => e.toString().contains(
+              "Unit 'bad' must be a string or a number."))));
+    });
+
+    test('numericUnitHashesLikeJavaScript', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+      context.setUnit('float_id', 125.75);
+      expect(String.fromCharCodes(context.getUnitHash('float_id', 125.75)),
+          equals(String.fromCharCodes(Hashing.hashUnit('126'))));
     });
 
     test('trackQueuesWhenNotReady', () {
@@ -2369,7 +2430,7 @@ void main() {
       expect(event.goals[0].properties, equals(properties));
     });
 
-    test('trackWithNullPropertiesUsesEmptyMap', () async {
+    test('trackWithNullPropertiesPublishesNull', () async {
       when(eventHandler.publish(any, any))
           .thenAnswer((_) => createCompleteVoidCompleter());
 
@@ -2383,7 +2444,7 @@ void main() {
       final captured =
           verify(eventHandler.publish(context, captureAny)).captured;
       final event = captured.first as PublishEvent;
-      expect(event.goals[0].properties, equals({}));
+      expect(event.goals[0].properties, isNull);
     });
 
     test('readyErrorReturnsNullOnSuccess', () async {

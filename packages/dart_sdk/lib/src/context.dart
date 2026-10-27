@@ -165,31 +165,41 @@ class Context {
     }
   }
 
-  String? getUnit(final String unitType) {
+  /// Returns the UID as it was set: a [String] or a [num].
+  Object? getUnit(final String unitType) {
     return units_[unitType];
   }
 
-  void setUnit(final String unitType, final String uid) {
+  /// Sets the UID of [unitType]. [uid] must be a [String] or a [num]; a
+  /// number keeps its type (JS context.ts unit()).
+  void setUnit(final String unitType, final Object uid) {
     checkNotClosed();
 
-    final String? previous = units_[unitType];
-    if ((previous != null) && !(previous == uid)) {
+    Object value;
+    if (uid is String) {
+      value = uid.trim();
+      if ((value as String).isEmpty) {
+        throw Exception("Unit '$unitType' UID must not be blank.");
+      }
+    } else if (uid is num) {
+      value = uid;
+    } else {
+      throw Exception("Unit '$unitType' must be a string or a number.");
+    }
+
+    final Object? previous = units_[unitType];
+    if ((previous != null) && !(previous == value)) {
       throw Exception("Unit '$unitType' UID already set.");
     }
 
-    final String trimmed = uid.trim();
-    if (trimmed.isEmpty) {
-      throw Exception("Unit '$unitType' UID must not be blank.");
-    }
-
-    units_[unitType] = trimmed;
+    units_[unitType] = value;
   }
 
-  Map<String, String> getUnits() {
+  Map<String, Object> getUnits() {
     return Map.unmodifiable(units_);
   }
 
-  void setUnits(Map<String, String> units) {
+  void setUnits(Map<String, Object> units) {
     for (final entry in units.entries) {
       setUnit(entry.key, entry.value);
     }
@@ -401,7 +411,7 @@ class Context {
     final GoalAchievement achievement = GoalAchievement(
       name: goalName,
       achievedAt: clock_.millis(),
-      properties: properties ?? {},
+      properties: properties == null ? null : Map.of(properties),
     );
 
     pendingCount_++;
@@ -687,7 +697,7 @@ class Context {
         if (experiment.data.audienceStrict && assignment.audienceMismatch) {
           assignment.variant = 0;
         } else if (experiment.data.fullOnVariant == 0) {
-          final String? uid = units_[experiment.data.unitType];
+          final Object? uid = units_[experiment.data.unitType];
           if (uid != null) {
             final Uint8List unitHash = getUnitHash(unitType, uid);
 
@@ -763,9 +773,9 @@ class Context {
     return indexVariables_[key];
   }
 
-  Uint8List getUnitHash(final String unitType, final String unitUID) {
+  Uint8List getUnitHash(final String unitType, final Object unitUID) {
     return hashedUnits_[unitType] ??
-        (hashedUnits_[unitType] = Hashing.hashUnit(unitUID));
+        (hashedUnits_[unitType] = Hashing.hashUnitValue(unitUID));
   }
 
   VariantAssigner getVariantAssigner(
@@ -903,7 +913,7 @@ class Context {
   late VariableParser variableParser_;
   late AudienceMatcher audienceMatcher_;
   late ContextEventLogger? eventLogger_;
-  final Map<String, String> units_ = {};
+  final Map<String, Object> units_ = {};
   bool failed_ = false;
   dynamic failedError_;
   ContextData? data_;

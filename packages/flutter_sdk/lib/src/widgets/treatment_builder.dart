@@ -146,15 +146,6 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
   }
 
   void _updateTreatment(Context ctx) {
-    if (ctx.isFailed()) {
-      setState(() {
-        _isReady = true;
-        _variant = 0;
-        _variables = {};
-      });
-      return;
-    }
-
     // Reads throw once the context is finalized; a widget still bound to such
     // a context renders the control instead of failing the build.
     int variant = 0;

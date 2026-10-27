@@ -20,39 +20,39 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create()..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
       context = sdk.createContext(contextConfig);
     });
 
     group('3.1 Dart VM Behavior', () {
       test('ContextConfig handles null values correctly', () {
-        final config = ContextConfig.create();
+        final config = ContextConfig.create(publishDelay: -1);
         expect(config.getUnit('nonexistent'), isNull);
         expect(config.getOverride('nonexistent'), isNull);
         expect(config.getCustomAssignment('nonexistent'), isNull);
       });
 
       test('ContextConfig setUnits with empty map', () {
-        final config = ContextConfig.create()..setUnits({});
+        final config = ContextConfig.create(publishDelay: -1)..setUnits({});
         expect(config.getUnits().isEmpty, isTrue);
       });
 
       test('ContextConfig setUnits with special characters', () {
-        final config = ContextConfig.create()
+        final config = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', 'id-with-special-chars!@#\$%^&*()');
         expect(config.getUnit('user_id'),
             equals('id-with-special-chars!@#\$%^&*()'));
       });
 
       test('ContextConfig setUnits with unicode characters', () {
-        final config = ContextConfig.create()
+        final config = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', 'user-\u4e2d\u6587-\u0391\u0392\u0393');
         expect(config.getUnit('user_id'),
             equals('user-\u4e2d\u6587-\u0391\u0392\u0393'));
       });
 
       test('ContextConfig setAttributes with various types', () {
-        final config = ContextConfig.create()
+        final config = ContextConfig.create(publishDelay: -1)
           ..setAttributes({
             'string_attr': 'value',
             'int_attr': 42,
@@ -89,11 +89,11 @@ void main() {
 
       test('multiple contexts can be created from same SDK', () {
         final context1 = sdk
-            .createContext(ContextConfig.create()..setUnit('user_id', 'user1'));
+            .createContext(ContextConfig.create(publishDelay: -1)..setUnit('user_id', 'user1'));
         final context2 = sdk
-            .createContext(ContextConfig.create()..setUnit('user_id', 'user2'));
+            .createContext(ContextConfig.create(publishDelay: -1)..setUnit('user_id', 'user2'));
         final context3 = sdk
-            .createContext(ContextConfig.create()..setUnit('user_id', 'user3'));
+            .createContext(ContextConfig.create(publishDelay: -1)..setUnit('user_id', 'user3'));
 
         expect(context1, isNotNull);
         expect(context2, isNotNull);
@@ -227,7 +227,7 @@ void main() {
       test(
           'context waitUntilReady returns same future when called multiple times',
           () async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final testContext = sdk.createContext(contextConfig);
 
@@ -385,9 +385,9 @@ void main() {
         final testSdk2 = ABSmartly(sdkConfig2);
 
         final context1 = testSdk1.createContext(
-            ContextConfig.create()..setUnit('user_id', 'shared_user'));
+            ContextConfig.create(publishDelay: -1)..setUnit('user_id', 'shared_user'));
         final context2 = testSdk2.createContext(
-            ContextConfig.create()..setUnit('user_id', 'shared_user'));
+            ContextConfig.create(publishDelay: -1)..setUnit('user_id', 'shared_user'));
 
         expect(context1, isNot(equals(context2)));
       });
@@ -395,7 +395,7 @@ void main() {
       testWidgets('concurrent widget operations are safe', (tester) async {
         final contexts = <Context>[];
         for (int i = 0; i < 5; i++) {
-          final contextConfig = ContextConfig.create()
+          final contextConfig = ContextConfig.create(publishDelay: -1)
             ..setUnit('user_id', 'user_$i');
           contexts.add(sdk.createContext(contextConfig));
         }
@@ -475,7 +475,7 @@ void main() {
 
     group('Edge Case Boundary Tests', () {
       test('handles very long experiment names', () async {
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', '12345');
         final testContext = sdk.createContextWith(contextConfig, ContextData());
         await testContext.waitUntilReady();
@@ -486,7 +486,7 @@ void main() {
 
       test('handles very long unit values', () {
         final longValue = 'v' * 10000;
-        final contextConfig = ContextConfig.create()
+        final contextConfig = ContextConfig.create(publishDelay: -1)
           ..setUnit('user_id', longValue);
         final testContext = sdk.createContext(contextConfig);
 
@@ -548,17 +548,17 @@ void main() {
       });
 
       test('ContextConfig handles negative override values', () {
-        final config = ContextConfig.create()..setOverride('experiment', -1);
+        final config = ContextConfig.create(publishDelay: -1)..setOverride('experiment', -1);
         expect(config.getOverride('experiment'), equals(-1));
       });
 
       test('ContextConfig handles zero override values', () {
-        final config = ContextConfig.create()..setOverride('experiment', 0);
+        final config = ContextConfig.create(publishDelay: -1)..setOverride('experiment', 0);
         expect(config.getOverride('experiment'), equals(0));
       });
 
       test('ContextConfig handles large override values', () {
-        final config = ContextConfig.create()
+        final config = ContextConfig.create(publishDelay: -1)
           ..setOverride('experiment', 2147483647);
         expect(config.getOverride('experiment'), equals(2147483647));
       });
