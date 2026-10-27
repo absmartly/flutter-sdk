@@ -1046,14 +1046,17 @@ void main() {
       expect(context.getUnit('text_id'), equals('007'));
       expect(context.getUnits()['int_id'], isA<int>());
 
-      expect(() => context.setUnit('int_id', '125'),
-          throwsA(predicate((e) =>
-              e.toString().contains("Unit 'int_id' UID already set."))));
+      expect(
+          () => context.setUnit('int_id', '125'),
+          throwsA(predicate(
+              (e) => e.toString().contains("Unit 'int_id' UID already set."))));
       context.setUnit('int_id', 125);
 
-      expect(() => context.setUnit('bad', true),
-          throwsA(predicate((e) => e.toString().contains(
-              "Unit 'bad' must be a string or a number."))));
+      expect(
+          () => context.setUnit('bad', true),
+          throwsA(predicate((e) => e
+              .toString()
+              .contains("Unit 'bad' must be a string or a number."))));
     });
 
     test('numericUnitHashesLikeJavaScript', () async {
@@ -1825,6 +1828,56 @@ void main() {
       expect(() => context.refresh(), throwsA(isA<Exception>()));
 
       verify(dataProvider.getContextData()).called(1);
+    });
+
+    test('refreshFailsAndCanRetryWhenApplyingDataThrows', () async {
+      final failure = Exception('parser failed');
+      final throwingContext = Context.create(
+          clock,
+          ContextConfig.create()..setUnits(units),
+          dataFutureReady,
+          dataProvider,
+          eventHandler,
+          DefaultVariableParser(),
+          audienceMatcher,
+          eventLogger);
+      await throwingContext.waitUntilReady();
+      throwingContext.variableParser_ = _ThrowingVariableParser(failure);
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => refreshDataFutureReady);
+
+      await expectLater(throwingContext.refresh(), throwsA(same(failure)))
+          .timeout(const Duration(seconds: 2));
+      verify(eventLogger.handleEvent(throwingContext, EventType.error, failure))
+          .called(1);
+
+      throwingContext.variableParser_ = DefaultVariableParser();
+      await throwingContext.refresh().timeout(const Duration(seconds: 2));
+      expect(throwingContext.getExperiments(),
+          equals(refreshData.experiments.map((e) => e.name).toList()));
+    });
+
+    test('restoresRefreshTimerWhenCloseFails', () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setRefreshInterval(50);
+      final context = createContext(config, dataFutureReady);
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 125});
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+      expect(context.isClosed(), isFalse);
+
+      final refreshed = Completer<void>();
+      when(dataProvider.getContextData()).thenAnswer((_) {
+        if (!refreshed.isCompleted) refreshed.complete();
+        return refreshDataFutureReady;
+      });
+      await refreshed.future.timeout(const Duration(seconds: 2));
+      verify(dataProvider.getContextData()).called(greaterThan(0));
     });
 
     test('refreshKeepsAssignmentCacheWhenNotChanged', () async {
@@ -2827,5 +2880,16 @@ class _ThrowingEventLogger implements ContextEventLogger {
   @override
   void handleEvent(Context context, EventType type, dynamic data) {
     throw Exception('logger failure');
+  }
+}
+
+class _ThrowingVariableParser implements VariableParser {
+  _ThrowingVariableParser(this.error);
+  final Exception error;
+
+  @override
+  Map<String, dynamic>? parse(Context context, String experimentName,
+      String variantName, String variableValue) {
+    throw error;
   }
 }

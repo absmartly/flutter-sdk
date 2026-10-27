@@ -84,7 +84,6 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (widget.context != null) return;
-    // Subscribe to provider changes so a replaced context is picked up.
     final providerContext = ABSmartlyProvider.maybeOf(context)?.context;
     if (providerContext != null &&
         _boundContext != null &&
@@ -153,12 +152,7 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
     try {
       variant = ctx.getTreatment(widget.name);
 
-      final variableKeys = ctx.getVariableKeys();
-      for (final entry in variableKeys.entries) {
-        if (entry.value.contains(widget.name)) {
-          variables[entry.key] = ctx.peekVariableValue(entry.key, null);
-        }
-      }
+      variables.addAll(ctx.getAssignment(widget.name).variables);
     } catch (error) {
       assert(() {
         debugPrint(

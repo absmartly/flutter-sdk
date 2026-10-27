@@ -119,7 +119,6 @@ class _TreatmentSwitchState extends State<TreatmentSwitch> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (widget.context != null) return;
-    // Subscribe to provider changes so a replaced context is picked up.
     final providerContext = ABSmartlyProvider.maybeOf(context)?.context;
     if (providerContext != null &&
         _boundContext != null &&

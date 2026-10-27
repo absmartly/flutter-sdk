@@ -1,4 +1,5 @@
 import 'package:absmartly_dart/absmartly_dart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../inherited_absmartly.dart';
@@ -55,7 +56,6 @@ class ABSmartlyProvider extends StatefulWidget {
   /// The widget tree below this provider
   final Widget child;
 
-  // Private fields for .create() factory
   final String? _endpoint;
   final String? _apiKey;
   final String? _environment;
@@ -98,7 +98,7 @@ class _ABSmartlyProviderState extends State<ABSmartlyProvider> {
         oldWidget._apiKey != widget._apiKey ||
         oldWidget._environment != widget._environment ||
         oldWidget._application != widget._application ||
-        !_sameUnits(oldWidget._units, widget._units);
+        !mapEquals(oldWidget._units, widget._units);
     if (sourceChanged) {
       if (_isInternallyCreated) {
         _context.close();
@@ -109,15 +109,6 @@ class _ABSmartlyProviderState extends State<ABSmartlyProvider> {
         oldWidget.readyTimeout != widget.readyTimeout) {
       _updateData();
     }
-  }
-
-  static bool _sameUnits(Map<String, String>? a, Map<String, String>? b) {
-    if (identical(a, b)) return true;
-    if (a == null || b == null || a.length != b.length) return false;
-    for (final e in a.entries) {
-      if (b[e.key] != e.value) return false;
-    }
-    return true;
   }
 
   void _initializeSDK() {
@@ -163,7 +154,13 @@ class _ABSmartlyProviderState extends State<ABSmartlyProvider> {
       return;
     }
 
-    await _context.close();
+    final sdk = _sdk;
+    final source = _context;
+    await source.close();
+
+    if (!mounted || !identical(_context, source) || !identical(_sdk, sdk)) {
+      return;
+    }
 
     final contextConfig = ContextConfig.create(units: units);
 

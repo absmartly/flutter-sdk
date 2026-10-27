@@ -20,7 +20,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       context = sdk.createContext(contextConfig);
     });
 
@@ -677,7 +678,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       context = sdk.createContext(contextConfig);
     });
 

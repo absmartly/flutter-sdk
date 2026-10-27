@@ -20,7 +20,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       context = sdk.createContext(contextConfig);
     });
 
@@ -315,7 +316,8 @@ void main() {
                       key: const Key('switch_button'),
                       onTap: () {
                         setState(() {
-                          final newConfig = ContextConfig.create(publishDelay: -1)
+                          final newConfig = ContextConfig.create(
+                              publishDelay: -1)
                             ..setUnit('user_id',
                                 'user_${DateTime.now().millisecondsSinceEpoch}');
                           currentContext = sdk.createContext(newConfig);

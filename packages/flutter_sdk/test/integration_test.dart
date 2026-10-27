@@ -20,7 +20,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       context = sdk.createContext(contextConfig);
     });
 
@@ -256,9 +257,11 @@ void main() {
     group('5.2 Multiple Contexts', () {
       testWidgets('handles multiple independent contexts', (tester) async {
         final userContext = sdk.createContext(
-            ContextConfig.create(publishDelay: -1)..setUnit('user_id', 'user_123'));
+            ContextConfig.create(publishDelay: -1)
+              ..setUnit('user_id', 'user_123'));
         final sessionContext = sdk.createContext(
-            ContextConfig.create(publishDelay: -1)..setUnit('session_id', 'session_456'));
+            ContextConfig.create(publishDelay: -1)
+              ..setUnit('session_id', 'session_456'));
 
         await tester.pumpWidget(
           Column(
@@ -298,9 +301,11 @@ void main() {
 
       testWidgets('nested providers override parent context', (tester) async {
         final parentContext = sdk.createContext(
-            ContextConfig.create(publishDelay: -1)..setUnit('user_id', 'parent_user'));
+            ContextConfig.create(publishDelay: -1)
+              ..setUnit('user_id', 'parent_user'));
         final childContext = sdk.createContext(
-            ContextConfig.create(publishDelay: -1)..setUnit('user_id', 'child_user'));
+            ContextConfig.create(publishDelay: -1)
+              ..setUnit('user_id', 'child_user'));
 
         String? parentContextUser;
         String? childContextUser;
@@ -381,8 +386,9 @@ void main() {
                       key: const Key('switch_context'),
                       onTap: () {
                         setState(() {
-                          final newConfig = ContextConfig.create(publishDelay: -1)
-                            ..setUnit('user_id', 'new_user');
+                          final newConfig =
+                              ContextConfig.create(publishDelay: -1)
+                                ..setUnit('user_id', 'new_user');
                           currentContext = sdk.createContext(newConfig);
                         });
                       },

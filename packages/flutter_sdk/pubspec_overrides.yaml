@@ -1,0 +1,4 @@
+# Local development uses the sibling package; pub ignores this file on publish.
+dependency_overrides:
+  absmartly_dart:
+    path: ../dart_sdk

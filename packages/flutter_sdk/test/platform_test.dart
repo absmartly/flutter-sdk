@@ -20,7 +20,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       context = sdk.createContext(contextConfig);
     });
 
@@ -88,12 +89,15 @@ void main() {
       });
 
       test('multiple contexts can be created from same SDK', () {
-        final context1 = sdk
-            .createContext(ContextConfig.create(publishDelay: -1)..setUnit('user_id', 'user1'));
-        final context2 = sdk
-            .createContext(ContextConfig.create(publishDelay: -1)..setUnit('user_id', 'user2'));
-        final context3 = sdk
-            .createContext(ContextConfig.create(publishDelay: -1)..setUnit('user_id', 'user3'));
+        final context1 = sdk.createContext(
+            ContextConfig.create(publishDelay: -1)
+              ..setUnit('user_id', 'user1'));
+        final context2 = sdk.createContext(
+            ContextConfig.create(publishDelay: -1)
+              ..setUnit('user_id', 'user2'));
+        final context3 = sdk.createContext(
+            ContextConfig.create(publishDelay: -1)
+              ..setUnit('user_id', 'user3'));
 
         expect(context1, isNotNull);
         expect(context2, isNotNull);
@@ -385,9 +389,11 @@ void main() {
         final testSdk2 = ABSmartly(sdkConfig2);
 
         final context1 = testSdk1.createContext(
-            ContextConfig.create(publishDelay: -1)..setUnit('user_id', 'shared_user'));
+            ContextConfig.create(publishDelay: -1)
+              ..setUnit('user_id', 'shared_user'));
         final context2 = testSdk2.createContext(
-            ContextConfig.create(publishDelay: -1)..setUnit('user_id', 'shared_user'));
+            ContextConfig.create(publishDelay: -1)
+              ..setUnit('user_id', 'shared_user'));
 
         expect(context1, isNot(equals(context2)));
       });
@@ -548,12 +554,14 @@ void main() {
       });
 
       test('ContextConfig handles negative override values', () {
-        final config = ContextConfig.create(publishDelay: -1)..setOverride('experiment', -1);
+        final config = ContextConfig.create(publishDelay: -1)
+          ..setOverride('experiment', -1);
         expect(config.getOverride('experiment'), equals(-1));
       });
 
       test('ContextConfig handles zero override values', () {
-        final config = ContextConfig.create(publishDelay: -1)..setOverride('experiment', 0);
+        final config = ContextConfig.create(publishDelay: -1)
+          ..setOverride('experiment', 0);
         expect(config.getOverride('experiment'), equals(0));
       });
 

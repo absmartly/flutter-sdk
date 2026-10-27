@@ -453,7 +453,12 @@ class Context {
 
       try {
         dataProvider_.getContextData().future.then((data) {
-          setData(data);
+          try {
+            setData(data);
+          } catch (error) {
+            fail(error);
+            return;
+          }
           refreshing_ = false;
           refreshing.complete();
           logEvent(EventType.refresh, data);
@@ -505,6 +510,7 @@ class Context {
       // queued, so close() can be retried (JS context.ts _finalize).
       closing_ = false;
       closingFuture_ = null;
+      setRefreshTimer();
       closing.completeError(exception);
     });
 
@@ -900,9 +906,7 @@ class Context {
   }
 
   void logError(error) {
-    try {
-      eventLogger_?.handleEvent(this, EventType.error, error);
-    } catch (_) {}
+    logEvent(EventType.error, error);
   }
 
   late Clock clock_;

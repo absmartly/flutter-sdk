@@ -349,7 +349,15 @@ void main() {
     final evaluator = ExprEvaluator({}, {});
 
     expect(
-        evaluator.compare(<dynamic>[1, <dynamic>[2, 3], 4], <dynamic>[1, <dynamic>[2, 3], 4]),
+        evaluator.compare(<dynamic>[
+          1,
+          <dynamic>[2, 3],
+          4
+        ], <dynamic>[
+          1,
+          <dynamic>[2, 3],
+          4
+        ]),
         equals(0));
     expect(
         evaluator.compare(<String, dynamic>{
@@ -361,6 +369,14 @@ void main() {
         }),
         equals(0));
     expect(evaluator.compare(<dynamic>[1, 2], <int>[1, 2]), equals(0));
-    expect(evaluator.compare(<dynamic>[1, <dynamic>[2, 3]], <dynamic>[1, <dynamic>[3, 2]]), isNull);
+    expect(
+        evaluator.compare(<dynamic>[
+          1,
+          <dynamic>[2, 3]
+        ], <dynamic>[
+          1,
+          <dynamic>[3, 2]
+        ]),
+        isNull);
   });
 }

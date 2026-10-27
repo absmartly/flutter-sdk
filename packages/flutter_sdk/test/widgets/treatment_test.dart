@@ -16,7 +16,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context = sdk.createContext(contextConfig);
 
       await tester.pumpWidget(
@@ -52,7 +53,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context = sdk.createContext(contextConfig);
 
       await tester.pumpWidget(
@@ -86,7 +88,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context = sdk.createContext(contextConfig);
 
       await tester.pumpWidget(
@@ -117,7 +120,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context1 = sdk.createContext(contextConfig);
       final context2 = sdk.createContext(contextConfig);
 
@@ -155,7 +159,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context = sdk.createContext(contextConfig);
 
       int? capturedVariant;
@@ -197,7 +202,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context = sdk.createContext(contextConfig);
 
       int? capturedVariant;
@@ -234,7 +240,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context1 = sdk.createContext(contextConfig);
       final context2 = sdk.createContext(contextConfig);
 
@@ -273,7 +280,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context = sdk.createContext(contextConfig);
 
       await tester.pumpWidget(
@@ -315,7 +323,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context = sdk.createContext(contextConfig);
 
       await tester.pumpWidget(
@@ -359,7 +368,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context = sdk.createContext(contextConfig);
 
       await tester.pumpWidget(
@@ -455,7 +465,8 @@ void main() {
       final sdk = ABSmartly(ABSmartlyConfig.create()..setClient(client));
 
       final context = sdk.createContextWith(
-          ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345'), ContextData());
+          ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345'),
+          ContextData());
       await tester.runAsync(() => context.close());
       expect(context.isFinalized(), isTrue);
       expect(() => context.getTreatment('test_experiment'), throwsException);
