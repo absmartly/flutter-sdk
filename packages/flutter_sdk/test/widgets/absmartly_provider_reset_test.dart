@@ -11,6 +11,29 @@ class _HeldPublisher implements ContextPublisher {
   Completer<void> publish(Context context, PublishEvent event) => pending;
 }
 
+class _ReadyProvider implements ContextDataProvider {
+  @override
+  Completer<ContextData> getContextData() =>
+      Completer<ContextData>()..complete(ContextData());
+}
+
+class _CountingPublisher implements ContextPublisher {
+  int calls = 0;
+  bool fail = false;
+
+  @override
+  Completer<void> publish(Context context, PublishEvent event) {
+    calls++;
+    final result = Completer<void>();
+    if (fail) {
+      result.completeError(Exception('collector unavailable'));
+    } else {
+      result.complete();
+    }
+    return result;
+  }
+}
+
 ABSmartly _sdk(ContextPublisher publisher) {
   final client = Client.create(ClientConfig()
     ..setEndpoint('https://test.absmartly.io/v1')
@@ -19,7 +42,8 @@ ABSmartly _sdk(ContextPublisher publisher) {
     ..setEnvironment('development'));
   return ABSmartly(ABSmartlyConfig.create()
     ..setClient(client)
-    ..setContextPublisher(publisher));
+    ..setContextPublisher(publisher)
+    ..setContextDataProvider(_ReadyProvider()));
 }
 
 Context _ready(ABSmartly sdk) => sdk.createContextWith(
@@ -27,6 +51,45 @@ Context _ready(ABSmartly sdk) => sdk.createContextWith(
     ContextData());
 
 void main() {
+  for (final replace in [false, true]) {
+    for (final fail in [false, true]) {
+      testWidgets('reset owns replacement: replace=$replace failure=$fail',
+          (tester) async {
+        final publisher = _CountingPublisher();
+        final sdk = _sdk(publisher);
+        final original = _ready(sdk);
+        ABSmartlyData? data;
+        Widget tree(Context ctx) => ABSmartlyProvider(
+              sdk: sdk,
+              context: ctx,
+              child: Builder(builder: (c) {
+                data = ABSmartlyProvider.of(c);
+                return const SizedBox();
+              }),
+            );
+        await tester.pumpWidget(tree(original));
+        await tester
+            .runAsync(() => data!.resetContext(units: {'user_id': '2'}));
+        await tester.pump();
+        final owned = data!.context;
+        expect(identical(owned, original), isFalse);
+        await tester.runAsync(() => owned.waitUntilReady());
+        owned.track('goal', null);
+        publisher.fail = fail;
+        if (replace) {
+          await tester.pumpWidget(tree(_ready(sdk)));
+        } else {
+          await tester.pumpWidget(const SizedBox());
+        }
+        await tester.pump();
+        expect(publisher.calls, 1);
+        expect(tester.takeException(), isNull);
+        expect(owned.isClosed(), !fail);
+        if (fail) expect(owned.getPendingCount(), 1);
+      });
+    }
+  }
+
   testWidgets('a pending reset does not overwrite a replaced provider context',
       (tester) async {
     final publisher = _HeldPublisher();

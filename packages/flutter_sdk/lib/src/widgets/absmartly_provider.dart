@@ -101,7 +101,7 @@ class _ABSmartlyProviderState extends State<ABSmartlyProvider> {
         !mapEquals(oldWidget._units, widget._units);
     if (sourceChanged) {
       if (_isInternallyCreated) {
-        _context.close();
+        _closeOwnedContext();
       }
       _initializeSDK();
     } else if (oldWidget.defaultLoadingBehavior !=
@@ -166,14 +166,25 @@ class _ABSmartlyProviderState extends State<ABSmartlyProvider> {
 
     setState(() {
       _context = _sdk.createContext(contextConfig);
+      _isInternallyCreated = true;
       _updateData();
+    });
+  }
+
+  void _closeOwnedContext() {
+    _context.close().catchError((Object error) {
+      // Context logs publish failures and retains its queue for a retry.
+      assert(() {
+        debugPrint('ABSmartly: provider cleanup failed: $error');
+        return true;
+      }());
     });
   }
 
   @override
   void dispose() {
     if (_isInternallyCreated) {
-      _context.close();
+      _closeOwnedContext();
     }
     super.dispose();
   }
