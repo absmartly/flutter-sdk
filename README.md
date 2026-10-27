@@ -30,14 +30,14 @@ Add the following to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  absmartly_sdk: ^2.1.2
+  absmartly_sdk: ^3.0.0
 ```
 
 ### Dart SDK (pure Dart, no Flutter dependency)
 
 ```yaml
 dependencies:
-  absmartly_dart: ^2.1.2
+  absmartly_dart: ^3.0.0
 ```
 
 Then run:
@@ -47,6 +47,19 @@ flutter pub get
 # or for pure Dart:
 dart pub get
 ```
+
+### Migrating to 3.0.0
+
+- **Unit UIDs keep their type.** `setUnit`/`setUnits` accept a `String` or a number, and `getUnit`/`getUnits` return what was set (`Object?` / `Map<String, Object>`). If your code reads units as strings, convert them:
+
+  ```dart
+  final String? userId = context.getUnit("user_id")?.toString();
+  ```
+
+  A numeric UID is hashed after rounding to a whole number, as in the JavaScript SDK, so `setUnit("user_id", 125.75)` assigns like `"126"`.
+- **Reads before ready throw.** `getTreatment`, `peekTreatment`, `getVariableValue`, `peekVariableValue`, `getVariableKeys` and the custom-field reads throw `ABsmartly Context is not yet ready.` until the context is ready, and `ABsmartly Context is finalized.` after it has been finalized. Wait for the context first (`await context.waitUntilReady()`). A context whose data failed to load still counts as ready and returns control/default values.
+- **Goal properties.** `track(name)` without properties now publishes `properties: null` instead of `{}`.
+- **`ContextEventHandler` is now `ContextPublisher`.**
 
 ## Getting Started
 

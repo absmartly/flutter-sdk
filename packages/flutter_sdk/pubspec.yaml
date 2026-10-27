@@ -1,6 +1,6 @@
 name: absmartly_sdk
 description: ABsmartly A/B Testing SDK for Flutter - Flutter wrapper with widgets and providers
-version: 2.2.0
+version: 3.0.0
 homepage: https://github.com/absmartly/flutter-sdk
 repository: https://github.com/absmartly/flutter-sdk/tree/main/packages/flutter_sdk
 
