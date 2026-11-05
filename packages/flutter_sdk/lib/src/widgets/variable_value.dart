@@ -55,6 +55,8 @@ class _VariableValueState<T> extends State<VariableValue<T>> {
   bool _timedOut = false;
   late T _value;
   Timer? _timeoutTimer;
+  int _generation = 0;
+  Context? _boundContext;
 
   @override
   void initState() {
@@ -75,30 +77,57 @@ class _VariableValueState<T> extends State<VariableValue<T>> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (widget.context != null) return;
+    final providerContext = ABSmartlyProvider.maybeOf(context)?.context;
+    if (providerContext != null &&
+        _boundContext != null &&
+        !identical(providerContext, _boundContext)) {
+      _cancelTimeout();
+      _isReady = false;
+      _timedOut = false;
+      _value = widget.defaultValue;
+      _initializeValue();
+    }
+  }
+
+  @override
   void didUpdateWidget(VariableValue<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.name != widget.name ||
         oldWidget.context != widget.context ||
         oldWidget.defaultValue != widget.defaultValue) {
       _cancelTimeout();
+      setState(() {
+        _isReady = false;
+        _timedOut = false;
+        _value = widget.defaultValue;
+      });
       _initializeValue();
     }
   }
 
   void _initializeValue() {
     final ctx = _context;
+    _boundContext = ctx;
+    final generation = ++_generation;
 
     if (ctx.isReady()) {
       _updateValue(ctx);
     } else {
       _startTimeoutIfNeeded();
       ctx.waitUntilReady().then((_) {
-        if (mounted) {
+        if (mounted && generation == _generation) {
           _cancelTimeout();
           _updateValue(ctx);
         }
-      }).catchError((_) {
-        if (mounted) {
+      }).catchError((error) {
+        assert(() {
+          debugPrint('ABSmartly: VariableValue "${widget.name}" error: $error');
+          return true;
+        }());
+        if (mounted && generation == _generation) {
           _cancelTimeout();
           setState(() {
             _isReady = true;
@@ -112,13 +141,24 @@ class _VariableValueState<T> extends State<VariableValue<T>> {
   void _updateValue(Context ctx) {
     setState(() {
       _isReady = true;
-      if (ctx.isFailed()) {
-        _value = widget.defaultValue;
-      } else {
-        final result = ctx.getVariableValue(widget.name, widget.defaultValue);
-        _value = result is T ? result : widget.defaultValue;
-      }
+      _value = _readValue(ctx);
     });
+  }
+
+  // A failed context still goes through the SDK, which returns the default
+  // value. Reads throw once the context is finalized; a widget still bound to
+  // such a context renders the default value instead of failing the build.
+  T _readValue(Context ctx) {
+    try {
+      final result = ctx.getVariableValue(widget.name, widget.defaultValue);
+      return result is T ? result : widget.defaultValue;
+    } catch (error) {
+      assert(() {
+        debugPrint('ABSmartly: VariableValue "${widget.name}" error: $error');
+        return true;
+      }());
+      return widget.defaultValue;
+    }
   }
 
   void _startTimeoutIfNeeded() {

@@ -4,7 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Treatment', () {
-    testWidgets('shows control variant in control loading mode', (tester) async {
+    testWidgets('shows control variant in control loading mode',
+        (tester) async {
       final clientConfig = ClientConfig()
         ..setEndpoint('https://test.absmartly.io/v1')
         ..setAPIKey('test-api-key')
@@ -15,7 +16,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create()..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context = sdk.createContext(contextConfig);
 
       await tester.pumpWidget(
@@ -39,7 +41,8 @@ void main() {
       expect(find.text('Variant'), findsNothing);
     });
 
-    testWidgets('falls back to first variant when requested variant missing', (tester) async {
+    testWidgets('falls back to first variant when requested variant missing',
+        (tester) async {
       final clientConfig = ClientConfig()
         ..setEndpoint('https://test.absmartly.io/v1')
         ..setAPIKey('test-api-key')
@@ -50,7 +53,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create()..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context = sdk.createContext(contextConfig);
 
       await tester.pumpWidget(
@@ -72,7 +76,8 @@ void main() {
       expect(find.text('Control'), findsOneWidget);
     });
 
-    testWidgets('shows SizedBox.shrink when no variants provided', (tester) async {
+    testWidgets('shows SizedBox.shrink when no variants provided',
+        (tester) async {
       final clientConfig = ClientConfig()
         ..setEndpoint('https://test.absmartly.io/v1')
         ..setAPIKey('test-api-key')
@@ -83,7 +88,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create()..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context = sdk.createContext(contextConfig);
 
       await tester.pumpWidget(
@@ -114,7 +120,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create()..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context1 = sdk.createContext(contextConfig);
       final context2 = sdk.createContext(contextConfig);
 
@@ -152,7 +159,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create()..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context = sdk.createContext(contextConfig);
 
       int? capturedVariant;
@@ -168,7 +176,8 @@ void main() {
             builder: (context, variant, variables) {
               capturedVariant = variant;
               capturedVariables = variables;
-              return Text('Variant: $variant', textDirection: TextDirection.ltr);
+              return Text('Variant: $variant',
+                  textDirection: TextDirection.ltr);
             },
           ),
         ),
@@ -181,7 +190,8 @@ void main() {
       expect(find.textContaining('Variant:'), findsOneWidget);
     });
 
-    testWidgets('builder receives 0 as default variant in control mode', (tester) async {
+    testWidgets('builder receives 0 as default variant in control mode',
+        (tester) async {
       final clientConfig = ClientConfig()
         ..setEndpoint('https://test.absmartly.io/v1')
         ..setAPIKey('test-api-key')
@@ -192,7 +202,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create()..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context = sdk.createContext(contextConfig);
 
       int? capturedVariant;
@@ -206,7 +217,8 @@ void main() {
             name: 'test_experiment',
             builder: (context, variant, variables) {
               capturedVariant = variant;
-              return Text('Variant: $variant', textDirection: TextDirection.ltr);
+              return Text('Variant: $variant',
+                  textDirection: TextDirection.ltr);
             },
           ),
         ),
@@ -228,7 +240,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create()..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context1 = sdk.createContext(contextConfig);
       final context2 = sdk.createContext(contextConfig);
 
@@ -241,7 +254,8 @@ void main() {
             name: 'test_experiment',
             context: context2,
             builder: (context, variant, variables) {
-              return Text('Variant: $variant', textDirection: TextDirection.ltr);
+              return Text('Variant: $variant',
+                  textDirection: TextDirection.ltr);
             },
           ),
         ),
@@ -254,7 +268,8 @@ void main() {
   });
 
   group('TreatmentSwitch', () {
-    testWidgets('shows control variant with TreatmentVariant children', (tester) async {
+    testWidgets('shows control variant with TreatmentVariant children',
+        (tester) async {
       final clientConfig = ClientConfig()
         ..setEndpoint('https://test.absmartly.io/v1')
         ..setAPIKey('test-api-key')
@@ -265,7 +280,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create()..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context = sdk.createContext(contextConfig);
 
       await tester.pumpWidget(
@@ -282,7 +298,8 @@ void main() {
               ),
               TreatmentVariant(
                 variant: 1,
-                child: const Text('Variant B', textDirection: TextDirection.ltr),
+                child:
+                    const Text('Variant B', textDirection: TextDirection.ltr),
               ),
             ],
           ),
@@ -306,7 +323,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create()..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context = sdk.createContext(contextConfig);
 
       await tester.pumpWidget(
@@ -319,11 +337,13 @@ void main() {
             children: [
               TreatmentVariant(
                 variant: 'A',
-                child: const Text('Control A', textDirection: TextDirection.ltr),
+                child:
+                    const Text('Control A', textDirection: TextDirection.ltr),
               ),
               TreatmentVariant(
                 variant: 'B',
-                child: const Text('Variant B', textDirection: TextDirection.ltr),
+                child:
+                    const Text('Variant B', textDirection: TextDirection.ltr),
               ),
             ],
           ),
@@ -336,7 +356,8 @@ void main() {
       expect(find.text('Variant B'), findsNothing);
     });
 
-    testWidgets('falls back to first child when no matching variant', (tester) async {
+    testWidgets('shows SizedBox.shrink when no control variant child exists',
+        (tester) async {
       final clientConfig = ClientConfig()
         ..setEndpoint('https://test.absmartly.io/v1')
         ..setAPIKey('test-api-key')
@@ -347,7 +368,8 @@ void main() {
       final sdkConfig = ABSmartlyConfig.create()..setClient(client);
       final sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create()..setUnit('user_id', '12345');
+      final contextConfig = ContextConfig.create(publishDelay: -1)
+        ..setUnit('user_id', '12345');
       final context = sdk.createContext(contextConfig);
 
       await tester.pumpWidget(
@@ -360,11 +382,13 @@ void main() {
             children: [
               TreatmentVariant(
                 variant: 5,
-                child: const Text('Variant 5', textDirection: TextDirection.ltr),
+                child:
+                    const Text('Variant 5', textDirection: TextDirection.ltr),
               ),
               TreatmentVariant(
                 variant: 6,
-                child: const Text('Variant 6', textDirection: TextDirection.ltr),
+                child:
+                    const Text('Variant 6', textDirection: TextDirection.ltr),
               ),
             ],
           ),
@@ -373,7 +397,8 @@ void main() {
 
       await tester.pump();
 
-      expect(find.text('Variant 5'), findsOneWidget);
+      expect(find.text('Variant 5'), findsNothing);
+      expect(find.text('Variant 6'), findsNothing);
     });
   });
 
@@ -424,6 +449,74 @@ void main() {
         child: SizedBox(),
       );
       expect(variant.variantIndex, equals(0));
+    });
+  });
+
+  group('finalized context', () {
+    testWidgets('widgets render control/default instead of throwing',
+        (tester) async {
+      final clientConfig = ClientConfig()
+        ..setEndpoint('https://test.absmartly.io/v1')
+        ..setAPIKey('test-api-key')
+        ..setApplication('test-app')
+        ..setEnvironment('development');
+
+      final client = Client.create(clientConfig);
+      final sdk = ABSmartly(ABSmartlyConfig.create()..setClient(client));
+
+      final context = sdk.createContextWith(
+          ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345'),
+          ContextData());
+      await tester.runAsync(() => context.close());
+      expect(context.isFinalized(), isTrue);
+      expect(() => context.getTreatment('test_experiment'), throwsException);
+
+      await tester.pumpWidget(
+        ABSmartlyProvider(
+          sdk: sdk,
+          context: context,
+          child: Column(
+            textDirection: TextDirection.ltr,
+            children: [
+              Treatment(
+                name: 'test_experiment',
+                variants: {
+                  0: const Text('T-Control', textDirection: TextDirection.ltr),
+                  1: const Text('T-Variant', textDirection: TextDirection.ltr),
+                },
+              ),
+              TreatmentSwitch(
+                name: 'test_experiment',
+                children: [
+                  TreatmentVariant(
+                      variant: 0,
+                      child: const Text('S-Control',
+                          textDirection: TextDirection.ltr)),
+                ],
+              ),
+              TreatmentBuilder(
+                name: 'test_experiment',
+                builder: (context, variant, variables) => Text(
+                    'B-$variant-${variables.length}',
+                    textDirection: TextDirection.ltr),
+              ),
+              VariableValue<String>(
+                name: 'button.text',
+                defaultValue: 'V-Default',
+                builder: (value) =>
+                    Text(value, textDirection: TextDirection.ltr),
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('T-Control'), findsOneWidget);
+      expect(find.text('S-Control'), findsOneWidget);
+      expect(find.text('B-0-0'), findsOneWidget);
+      expect(find.text('V-Default'), findsOneWidget);
     });
   });
 }

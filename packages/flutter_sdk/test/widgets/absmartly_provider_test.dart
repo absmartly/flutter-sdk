@@ -36,7 +36,8 @@ void main() {
       expect(capturedData, isNotNull);
       expect(capturedData!.sdk, equals(sdk));
       expect(capturedData!.context, equals(context));
-      expect(capturedData!.defaultLoadingBehavior, equals(LoadingBehavior.placeholder));
+      expect(capturedData!.defaultLoadingBehavior,
+          equals(LoadingBehavior.placeholder));
       expect(capturedData!.readyTimeout, equals(const Duration(seconds: 3)));
     });
 
@@ -99,7 +100,8 @@ void main() {
         ),
       );
 
-      expect(capturedData!.defaultLoadingBehavior, equals(LoadingBehavior.control));
+      expect(capturedData!.defaultLoadingBehavior,
+          equals(LoadingBehavior.control));
     });
 
     testWidgets('respects custom readyTimeout', (tester) async {

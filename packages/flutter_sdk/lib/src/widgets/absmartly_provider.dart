@@ -1,4 +1,5 @@
 import 'package:absmartly_dart/absmartly_dart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../inherited_absmartly.dart';
@@ -55,7 +56,6 @@ class ABSmartlyProvider extends StatefulWidget {
   /// The widget tree below this provider
   final Widget child;
 
-  // Private fields for .create() factory
   final String? _endpoint;
   final String? _apiKey;
   final String? _environment;
@@ -81,11 +81,34 @@ class _ABSmartlyProviderState extends State<ABSmartlyProvider> {
   late ABSmartly _sdk;
   late Context _context;
   bool _isInternallyCreated = false;
+  late ABSmartlyData _data;
 
   @override
   void initState() {
     super.initState();
     _initializeSDK();
+  }
+
+  @override
+  void didUpdateWidget(ABSmartlyProvider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final sourceChanged = oldWidget.sdk != widget.sdk ||
+        oldWidget.context != widget.context ||
+        oldWidget._endpoint != widget._endpoint ||
+        oldWidget._apiKey != widget._apiKey ||
+        oldWidget._environment != widget._environment ||
+        oldWidget._application != widget._application ||
+        !mapEquals(oldWidget._units, widget._units);
+    if (sourceChanged) {
+      if (_isInternallyCreated) {
+        _closeOwnedContext();
+      }
+      _initializeSDK();
+    } else if (oldWidget.defaultLoadingBehavior !=
+            widget.defaultLoadingBehavior ||
+        oldWidget.readyTimeout != widget.readyTimeout) {
+      _updateData();
+    }
   }
 
   void _initializeSDK() {
@@ -96,23 +119,34 @@ class _ABSmartlyProviderState extends State<ABSmartlyProvider> {
     } else {
       _isInternallyCreated = true;
 
-      final clientConfig = ClientConfig()
-        ..setEndpoint(widget._endpoint!)
-        ..setAPIKey(widget._apiKey!)
-        ..setEnvironment(widget._environment!)
-        ..setApplication(widget._application!);
+      final clientConfig = ClientConfig.create(
+        endpoint: widget._endpoint!,
+        apiKey: widget._apiKey!,
+        environment: widget._environment!,
+        application: widget._application!,
+      );
 
       final client = Client.create(clientConfig);
 
-      final sdkConfig = ABSmartlyConfig.create()..setClient(client);
+      final sdkConfig = ABSmartlyConfig.create(client: client);
 
       _sdk = ABSmartly(sdkConfig);
 
-      final contextConfig = ContextConfig.create()
-        ..setUnits(widget._units!);
+      final contextConfig = ContextConfig.create(units: widget._units!);
 
       _context = _sdk.createContext(contextConfig);
     }
+    _updateData();
+  }
+
+  void _updateData() {
+    _data = ABSmartlyData(
+      sdk: _sdk,
+      context: _context,
+      defaultLoadingBehavior: widget.defaultLoadingBehavior,
+      readyTimeout: widget.readyTimeout,
+      resetContext: _resetContext,
+    );
   }
 
   Future<void> _resetContext({required Map<String, String> units}) async {
@@ -120,19 +154,37 @@ class _ABSmartlyProviderState extends State<ABSmartlyProvider> {
       return;
     }
 
-    await _context.close();
+    final sdk = _sdk;
+    final source = _context;
+    await source.close();
 
-    final contextConfig = ContextConfig.create()..setUnits(units);
+    if (!mounted || !identical(_context, source) || !identical(_sdk, sdk)) {
+      return;
+    }
+
+    final contextConfig = ContextConfig.create(units: units);
 
     setState(() {
       _context = _sdk.createContext(contextConfig);
+      _isInternallyCreated = true;
+      _updateData();
+    });
+  }
+
+  void _closeOwnedContext() {
+    _context.close().catchError((Object error) {
+      // Context logs publish failures and retains its queue for a retry.
+      assert(() {
+        debugPrint('ABSmartly: provider cleanup failed: $error');
+        return true;
+      }());
     });
   }
 
   @override
   void dispose() {
     if (_isInternallyCreated) {
-      _context.close();
+      _closeOwnedContext();
     }
     super.dispose();
   }
@@ -140,13 +192,7 @@ class _ABSmartlyProviderState extends State<ABSmartlyProvider> {
   @override
   Widget build(BuildContext context) {
     return InheritedABSmartly(
-      data: ABSmartlyData(
-        sdk: _sdk,
-        context: _context,
-        defaultLoadingBehavior: widget.defaultLoadingBehavior,
-        readyTimeout: widget.readyTimeout,
-        resetContext: _resetContext,
-      ),
+      data: _data,
       child: widget.child,
     );
   }

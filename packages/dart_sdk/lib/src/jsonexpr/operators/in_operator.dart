@@ -1,23 +1,28 @@
 import '../evaluator.dart';
 import 'binary_operator.dart';
 
+/// CONTAINS operator (also registered under the legacy alias "in").
+///
+/// Operand order is haystack-first: `[haystack, needle]` — i.e. "does the
+/// haystack (arg 0) contain the needle (arg 1)". This matches the collector
+/// and the other ABsmartly SDKs.
 class InOperator extends BinaryOperator {
   @override
-  dynamic binary(Evaluator evaluator, dynamic lhs, dynamic rhs) {
-    if (lhs is List) {
-      for (final item in lhs) {
-        if (evaluator.compare(item, rhs) == 0) {
+  dynamic binary(Evaluator evaluator, dynamic haystack, dynamic needle) {
+    if (haystack is List) {
+      for (final item in haystack) {
+        if (evaluator.compare(item, needle) == 0) {
           return true;
         }
       }
       return false;
-    } else if (lhs is String) {
-      final needleString = evaluator.stringConvert(rhs);
-      return needleString != null && (lhs).contains(needleString);
-    } else if (lhs is Map) {
-      final needleString = evaluator.stringConvert(rhs);
+    } else if (haystack is String) {
+      final needleString = evaluator.stringConvert(needle);
+      return needleString != null && haystack.contains(needleString);
+    } else if (haystack is Map) {
+      final needleString = evaluator.stringConvert(needle);
       return needleString != null &&
-          (lhs as Map<String, dynamic>).containsKey(needleString);
+          (haystack as Map<String, dynamic>).containsKey(needleString);
     }
     return null;
   }

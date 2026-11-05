@@ -19,7 +19,7 @@ class TreatmentVariant extends StatelessWidget {
   /// - 0 or 'A' = control
   /// - 1 or 'B' = first variant
   /// - etc.
-  final dynamic variant;
+  final Object variant;
 
   /// The widget to display for this variant.
   final Widget child;
@@ -95,6 +95,8 @@ class _TreatmentSwitchState extends State<TreatmentSwitch> {
   bool _timedOut = false;
   int _variant = 0;
   Timer? _timeoutTimer;
+  int _generation = 0;
+  Context? _boundContext;
 
   Context get _context {
     if (widget.context != null) {
@@ -114,28 +116,56 @@ class _TreatmentSwitchState extends State<TreatmentSwitch> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (widget.context != null) return;
+    final providerContext = ABSmartlyProvider.maybeOf(context)?.context;
+    if (providerContext != null &&
+        _boundContext != null &&
+        !identical(providerContext, _boundContext)) {
+      _cancelTimeout();
+      _isReady = false;
+      _timedOut = false;
+      _variant = 0;
+      _initializeTreatment();
+    }
+  }
+
+  @override
   void didUpdateWidget(TreatmentSwitch oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.name != widget.name || oldWidget.context != widget.context) {
       _cancelTimeout();
+      setState(() {
+        _isReady = false;
+        _timedOut = false;
+        _variant = 0;
+      });
       _initializeTreatment();
     }
   }
 
   void _initializeTreatment() {
     final ctx = _context;
+    _boundContext = ctx;
+    final generation = ++_generation;
 
     if (ctx.isReady()) {
       _updateTreatment(ctx);
     } else {
       _startTimeoutIfNeeded();
       ctx.waitUntilReady().then((_) {
-        if (mounted) {
+        if (mounted && generation == _generation) {
           _cancelTimeout();
           _updateTreatment(ctx);
         }
-      }).catchError((_) {
-        if (mounted) {
+      }).catchError((error) {
+        assert(() {
+          debugPrint(
+              'ABSmartly: TreatmentSwitch "${widget.name}" error: $error');
+          return true;
+        }());
+        if (mounted && generation == _generation) {
           _cancelTimeout();
           setState(() {
             _isReady = true;
@@ -149,8 +179,22 @@ class _TreatmentSwitchState extends State<TreatmentSwitch> {
   void _updateTreatment(Context ctx) {
     setState(() {
       _isReady = true;
-      _variant = ctx.isFailed() ? 0 : ctx.getTreatment(widget.name);
+      _variant = _readVariant(ctx);
     });
+  }
+
+  // Reads throw once the context is finalized; a widget still bound to such
+  // a context renders the control instead of failing the build.
+  int _readVariant(Context ctx) {
+    try {
+      return ctx.getTreatment(widget.name);
+    } catch (error) {
+      assert(() {
+        debugPrint('ABSmartly: TreatmentSwitch "${widget.name}" error: $error');
+        return true;
+      }());
+      return 0;
+    }
   }
 
   void _startTimeoutIfNeeded() {
@@ -195,8 +239,7 @@ class _TreatmentSwitchState extends State<TreatmentSwitch> {
   }
 
   Widget _getControlChild() {
-    return _findVariantChild(0) ??
-        (widget.children.isNotEmpty ? widget.children.first.child : const SizedBox.shrink());
+    return _findVariantChild(0) ?? const SizedBox.shrink();
   }
 
   @override
@@ -210,7 +253,8 @@ class _TreatmentSwitchState extends State<TreatmentSwitch> {
     }
 
     final providerData = _providerData;
-    final loadingBehavior = providerData?.defaultLoadingBehavior ?? LoadingBehavior.control;
+    final loadingBehavior =
+        providerData?.defaultLoadingBehavior ?? LoadingBehavior.control;
 
     if (_timedOut || loadingBehavior == LoadingBehavior.control) {
       return _getControlChild();

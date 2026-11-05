@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:absmartly_dart/src/internal/hashing/hashing.dart';
 import 'package:absmartly_dart/src/audience_matcher.dart';
 import 'package:absmartly_dart/src/context.dart';
 import 'package:absmartly_dart/src/context_config.dart';
@@ -13,6 +14,7 @@ import 'package:absmartly_dart/src/java/time/clock.dart';
 import 'package:absmartly_dart/src/json/context_data.dart';
 import 'package:absmartly_dart/src/json/exposure.dart';
 import 'package:absmartly_dart/src/json/goal_achievement.dart';
+import 'package:absmartly_dart/src/json/publish_event.dart';
 import 'package:absmartly_dart/src/variable_parser.dart';
 import 'package:test/test.dart';
 import 'package:mockito/annotations.dart';
@@ -305,22 +307,27 @@ void main() {
       expect(context.getData(), equals(data));
     });
 
-    test('throwsWhenNotReady', () {
+    test('readsThrowWhenNotReady', () {
       final Context context = createContextWithDefaultConfig(dataFuture);
       expect(context.isReady(), isFalse);
       expect(context.isFailed(), isFalse);
 
-      expect(() => context.peekTreatment('exp_test_ab'),
-          throwsA(isA<StateError>()));
+      final notReady = throwsA(predicate((e) =>
+          e is Exception &&
+          e.toString().contains('ABsmartly Context is not yet ready.')));
+      expect(() => context.peekTreatment('exp_test_ab'), notReady);
+      expect(() => context.getTreatment('exp_test_ab'), notReady);
+      expect(() => context.getData(), notReady);
+      expect(() => context.getExperiments(), notReady);
+      expect(() => context.getVariableValue('banner.border', 17), notReady);
+      expect(() => context.peekVariableValue('banner.border', 17), notReady);
+      expect(() => context.getVariableKeys(), notReady);
+      expect(() => context.getCustomFieldKeys(), notReady);
+      expect(() => context.getCustomFieldValue('exp_test_ab', 'x'), notReady);
       expect(
-          () => context.getTreatment('exp_test_ab'), throwsA(isA<StateError>()));
-      expect(() => context.getData(), throwsA(isA<StateError>()));
-      expect(() => context.getExperiments(), throwsA(isA<StateError>()));
-      expect(() => context.getVariableValue('banner.border', 17),
-          throwsA(isA<StateError>()));
-      expect(() => context.peekVariableValue('banner.border', 17),
-          throwsA(isA<StateError>()));
-      expect(() => context.getVariableKeys(), throwsA(isA<StateError>()));
+          () => context.getCustomFieldValueType('exp_test_ab', 'x'), notReady);
+      expect(() => context.publish(), notReady);
+      expect(() => context.refresh(), notReady);
     });
 
     test('throwsWhenClosed', () async {
@@ -340,31 +347,31 @@ void main() {
       expect(context.isClosed(), isTrue);
 
       expect(() => context.setAttribute('attr1', 'value1'),
-          throwsA(isA<StateError>()));
+          throwsA(isA<Exception>()));
       expect(() => context.setAttributes({'attr1': 'value1'}),
-          throwsA(isA<StateError>()));
-      expect(() => context.setOverride('exp_test_ab', 2),
-          throwsA(isA<StateError>()));
-      expect(() => context.setOverrides({'exp_test_ab': 2}),
-          throwsA(isA<StateError>()));
-      expect(() => context.setUnit('test', 'test'), throwsA(isA<StateError>()));
+          throwsA(isA<Exception>()));
+      expect(() => context.setOverride('exp_test_ab', 2), returnsNormally);
+      expect(() => context.setOverrides({'exp_test_ab': 2}), returnsNormally);
+      expect(() => context.setUnit('test', 'test'), throwsA(isA<Exception>()));
       expect(() => context.setCustomAssignment('exp_test_ab', 2),
-          throwsA(isA<StateError>()));
+          throwsA(isA<Exception>()));
       expect(() => context.setCustomAssignments({'exp_test_ab': 2}),
-          throwsA(isA<StateError>()));
-      expect(() => context.peekTreatment('exp_test_ab'),
-          throwsA(isA<StateError>()));
-      expect(
-          () => context.getTreatment('exp_test_ab'), throwsA(isA<StateError>()));
-      expect(() => context.track('goal1', null), throwsA(isA<StateError>()));
-      expect(() => context.publish(), throwsA(isA<StateError>()));
-      expect(() => context.getData(), throwsA(isA<StateError>()));
-      expect(() => context.getExperiments(), throwsA(isA<StateError>()));
-      expect(() => context.getVariableValue('banner.border', 17),
-          throwsA(isA<StateError>()));
-      expect(() => context.peekVariableValue('banner.border', 17),
-          throwsA(isA<StateError>()));
-      expect(() => context.getVariableKeys(), throwsA(isA<StateError>()));
+          throwsA(isA<Exception>()));
+      final finalized = throwsA(predicate((e) =>
+          e is Exception &&
+          e.toString().contains('ABsmartly Context is finalized.')));
+      expect(() => context.peekTreatment('exp_test_ab'), finalized);
+      expect(() => context.getTreatment('exp_test_ab'), finalized);
+      expect(() => context.track('goal1', null), finalized);
+      expect(() => context.publish(), finalized);
+      expect(() => context.refresh(), finalized);
+      expect(() => context.getVariableValue('banner.border', 17), finalized);
+      expect(() => context.peekVariableValue('banner.border', 17), finalized);
+      expect(() => context.getVariableKeys(), finalized);
+      expect(() => context.getCustomFieldKeys(), finalized);
+      // data() and experiments() only require readiness (JS context.ts).
+      expect(context.getData(), equals(data));
+      expect(context.getExperiments(), isNotEmpty);
     });
 
     test('getExperiments', () async {
@@ -526,7 +533,7 @@ void main() {
       await context.waitUntilReady();
 
       expect(() => context.setUnit('session_id', 'new_uid'),
-          throwsA(isA<ArgumentError>()));
+          throwsA(isA<Exception>()));
     });
 
     test('peekTreatment', () async {
@@ -997,6 +1004,69 @@ void main() {
       verify(eventHandler.publish(any, any)).called(1);
     });
 
+    test('trackKeepsNullProperties', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      final captured = <dynamic>[];
+      when(eventLogger.handleEvent(any, EventType.goal, any))
+          .thenAnswer((inv) => captured.add(inv.positionalArguments[2]));
+      when(eventHandler.publish(any, any)).thenAnswer((inv) {
+        captured.add(inv.positionalArguments[1]);
+        return createCompleteVoidCompleter();
+      });
+
+      context.track('goal_null', null);
+      final props = {'amount': 1};
+      context.track('goal_props', props);
+      props['amount'] = 2;
+
+      final GoalAchievement first = captured[0];
+      final GoalAchievement second = captured[1];
+      expect(first.properties, isNull);
+      expect(first.toMap()['properties'], isNull);
+      expect(second.properties, equals({'amount': 1}));
+
+      await context.publish();
+      final PublishEvent event = captured[2];
+      expect(event.goals[0].toMap()['properties'], isNull);
+    });
+
+    test('unitsKeepTheirType', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.setUnit('int_id', 125);
+      context.setUnit('float_id', 125.75);
+      context.setUnit('text_id', ' 007 ');
+
+      expect(context.getUnit('int_id'), equals(125));
+      expect(context.getUnit('int_id'), isA<int>());
+      expect(context.getUnit('float_id'), equals(125.75));
+      expect(context.getUnit('text_id'), equals('007'));
+      expect(context.getUnits()['int_id'], isA<int>());
+
+      expect(
+          () => context.setUnit('int_id', '125'),
+          throwsA(predicate(
+              (e) => e.toString().contains("Unit 'int_id' UID already set."))));
+      context.setUnit('int_id', 125);
+
+      expect(
+          () => context.setUnit('bad', true),
+          throwsA(predicate((e) => e
+              .toString()
+              .contains("Unit 'bad' must be a string or a number."))));
+    });
+
+    test('numericUnitHashesLikeJavaScript', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+      context.setUnit('float_id', 125.75);
+      expect(String.fromCharCodes(context.getUnitHash('float_id', 125.75)),
+          equals(String.fromCharCodes(Hashing.hashUnit('126'))));
+    });
+
     test('trackQueuesWhenNotReady', () {
       final Context context = createContextWithDefaultConfig(dataFuture);
 
@@ -1087,7 +1157,8 @@ void main() {
 
       await context.close();
 
-      verify(eventLogger.handleEvent(context, EventType.close, null)).called(1);
+      verify(eventLogger.handleEvent(context, EventType.finalize, null))
+          .called(1);
     });
 
     test('closeCallsEventLoggerWithPendingEvents', () async {
@@ -1105,7 +1176,8 @@ void main() {
 
       verify(eventLogger.handleEvent(context, EventType.publish, any))
           .called(1);
-      verify(eventLogger.handleEvent(context, EventType.close, null)).called(1);
+      verify(eventLogger.handleEvent(context, EventType.finalize, null))
+          .called(1);
     });
 
     test('closeCallsEventLoggerOnError', () async {
@@ -1175,8 +1247,7 @@ void main() {
       expect(context.getTreatment(experimentName), equals(0));
       expect(context.getTreatment('not_found'), equals(0));
 
-      expect(context.getPendingCount(),
-          equals(4));
+      expect(context.getPendingCount(), equals(3));
     });
 
     test('refreshClearAssignmentCacheForStartedExperiment', () async {
@@ -1206,8 +1277,7 @@ void main() {
           equals(expectedVariants[experimentName]));
       expect(context.getTreatment('not_found'), equals(0));
 
-      expect(context.getPendingCount(),
-          equals(4));
+      expect(context.getPendingCount(), equals(3));
     });
 
     test('refreshClearAssignmentCacheForFullOnExperiment', () async {
@@ -1244,8 +1314,7 @@ void main() {
       expect(context.getTreatment(experimentName), equals(1));
       expect(context.getTreatment('not_found'), equals(0));
 
-      expect(context.getPendingCount(),
-          equals(4));
+      expect(context.getPendingCount(), equals(3));
     });
 
     test('refreshKeepsAssignmentCacheWhenNotChangedWithOverride', () async {
@@ -1268,7 +1337,7 @@ void main() {
 
       expect(context.getTreatment('exp_test_ab'), equals(3));
 
-      expect(context.getPendingCount(), equals(2));
+      expect(context.getPendingCount(), equals(1));
     });
 
     test('close', () async {
@@ -1395,7 +1464,7 @@ void main() {
 
       expect(context.isReady(), isTrue);
       expect(
-          () => context.setUnit("db_user_id", ""), throwsA(isA<ArgumentError>()));
+          () => context.setUnit("db_user_id", ""), throwsA(isA<Exception>()));
     });
 
     test('setOverrideClearsAssignmentCache', () async {
@@ -1761,6 +1830,56 @@ void main() {
       verify(dataProvider.getContextData()).called(1);
     });
 
+    test('refreshFailsAndCanRetryWhenApplyingDataThrows', () async {
+      final failure = Exception('parser failed');
+      final throwingContext = Context.create(
+          clock,
+          ContextConfig.create()..setUnits(units),
+          dataFutureReady,
+          dataProvider,
+          eventHandler,
+          DefaultVariableParser(),
+          audienceMatcher,
+          eventLogger);
+      await throwingContext.waitUntilReady();
+      throwingContext.variableParser_ = _ThrowingVariableParser(failure);
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => refreshDataFutureReady);
+
+      await expectLater(throwingContext.refresh(), throwsA(same(failure)))
+          .timeout(const Duration(seconds: 2));
+      verify(eventLogger.handleEvent(throwingContext, EventType.error, failure))
+          .called(1);
+
+      throwingContext.variableParser_ = DefaultVariableParser();
+      await throwingContext.refresh().timeout(const Duration(seconds: 2));
+      expect(throwingContext.getExperiments(),
+          equals(refreshData.experiments.map((e) => e.name).toList()));
+    });
+
+    test('restoresRefreshTimerWhenCloseFails', () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setRefreshInterval(50);
+      final context = createContext(config, dataFutureReady);
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 125});
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+      expect(context.isClosed(), isFalse);
+
+      final refreshed = Completer<void>();
+      when(dataProvider.getContextData()).thenAnswer((_) {
+        if (!refreshed.isCompleted) refreshed.complete();
+        return refreshDataFutureReady;
+      });
+      await refreshed.future.timeout(const Duration(seconds: 2));
+      verify(dataProvider.getContextData()).called(greaterThan(0));
+    });
+
     test('refreshKeepsAssignmentCacheWhenNotChanged', () async {
       final context = createReadyContext();
       await context.waitUntilReady();
@@ -1788,8 +1907,8 @@ void main() {
       }
       context.getTreatment("not_found");
 
-      expect(context.getPendingCount(),
-          equals(data.experiments.length + 1 + refreshData.experiments.length + 1));
+      expect(
+          context.getPendingCount(), equals(data.experiments.length + 1 + 1));
     });
 
     test('refreshKeepsAssignmentCacheWhenNotChangedOnAudienceMismatch',
@@ -1811,7 +1930,7 @@ void main() {
       verify(dataProvider.getContextData()).called(1);
 
       expect(context.getTreatment("exp_test_ab"), equals(0));
-      expect(context.getPendingCount(), equals(2));
+      expect(context.getPendingCount(), equals(1));
     });
 
     test('refreshClearAssignmentCacheForTrafficSplitChange', () async {
@@ -1843,8 +1962,7 @@ void main() {
 
       expect(context.getTreatment(experimentName), equals(2));
       expect(context.getTreatment("not_found"), equals(0));
-      expect(context.getPendingCount(),
-          equals(4));
+      expect(context.getPendingCount(), equals(3));
     });
 
     test('refreshClearAssignmentCacheForIterationChange', () async {
@@ -1880,8 +1998,7 @@ void main() {
 
       expect(context.getTreatment(experimentName), equals(2));
       expect(context.getTreatment("not_found"), equals(0));
-      expect(context.getPendingCount(),
-          equals(4));
+      expect(context.getPendingCount(), equals(3));
     });
 
     test('refreshClearAssignmentCacheForExperimentIdChange', () async {
@@ -1917,8 +2034,7 @@ void main() {
 
       expect(context.getTreatment(experimentName), equals(2));
       expect(context.getTreatment("not_found"), equals(0));
-      expect(context.getPendingCount(),
-          equals(4));
+      expect(context.getPendingCount(), equals(3));
     });
 
     test('closeStopsRefreshTimer', () async {
@@ -2106,7 +2222,20 @@ void main() {
 
       await expectLater(context.close(), throwsA(isA<Exception>()));
 
+      // A failed final publish leaves the context open and retryable with
+      // its events still queued (JS context.ts _finalize).
+      expect(context.isClosed(), isFalse);
+      expect(context.isClosing(), isFalse);
+      expect(context.getPendingCount(), equals(1));
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      await context.close();
+
       expect(context.isClosed(), isTrue);
+      expect(context.getPendingCount(), equals(0));
+      verify(eventLogger.handleEvent(context, EventType.finalize, null))
+          .called(1);
     });
 
     test('publishDoesNotClearQueueOnFailure', () async {
@@ -2122,7 +2251,7 @@ void main() {
 
       await expectLater(context.publish(), throwsA(isA<Exception>()));
 
-      expect(context.getPendingCount(), equals(0));
+      expect(context.getPendingCount(), equals(1));
     });
 
     test('publishClearsQueueOnSuccess', () async {
@@ -2139,6 +2268,42 @@ void main() {
       await context.publish();
 
       expect(context.getPendingCount(), equals(0));
+    });
+
+    test('publishKeepsQueueOnFailure', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 125});
+      context.track('goal2', {'tries': 7});
+      expect(context.getPendingCount(), equals(2));
+
+      when(eventHandler.publish(any, any)).thenAnswer(
+          (_) => createErrorVoidCompleter(Exception('publish error')));
+
+      await expectLater(context.publish(), throwsException);
+
+      expect(context.getPendingCount(), equals(2));
+    });
+
+    test('refreshPreservesExposedFlagForUnchangedExperiment', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      const String experimentName = 'exp_test_ab';
+      context.getTreatment(experimentName);
+      expect(context.getPendingCount(), equals(1));
+
+      when(dataProvider.getContextData()).thenAnswer((_) => dataFutureReady);
+
+      await context.refresh();
+
+      context.getTreatment(experimentName);
+      expect(context.getPendingCount(), equals(1));
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      await context.close();
     });
 
     test('setAttributeReturnsLastSetValue', () async {
@@ -2160,10 +2325,10 @@ void main() {
 
       await context.close();
 
-      expect(() => context.setUnit('test', 'test'), throwsA(isA<StateError>()));
+      expect(() => context.setUnit('test', 'test'), throwsA(isA<Exception>()));
     });
 
-    test('setOverrideThrowsAfterClose', () async {
+    test('setOverrideSucceedsAfterClose', () async {
       final context = createReadyContext();
       await context.waitUntilReady();
 
@@ -2172,8 +2337,8 @@ void main() {
 
       await context.close();
 
-      expect(
-          () => context.setOverride('exp_test', 2), throwsA(isA<StateError>()));
+      expect(() => context.setOverride('exp_test', 2), returnsNormally);
+      expect(context.getOverride('exp_test'), equals(2));
     });
 
     test('setCustomAssignmentThrowsAfterClose', () async {
@@ -2186,7 +2351,7 @@ void main() {
       await context.close();
 
       expect(() => context.setCustomAssignment('exp_test', 2),
-          throwsA(isA<StateError>()));
+          throwsA(isA<Exception>()));
     });
 
     test('refreshThrowsAfterClose', () async {
@@ -2198,7 +2363,7 @@ void main() {
 
       await context.close();
 
-      expect(() => context.refresh(), throwsA(isA<StateError>()));
+      expect(() => context.refresh(), throwsA(isA<Exception>()));
     });
 
     test('publishThrowsAfterClose', () async {
@@ -2210,7 +2375,7 @@ void main() {
 
       await context.close();
 
-      expect(() => context.publish(), throwsA(isA<StateError>()));
+      expect(() => context.publish(), throwsA(isA<Exception>()));
     });
 
     test('trackThrowsAfterClose', () async {
@@ -2222,8 +2387,7 @@ void main() {
 
       await context.close();
 
-      expect(
-          () => context.track('goal1', null), throwsA(isA<StateError>()));
+      expect(() => context.track('goal1', null), throwsA(isA<Exception>()));
     });
 
     test('getTreatmentReturnsBaseVariantOnUnknownExperiment', () async {
@@ -2276,5 +2440,456 @@ void main() {
 
       verifyNever(dataProvider.getContextData());
     });
+
+    test('getUnitsReturnsActualUnits', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      final returnedUnits = context.getUnits();
+      expect(returnedUnits, equals(units));
+      expect(returnedUnits['session_id'],
+          equals('e791e240fcd3df7d238cfc285f475e8152fcc0ec'));
+      expect(returnedUnits['user_id'], equals('123456789'));
+      expect(returnedUnits['email'], equals('bleh@absmartly.com'));
+    });
+
+    test('getUnitsReturnsUnmodifiableMap', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      final returnedUnits = context.getUnits();
+      expect(() => returnedUnits['new_key'] = 'value', throwsUnsupportedError);
+    });
+
+    test('trackPassesPropertiesToGoalAchievement', () async {
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      final properties = {'amount': 125, 'currency': 'USD'};
+      context.track('goal1', properties);
+
+      expect(context.getPendingCount(), equals(1));
+
+      await context.publish();
+
+      final captured =
+          verify(eventHandler.publish(context, captureAny)).captured;
+      final event = captured.first as PublishEvent;
+      expect(event.goals.length, equals(1));
+      expect(event.goals[0].name, equals('goal1'));
+      expect(event.goals[0].properties, equals(properties));
+    });
+
+    test('trackWithNullPropertiesPublishesNull', () async {
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.track('goal1', null);
+
+      await context.publish();
+
+      final captured =
+          verify(eventHandler.publish(context, captureAny)).captured;
+      final event = captured.first as PublishEvent;
+      expect(event.goals[0].properties, isNull);
+    });
+
+    test('readyErrorReturnsNullOnSuccess', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      expect(context.readyError(), isNull);
+    });
+
+    test('readyErrorReturnsErrorOnFailure', () async {
+      final Context context = createContextWithDefaultConfig(dataFutureFailed);
+
+      final Exception error = Exception('FAILED');
+      dataFutureFailed.completeError(error);
+
+      await context.waitUntilReady();
+
+      expect(context.isFailed(), isTrue);
+      expect(context.readyError(), equals(error));
+    });
+
+    test('getCustomFieldKeys', () async {
+      final Context context = createReadyContextWithData(customFieldsData);
+      await context.waitUntilReady();
+
+      final keys = context.getCustomFieldKeys();
+      expect(keys, containsAll(['country', 'overrides', 'languages']));
+    });
+
+    test('getCustomFieldKeysReturnsEmptySetWhenNoCustomFields', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      final keys = context.getCustomFieldKeys();
+      expect(keys, isEmpty);
+    });
+
+    test('getCustomFieldValue', () async {
+      final Context context = createReadyContextWithData(customFieldsData);
+      await context.waitUntilReady();
+
+      expect(context.getCustomFieldValue('exp_test_ab', 'country'),
+          equals('US,PT,ES,DE,FR'));
+      expect(context.getCustomFieldValue('exp_test_abc', 'country'),
+          equals('US,PT,ES'));
+      expect(context.getCustomFieldValue('exp_test_abc', 'languages'),
+          equals('en-US,en-GB,pt-PT,pt-BR,es-ES,es-MX'));
+      expect(context.getCustomFieldValue('exp_test_ab', 'overrides'),
+          equals({'123': 1, '456': 0}));
+    });
+
+    test('getCustomFieldValueReturnsNullForMissingKeyOrExperiment', () async {
+      final Context context = createReadyContextWithData(customFieldsData);
+      await context.waitUntilReady();
+
+      expect(context.getCustomFieldValue('exp_test_ab', 'missing'), isNull);
+      expect(
+          context.getCustomFieldValue('not_an_experiment', 'country'), isNull);
+      expect(
+          context.getCustomFieldValue('exp_test_no_custom_fields', 'country'),
+          isNull);
+    });
+
+    test('getCustomFieldValueType', () async {
+      final Context context = createReadyContextWithData(customFieldsData);
+      await context.waitUntilReady();
+
+      expect(context.getCustomFieldValueType('exp_test_ab', 'country'),
+          equals('string'));
+      expect(context.getCustomFieldValueType('exp_test_ab', 'overrides'),
+          equals('json'));
+      expect(context.getCustomFieldValueType('exp_test_abc', 'languages'),
+          equals('string'));
+    });
+
+    test('getCustomFieldValueTypeReturnsNullForMissingKeyOrExperiment',
+        () async {
+      final Context context = createReadyContextWithData(customFieldsData);
+      await context.waitUntilReady();
+
+      expect(context.getCustomFieldValueType('exp_test_ab', 'missing'), isNull);
+      expect(context.getCustomFieldValueType('not_an_experiment', 'country'),
+          isNull);
+      expect(
+          context.getCustomFieldValueType(
+              'exp_test_no_custom_fields', 'country'),
+          isNull);
+    });
+
+    test('customFieldKeysAliasMatchesGetCustomFieldKeys', () async {
+      final Context context = createReadyContextWithData(customFieldsData);
+      await context.waitUntilReady();
+
+      expect(context.customFieldKeys(), equals(context.getCustomFieldKeys()));
+    });
+
+    test('customFieldValueAliasMatchesGetCustomFieldValue', () async {
+      final Context context = createReadyContextWithData(customFieldsData);
+      await context.waitUntilReady();
+
+      expect(context.customFieldValue('exp_test_ab', 'country'),
+          equals(context.getCustomFieldValue('exp_test_ab', 'country')));
+      expect(context.customFieldValue('exp_test_ab', 'overrides'),
+          equals(context.getCustomFieldValue('exp_test_ab', 'overrides')));
+      expect(context.customFieldValue('not_found', 'country'),
+          equals(context.getCustomFieldValue('not_found', 'country')));
+    });
+
+    test('customFieldValueTypeAliasMatchesGetCustomFieldValueType', () async {
+      final Context context = createReadyContextWithData(customFieldsData);
+      await context.waitUntilReady();
+
+      expect(context.customFieldValueType('exp_test_ab', 'country'),
+          equals(context.getCustomFieldValueType('exp_test_ab', 'country')));
+      expect(context.customFieldValueType('exp_test_ab', 'overrides'),
+          equals(context.getCustomFieldValueType('exp_test_ab', 'overrides')));
+      expect(context.customFieldValueType('not_found', 'country'),
+          equals(context.getCustomFieldValueType('not_found', 'country')));
+    });
+
+    test('setDataSortsConflictingVariablesByExperimentId', () async {
+      for (final experiment in data.experiments) {
+        switch (experiment.name) {
+          case "exp_test_ab":
+            experiment.id = 99;
+            experiment.variants[expectedVariants["exp_test_ab"]!].config =
+                "{\"shared_var\":\"from_ab\"}";
+            break;
+          case "exp_test_abc":
+            experiment.id = 1;
+            experiment.variants[expectedVariants["exp_test_abc"]!].config =
+                "{\"shared_var\":\"from_abc\"}";
+            break;
+          default:
+            break;
+        }
+      }
+
+      final context = createReadyContextWithData(data);
+      await context.waitUntilReady();
+
+      final variableKeys = context.getVariableKeys();
+      expect(variableKeys['shared_var'], isNotNull);
+      expect(variableKeys['shared_var']!.first, equals('exp_test_abc'));
+    });
+
+    test('concurrentPublishSendsEachEventOnce', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 1});
+      context.track('goal2', {'amount': 2});
+
+      final List<PublishEvent> sent = [];
+      final List<Completer<void>> pending = [];
+      when(eventHandler.publish(any, any)).thenAnswer((invocation) {
+        sent.add(invocation.positionalArguments[1] as PublishEvent);
+        final completer = Completer<void>();
+        pending.add(completer);
+        return completer;
+      });
+
+      final first = context.publish();
+      final second = context.publish();
+      await Future.delayed(Duration.zero);
+
+      // The second publish waits for the in-flight one instead of resending.
+      expect(sent.length, equals(1));
+      expect(sent[0].goals!.map((g) => g.name), equals(['goal1', 'goal2']));
+      expect(context.getPendingCount(), equals(0));
+
+      context.track('goal3', {'amount': 3});
+      pending[0].complete();
+      await first;
+      await Future.delayed(Duration.zero);
+
+      expect(sent.length, equals(2));
+      expect(sent[1].goals!.map((g) => g.name), equals(['goal3']));
+      pending[1].complete();
+      await second;
+
+      expect(context.getPendingCount(), equals(0));
+    });
+
+    test('failedPublishRestoresBatchAheadOfNewerEvents', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 1});
+
+      final List<PublishEvent> sent = [];
+      final List<Completer<void>> pending = [];
+      when(eventHandler.publish(any, any)).thenAnswer((invocation) {
+        sent.add(invocation.positionalArguments[1] as PublishEvent);
+        final completer = Completer<void>();
+        pending.add(completer);
+        return completer;
+      });
+
+      final first = context.publish();
+      context.track('goal2', {'amount': 2});
+      pending[0].completeError(Exception('FAILED'));
+      await expectLater(first, throwsA(isA<Exception>()));
+
+      expect(context.getPendingCount(), equals(2));
+
+      final retry = context.publish();
+      pending[1].complete();
+      await retry;
+
+      expect(sent[1].goals!.map((g) => g.name), equals(['goal1', 'goal2']));
+      expect(context.getPendingCount(), equals(0));
+    });
+
+    test('publisherThrowingSynchronouslyKeepsEventsQueued', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 1});
+      when(eventHandler.publish(any, any)).thenThrow(Exception('SYNC'));
+
+      await expectLater(context.publish(), throwsA(isA<Exception>()));
+      expect(context.getPendingCount(), equals(1));
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      await context.publish();
+      expect(context.getPendingCount(), equals(0));
+    });
+
+    test('closeWaitsForInFlightPublish', () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 1});
+
+      final inFlight = Completer<void>();
+      when(eventHandler.publish(any, any)).thenAnswer((_) => inFlight);
+
+      final publishing = context.publish();
+      expect(context.getPendingCount(), equals(0));
+
+      final closing1 = context.close();
+      final closing2 = context.close();
+      expect(context.isClosing(), isTrue);
+      expect(context.isClosed(), isFalse);
+
+      inFlight.complete();
+      await publishing;
+      await closing1;
+      await closing2;
+
+      expect(context.isClosed(), isTrue);
+      verify(eventHandler.publish(any, any)).called(1);
+      verify(eventLogger.handleEvent(context, EventType.finalize, null))
+          .called(1);
+    });
+
+    test('throwingEventLoggerDoesNotFailPublish', () async {
+      final context = Context.create(
+          clock,
+          ContextConfig.create()..setUnits(units),
+          dataFutureReady,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          _ThrowingEventLogger());
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 1});
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      await context.publish();
+      expect(context.getPendingCount(), equals(0));
+      verify(eventHandler.publish(any, any)).called(1);
+    });
+
+    test('refreshOnFailedContextIsNoOp', () async {
+      final context = createContextWithDefaultConfig(dataFutureFailed);
+      dataFutureFailed.completeError(Exception('FAILED'));
+      await context.waitUntilReady();
+      expect(context.isFailed(), isTrue);
+
+      await context.refresh();
+
+      verifyNever(dataProvider.getContextData());
+      expect(context.isFailed(), isTrue);
+    });
+
+    test('refreshCompletingAfterCloseDoesNotRearmRefreshTimer', () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setRefreshInterval(60000);
+      final context = createContext(config, dataFutureReady);
+      await context.waitUntilReady();
+      expect(context.refreshTimer_, isNotNull);
+
+      final refreshing = Completer<ContextData>();
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshing);
+      final refresh = context.refresh();
+
+      await context.close();
+      expect(context.refreshTimer_, isNull);
+
+      refreshing.complete(refreshData);
+      await refresh;
+
+      expect(context.refreshTimer_, isNull);
+    });
+
+    test('assignmentsStickyAcrossRefreshWhenOnlySeedsSplitConfigChange',
+        () async {
+      final context = createReadyContext();
+      await context.waitUntilReady();
+
+      const String experimentName = 'exp_test_ab';
+      final int variant = context.getTreatment(experimentName);
+      expect(context.getPendingCount(), equals(1));
+
+      final contextBytes = await getResourceBytes("context.json");
+      final changed = deser.deserialize(contextBytes, 0, contextBytes.length)!;
+      final experiment =
+          changed.experiments.firstWhere((e) => e.name == experimentName);
+      experiment.seedHi = experiment.seedHi + 1;
+      experiment.seedLo = experiment.seedLo + 1;
+      experiment.split = [0.99, 0.01];
+      experiment.audience = '{"filter":[{"value":false}]}';
+      experiment.variants[1].config = '{"banner.border":2}';
+
+      final refreshing = Completer<ContextData>()..complete(changed);
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshing);
+      await context.refresh();
+
+      expect(context.getTreatment(experimentName), equals(variant));
+      expect(context.getPendingCount(), equals(1));
+
+      // A trafficSplit change invalidates the cached assignment.
+      final contextBytes2 = await getResourceBytes("context.json");
+      final moved = deser.deserialize(contextBytes2, 0, contextBytes2.length)!;
+      moved.experiments
+          .firstWhere((e) => e.name == experimentName)
+          .trafficSplit = [0.5, 0.5];
+      final refreshing2 = Completer<ContextData>()..complete(moved);
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshing2);
+      await context.refresh();
+
+      context.getTreatment(experimentName);
+      expect(context.getPendingCount(), equals(2));
+    });
+
+    test('indeterminateAudienceKeepsCachedMismatchAssignment', () async {
+      final context = createReadyContextWithData(audienceData);
+      await context.waitUntilReady();
+      context.setAttribute('age', 10);
+
+      context.getTreatment('exp_test_ab');
+      expect(context.getPendingCount(), equals(1));
+      expect(context.exposures_.last.audienceMismatch, isTrue);
+
+      final bytes = await getResourceBytes("audience_context.json");
+      final changed = deser.deserialize(bytes, 0, bytes.length)!;
+      changed.experiments.firstWhere((e) => e.name == 'exp_test_ab').audience =
+          'not json';
+      final refreshing = Completer<ContextData>()..complete(changed);
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshing);
+      await context.refresh();
+
+      // The audience now evaluates to null: JS keeps the cached flag rather
+      // than treating it as a change, so no second exposure is queued.
+      context.setAttribute('other', 1);
+      context.getTreatment('exp_test_ab');
+      expect(context.getPendingCount(), equals(1));
+    });
   });
+}
+
+class _ThrowingEventLogger implements ContextEventLogger {
+  @override
+  void handleEvent(Context context, EventType type, dynamic data) {
+    throw Exception('logger failure');
+  }
+}
+
+class _ThrowingVariableParser implements VariableParser {
+  _ThrowingVariableParser(this.error);
+  final Exception error;
+
+  @override
+  Map<String, dynamic>? parse(Context context, String experimentName,
+      String variantName, String variableValue) {
+    throw error;
+  }
 }

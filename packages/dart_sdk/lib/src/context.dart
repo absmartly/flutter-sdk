@@ -9,7 +9,7 @@ import 'package:collection/collection.dart';
 import 'audience_matcher.dart';
 import 'context_config.dart';
 import 'context_data_provider.dart';
-import 'context_event_handler.dart';
+import 'context_publisher.dart';
 import 'context_event_logger.dart';
 import 'internal/hashing/hashing.dart';
 import 'internal/variant_assigner.dart';
@@ -29,7 +29,7 @@ class Context {
       final ContextConfig config,
       final Completer<ContextData> dataFuture,
       final ContextDataProvider dataProvider,
-      final ContextEventHandler eventHandler,
+      final ContextPublisher eventHandler,
       final VariableParser variableParser,
       AudienceMatcher audienceMatcher,
       ContextEventLogger? eventLogger) {
@@ -42,7 +42,7 @@ class Context {
       ContextConfig config,
       Completer<ContextData> dataFuture,
       ContextDataProvider dataProvider,
-      ContextEventHandler eventHandler,
+      ContextPublisher eventHandler,
       VariableParser variableParser,
       AudienceMatcher audienceMatcher,
       ContextEventLogger? eventLogger) {
@@ -88,12 +88,28 @@ class Context {
     return failed_;
   }
 
+  dynamic readyError() {
+    return failedError_;
+  }
+
   bool isClosed() {
     return closed_;
   }
 
   bool isClosing() {
     return !closed_ && closing_;
+  }
+
+  bool isFinalized() {
+    return isClosed();
+  }
+
+  bool isFinalizing() {
+    return isClosing();
+  }
+
+  Future<void> finalize() {
+    return close();
   }
 
   Future<Context> waitUntilReady() async {
@@ -107,21 +123,19 @@ class Context {
   }
 
   List<String> getExperiments() {
-    checkReady(true);
+    checkReady(false);
 
     return List.generate(
         data_!.experiments.length, (index) => data_!.experiments[index].name);
   }
 
   ContextData getData() {
-    checkReady(true);
+    checkReady(false);
 
     return data_!;
   }
 
   void setOverride(final String experimentName, final int variant) {
-    checkNotClosed();
-
     overrides_[experimentName] = variant;
   }
 
@@ -130,9 +144,9 @@ class Context {
   }
 
   void setOverrides(Map<String, int> overrides) {
-    overrides.forEach((key, value) {
-      setOverride(key, value);
-    });
+    for (final entry in overrides.entries) {
+      setOverride(entry.key, entry.value);
+    }
   }
 
   void setCustomAssignment(String experimentName, int variant) {
@@ -146,39 +160,49 @@ class Context {
   }
 
   void setCustomAssignments(Map<String, int> customAssignments) {
-    customAssignments.forEach((key, value) {
-      setCustomAssignment(key, value);
-    });
+    for (final entry in customAssignments.entries) {
+      setCustomAssignment(entry.key, entry.value);
+    }
   }
 
-  String? getUnit(final String unitType) {
+  /// Returns the UID as it was set: a [String] or a [num].
+  Object? getUnit(final String unitType) {
     return units_[unitType];
   }
 
-  void setUnit(final String unitType, final String uid) {
+  /// Sets the UID of [unitType]. [uid] must be a [String] or a [num]; a
+  /// number keeps its type (JS context.ts unit()).
+  void setUnit(final String unitType, final Object uid) {
     checkNotClosed();
 
-    final String? previous = units_[unitType];
-    if ((previous != null) && !(previous == uid)) {
-      throw ArgumentError("Unit $unitType already set.");
+    Object value;
+    if (uid is String) {
+      value = uid.trim();
+      if ((value as String).isEmpty) {
+        throw Exception("Unit '$unitType' UID must not be blank.");
+      }
+    } else if (uid is num) {
+      value = uid;
+    } else {
+      throw Exception("Unit '$unitType' must be a string or a number.");
     }
 
-    final String trimmed = uid.trim();
-    if (trimmed.isEmpty) {
-      throw ArgumentError("Unit $unitType UID must not be blank.");
+    final Object? previous = units_[unitType];
+    if ((previous != null) && !(previous == value)) {
+      throw Exception("Unit '$unitType' UID already set.");
     }
 
-    units_[unitType] = trimmed;
+    units_[unitType] = value;
   }
 
-  Map<String, String> getUnits() {
+  Map<String, Object> getUnits() {
     return Map.unmodifiable(units_);
   }
 
-  void setUnits(Map<String, String> units) {
-    units.forEach((key, value) {
-      setUnit(key, value);
-    });
+  void setUnits(Map<String, Object> units) {
+    for (final entry in units.entries) {
+      setUnit(entry.key, entry.value);
+    }
   }
 
   dynamic getAttribute(final String name) {
@@ -195,10 +219,6 @@ class Context {
   void setAttribute(String name, dynamic value) {
     checkNotClosed();
 
-    if (name.trim().isEmpty) {
-      throw ArgumentError('Attribute name cannot be empty');
-    }
-
     attributes_
         .add(Attribute(name: name, value: value, setAt: clock_.millis()));
     attrsSeq_++;
@@ -214,9 +234,9 @@ class Context {
   }
 
   void setAttributes(final Map<String, dynamic> attributes) {
-    attributes.forEach((key, value) {
-      setAttribute(key, value);
-    });
+    for (final entry in attributes.entries) {
+      setAttribute(entry.key, entry.value);
+    }
   }
 
   int getTreatment(final String experimentName) {
@@ -276,6 +296,85 @@ class Context {
     return variableKeys;
   }
 
+  Set<String> getCustomFieldKeys() {
+    checkReady(true);
+
+    final keys = <String>{};
+    for (final experiment in data_!.experiments) {
+      final fields = experiment.customFieldValues;
+      if (fields != null) {
+        for (final field in fields) {
+          keys.add(field.name);
+        }
+      }
+    }
+    return keys;
+  }
+
+  dynamic getCustomFieldValue(final String experimentName, final String key) {
+    checkReady(true);
+
+    final experiment = index_[experimentName];
+    if (experiment != null) {
+      final fields = experiment.data.customFieldValues;
+      if (fields != null) {
+        for (final field in fields) {
+          if (field.name == key) {
+            switch (field.type) {
+              case 'text':
+              case 'string':
+                return field.value;
+              case 'number':
+                return num.tryParse(field.value);
+              case 'json':
+                try {
+                  if (field.value == 'null') return null;
+                  if (field.value == '') return '';
+                  return jsonDecode(field.value);
+                } catch (e) {
+                  logError(e);
+                  return null;
+                }
+              case 'boolean':
+                return field.value == 'true';
+              default:
+                logError(Exception(
+                    "Unknown custom field type '${field.type}' for experiment '$experimentName' and key '$key' - you may need to upgrade to the latest SDK version"));
+                return null;
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  String? getCustomFieldValueType(
+      final String experimentName, final String key) {
+    checkReady(true);
+
+    final experiment = index_[experimentName];
+    if (experiment != null) {
+      final fields = experiment.data.customFieldValues;
+      if (fields != null) {
+        for (final field in fields) {
+          if (field.name == key) {
+            return field.type;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  Set<String> customFieldKeys() => getCustomFieldKeys();
+
+  dynamic customFieldValue(final String experimentName, final String key) =>
+      getCustomFieldValue(experimentName, key);
+
+  String? customFieldValueType(final String experimentName, final String key) =>
+      getCustomFieldValueType(experimentName, key);
+
   dynamic getVariableValue(final String key, final dynamic defaultValue) {
     checkReady(true);
 
@@ -309,11 +408,10 @@ class Context {
   void track(final String goalName, final Map<String, dynamic>? properties) {
     checkNotClosed();
 
-    final achievedAt = clock_.millis();
     final GoalAchievement achievement = GoalAchievement(
       name: goalName,
-      achievedAt: achievedAt,
-      properties: properties ?? {},
+      achievedAt: clock_.millis(),
+      properties: properties == null ? null : Map.of(properties),
     );
 
     pendingCount_++;
@@ -325,7 +423,7 @@ class Context {
   }
 
   Future<void> publish() {
-    checkNotClosed();
+    checkReady(true);
 
     return flush();
   }
@@ -335,22 +433,39 @@ class Context {
   }
 
   Future<void> refresh() async {
-    checkNotClosed();
+    checkReady(true);
+
+    // A failed context is not recovered by a refresh (JS context.ts _refresh).
+    if (failed_) {
+      return;
+    }
 
     if (!refreshing_) {
       refreshing_ = true;
-      refreshFuture_ = Completer<void>();
+      final Completer<void> refreshing = Completer<void>();
+      refreshFuture_ = refreshing;
 
-      dataProvider_.getContextData().future.then((data) {
-        setData(data);
+      void fail(dynamic error) {
         refreshing_ = false;
-        refreshFuture_!.complete();
-        logEvent(EventType.refresh, data);
-      }).catchError((error) {
-        refreshing_ = false;
-        refreshFuture_!.completeError(error);
+        refreshing.completeError(error);
         logError(error);
-      });
+      }
+
+      try {
+        dataProvider_.getContextData().future.then((data) {
+          try {
+            setData(data);
+          } catch (error) {
+            fail(error);
+            return;
+          }
+          refreshing_ = false;
+          refreshing.complete();
+          logEvent(EventType.refresh, data);
+        }, onError: fail);
+      } catch (error) {
+        fail(error);
+      }
     }
 
     if (refreshFuture_ != null) {
@@ -360,121 +475,137 @@ class Context {
     return Future.value();
   }
 
-  Future<void> close() async {
-    if (!closed_) {
-      if (closing_ == false) {
-        closing_ = true;
-        clearRefreshTimer();
-
-        if (pendingCount_ > 0) {
-          closingFuture_ = Completer<void>();
-
-          flush().then((_) {
-            closed_ = true;
-            closing_ = false;
-            closingFuture_!.complete();
-            logEvent(EventType.close, null);
-          }).catchError((exception) {
-            closed_ = true;
-            closing_ = false;
-            closingFuture_!.completeError(exception);
-            // event logger gets this error during publish
-          });
-
-          return closingFuture_!.future;
-        } else {
-          closed_ = true;
-          closing_ = false;
-          logEvent(EventType.close, null);
-        }
-      }
-
-      if (closingFuture_ != null) {
-        return closingFuture_!.future;
-      }
+  Future<void> close() {
+    if (closed_) {
+      return Future.value();
     }
 
-    return Future.value();
+    final Completer<void>? inProgress = closingFuture_;
+    if (inProgress != null) {
+      return inProgress.future;
+    }
+
+    clearRefreshTimer();
+
+    // A flush may be in flight with the queue already drained, so only take
+    // the fast path when nothing is pending and nothing is being published.
+    if (pendingCount_ == 0 && flushFuture_ == null) {
+      closed_ = true;
+      logEvent(EventType.finalize, null);
+      return Future.value();
+    }
+
+    final Completer<void> closing = Completer<void>();
+    closingFuture_ = closing;
+    closing_ = true;
+
+    flush().then((_) {
+      closing_ = false;
+      closingFuture_ = null;
+      closed_ = true;
+      closing.complete();
+      logEvent(EventType.finalize, null);
+    }).catchError((exception) {
+      // A failed final publish leaves the context open with its events
+      // queued, so close() can be retried (JS context.ts _finalize).
+      closing_ = false;
+      closingFuture_ = null;
+      setRefreshTimer();
+      closing.completeError(exception);
+    });
+
+    return closing.future;
   }
 
-  Future<void> flush() async {
+  Future<void> flush() {
     clearTimeout();
 
-    if (!failed_) {
-      if (pendingCount_ > 0) {
-        List<Exposure>? exposures;
-        List<GoalAchievement>? achievements;
-        int eventCount;
+    // One publish at a time: a second caller waits for the in-flight one and
+    // then flushes whatever was queued meanwhile (JS context.ts _flushPromise).
+    final Future<void>? inFlight = flushFuture_;
+    if (inFlight != null) {
+      return inFlight.then((_) => flush(), onError: (_) => flush());
+    }
 
-        eventCount = pendingCount_;
+    if (pendingCount_ == 0) {
+      return Future.value();
+    }
 
-        if (eventCount > 0) {
-          if (exposures_.isNotEmpty) {
-            exposures = exposures_.toList();
-            exposures_.clear();
-          }
-
-          if (achievements_.isNotEmpty) {
-            achievements = achievements_.toList();
-            achievements_.clear();
-          }
-
-          pendingCount_ = 0;
-        }
-
-        if (eventCount > 0) {
-          List<Unit> units = [];
-
-          for (var entry in units_.entries) {
-            units.add(Unit(
-                type: entry.key,
-                uid: utf8.decode(getUnitHash(entry.key, entry.value))));
-          }
-
-          final PublishEvent event = PublishEvent(
-            hashed: true,
-            units: units,
-            publishedAt: clock_.millis(),
-            exposures: exposures ?? [],
-            goals: achievements ?? [],
-            attributes: attributes_.toList(),
-          );
-          event.hashed = true;
-          event.publishedAt = clock_.millis();
-
-          final Completer<void> result = Completer<void>();
-
-          eventHandler_.publish(this, event).future.then((_) {
-            logEvent(EventType.publish, event);
-            result.complete();
-          }).catchError((error) {
-            logError(error);
-            result.completeError(error);
-          });
-
-          return result.future;
-        }
-      }
-    } else {
+    if (failed_) {
+      logError(Exception(
+          "Discarding ${exposures_.length} exposures and ${achievements_.length} goals because context failed to initialize"));
       exposures_.clear();
       achievements_.clear();
       pendingCount_ = 0;
+      return Future.value();
     }
 
-    return Future.value();
+    // Snapshot and drain the queue before the async publish, so events
+    // queued while it is in flight are not resent and a failed batch can be
+    // put back in front of them.
+    final List<Exposure> exposures = List.of(exposures_);
+    final List<GoalAchievement> achievements = List.of(achievements_);
+    final int eventCount = pendingCount_;
+    exposures_.clear();
+    achievements_.clear();
+    pendingCount_ = 0;
+
+    final Completer<void> result = Completer<void>();
+
+    void restore(dynamic error) {
+      exposures_.insertAll(0, exposures);
+      achievements_.insertAll(0, achievements);
+      pendingCount_ += eventCount;
+      logError(error);
+      result.completeError(error);
+    }
+
+    try {
+      final List<Unit> units = [];
+      for (var entry in units_.entries) {
+        units.add(Unit(
+            type: entry.key,
+            uid: utf8.decode(getUnitHash(entry.key, entry.value))));
+      }
+
+      final PublishEvent event = PublishEvent(
+        hashed: true,
+        units: units,
+        publishedAt: clock_.millis(),
+        exposures: exposures,
+        goals: achievements,
+        attributes: attributes_.toList(),
+      );
+
+      eventHandler_.publish(this, event).future.then((_) {
+        result.complete();
+        logEvent(EventType.publish, event);
+      }, onError: restore);
+    } catch (error) {
+      restore(error);
+    }
+
+    final Future<void> future = result.future;
+    flushFuture_ = future;
+    future.then((_) {}, onError: (_) {}).whenComplete(() {
+      if (identical(flushFuture_, future)) {
+        flushFuture_ = null;
+      }
+    });
+    return future;
   }
 
   void checkNotClosed() {
     if (closed_) {
-      throw StateError("ABsmartly Context is closed");
+      throw Exception("ABsmartly Context is finalized.");
     } else if (closing_) {
-      throw StateError("ABsmartly Context is closing");
+      throw Exception("ABsmartly Context is finalizing.");
     }
   }
 
   void checkReady(final bool expectNotClosed) {
     if (!isReady()) {
-      throw StateError("ABsmartly Context is not yet ready");
+      throw Exception("ABsmartly Context is not yet ready.");
     } else if (expectNotClosed) {
       checkNotClosed();
     }
@@ -492,19 +623,22 @@ class Context {
 
   bool audienceMatches(
       final Experiment experiment, final Assignment assignment) {
-    if (experiment.audience != null && experiment.audience!.isNotEmpty) {
-      if (attrsSeq_ > assignment.attrsSeq) {
+    if (attrsSeq_ > assignment.attrsSeq) {
+      if (experiment.audience != null && experiment.audience!.isNotEmpty) {
         final Map<String, dynamic> attrs = {};
         for (final Attribute attr in attributes_) {
           attrs[attr.name] = attr.value;
         }
-        final Result? match = audienceMatcher_.evaluate(experiment.audience!, attrs);
-        final bool newAudienceMismatch = match != null ? !match.get() : false;
+        final Result? match =
+            audienceMatcher_.evaluate(experiment.audience!, attrs);
+        // An indeterminate (null) result keeps the cached flag.
+        final bool newAudienceMismatch =
+            match != null ? !match.get() : assignment.audienceMismatch;
         if (newAudienceMismatch != assignment.audienceMismatch) {
           return false;
         }
-        assignment.attrsSeq = attrsSeq_;
       }
+      assignment.attrsSeq = attrsSeq_;
     }
     return true;
   }
@@ -569,7 +703,7 @@ class Context {
         if (experiment.data.audienceStrict && assignment.audienceMismatch) {
           assignment.variant = 0;
         } else if (experiment.data.fullOnVariant == 0) {
-          final String? uid = units_[experiment.data.unitType];
+          final Object? uid = units_[experiment.data.unitType];
           if (uid != null) {
             final Uint8List unitHash = getUnitHash(unitType, uid);
 
@@ -645,9 +779,9 @@ class Context {
     return indexVariables_[key];
   }
 
-  Uint8List getUnitHash(final String unitType, final String unitUID) {
+  Uint8List getUnitHash(final String unitType, final Object unitUID) {
     return hashedUnits_[unitType] ??
-        (hashedUnits_[unitType] = Hashing.hashUnit(unitUID));
+        (hashedUnits_[unitType] = Hashing.hashUnitValue(unitUID));
   }
 
   VariantAssigner getVariantAssigner(
@@ -657,11 +791,12 @@ class Context {
   }
 
   void setTimeout() {
-    if (isReady()) {
+    // A negative publish delay disables the automatic publish.
+    if (isReady() && publishDelay_ >= 0) {
       timeout_ ??= Timer(Duration(milliseconds: publishDelay_), () {
-        flush().catchError((error) {
-          logError(error);
-        });
+        // The failure is already reported through the event logger and the
+        // events stay queued for the next publish.
+        flush().catchError((_) {});
       });
     }
   }
@@ -674,12 +809,14 @@ class Context {
   }
 
   void setRefreshTimer() {
-    if ((refreshInterval_ > 0) && (refreshTimer_ == null)) {
+    if ((refreshInterval_ > 0) &&
+        (refreshTimer_ == null) &&
+        !closing_ &&
+        !closed_) {
       refreshTimer_ =
           Timer.periodic(Duration(milliseconds: refreshInterval_), (timer) {
-        refresh().catchError((error) {
-          logError(error);
-        });
+        // Refresh failures are reported through the event logger.
+        refresh().catchError((_) {});
       });
     }
   }
@@ -711,11 +848,17 @@ class Context {
               indexVariables[key] = keyExperimentVariables;
             }
 
-            int at = keyExperimentVariables.indexOf(experimentVariables);
-
-            if (at < 0) {
-              at = -at - 1;
-              keyExperimentVariables.insert(at, experimentVariables);
+            if (!keyExperimentVariables.contains(experimentVariables)) {
+              int insertAt = 0;
+              for (int i = 0; i < keyExperimentVariables.length; i++) {
+                if (keyExperimentVariables[i].data.id <
+                    experimentVariables.data.id) {
+                  insertAt = i + 1;
+                } else {
+                  break;
+                }
+              }
+              keyExperimentVariables.insert(insertAt, experimentVariables);
             }
           });
 
@@ -731,7 +874,18 @@ class Context {
     index_ = index;
     indexVariables_ = indexVariables;
     data_ = data;
-    assignmentCache_.clear();
+
+    assignmentCache_.removeWhere((experimentName, assignment) {
+      if (assignment.overridden) {
+        return false;
+      }
+      final ExperimentVariables? experiment = index[experimentName];
+      if (experiment == null) {
+        return assignment.assigned;
+      }
+      return !experimentMatches(experiment.data, assignment);
+    });
+
     setRefreshTimer();
   }
 
@@ -740,26 +894,32 @@ class Context {
     indexVariables_ = {};
     data_ = ContextData();
     failed_ = true;
+    failedError_ = exception;
   }
 
+  // A throwing event logger must not change control flow (JS context.ts
+  // _logEvent/_logError swallow observer exceptions).
   void logEvent(EventType event, dynamic data) {
-    eventLogger_?.handleEvent(this, event, data);
+    try {
+      eventLogger_?.handleEvent(this, event, data);
+    } catch (_) {}
   }
 
   void logError(error) {
-    eventLogger_?.handleEvent(this, EventType.error, error);
+    logEvent(EventType.error, error);
   }
 
   late Clock clock_;
   int publishDelay_ = 100;
   int refreshInterval_ = 0;
-  late ContextEventHandler eventHandler_;
+  late ContextPublisher eventHandler_;
   late ContextDataProvider dataProvider_;
   late VariableParser variableParser_;
   late AudienceMatcher audienceMatcher_;
   late ContextEventLogger? eventLogger_;
-  final Map<String, String> units_ = {};
+  final Map<String, Object> units_ = {};
   bool failed_ = false;
+  dynamic failedError_;
   ContextData? data_;
   Map<String, ExperimentVariables> index_ = {};
   Map<String, List<ExperimentVariables>> indexVariables_ = {};
@@ -781,6 +941,7 @@ class Context {
   Completer<void>? readyFuture_;
   Completer<void>? closingFuture_;
   Completer<void>? refreshFuture_;
+  Future<void>? flushFuture_;
   Timer? timeout_;
   Timer? refreshTimer_;
 }
@@ -792,8 +953,8 @@ class ExperimentVariables {
 
 class Assignment {
   int id = 0;
-  late int iteration;
-  late int fullOnVariant;
+  int iteration = 0;
+  int fullOnVariant = 0;
   late String name;
   String? unitType;
   List<double> trafficSplit = [];

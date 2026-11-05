@@ -1,0 +1,3 @@
+dependency_overrides:
+  absmartly_dart:
+    path: ../../dart_sdk

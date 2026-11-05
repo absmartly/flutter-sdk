@@ -1,13 +1,15 @@
 library absmartly_dart;
 
-export 'src/ab_smartly.dart' show ABsmartly, ABSmartly;
-export 'src/absmartly_sdk_config.dart' show ABsmartlyConfig, ABSmartlyConfig;
+export 'src/ab_smartly.dart';
+export 'src/absmartly_sdk_config.dart';
 export 'src/client.dart';
 export 'src/client_config.dart';
 export 'src/context.dart';
 export 'src/context_config.dart';
 export 'src/context_data_provider.dart';
 export 'src/context_data_deserializer.dart';
+export 'src/context_publisher.dart';
+export 'src/default_context_publisher.dart';
 export 'src/context_event_handler.dart';
 export 'src/context_event_logger.dart';
 export 'src/context_event_serializer.dart';

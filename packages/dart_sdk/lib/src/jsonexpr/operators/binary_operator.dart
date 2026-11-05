@@ -4,12 +4,12 @@ import '../operator.dart';
 abstract class BinaryOperator implements Operator {
   @override
   dynamic evaluate(Evaluator evaluator, dynamic args) {
+    // A missing or null operand short-circuits to null; extra operands are
+    // ignored (JS jsonexpr/operators/binary.ts).
     if (args is List) {
-      final argsList = args;
-      final lhs = argsList.isNotEmpty ? evaluator.evaluate(argsList[0]) : null;
+      final lhs = args.isNotEmpty ? evaluator.evaluate(args[0]) : null;
       if (lhs != null) {
-        final rhs =
-            argsList.length > 1 ? evaluator.evaluate(argsList[1]) : null;
+        final rhs = args.length > 1 ? evaluator.evaluate(args[1]) : null;
         if (rhs != null) {
           return binary(evaluator, lhs, rhs);
         }

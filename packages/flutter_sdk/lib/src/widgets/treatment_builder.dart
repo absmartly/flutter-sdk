@@ -60,6 +60,8 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
   int _variant = 0;
   Map<String, dynamic> _variables = {};
   Timer? _timeoutTimer;
+  int _generation = 0;
+  Context? _boundContext;
 
   Context get _context {
     if (widget.context != null) {
@@ -79,28 +81,58 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (widget.context != null) return;
+    final providerContext = ABSmartlyProvider.maybeOf(context)?.context;
+    if (providerContext != null &&
+        _boundContext != null &&
+        !identical(providerContext, _boundContext)) {
+      _cancelTimeout();
+      _isReady = false;
+      _timedOut = false;
+      _variant = 0;
+      _variables = {};
+      _initializeTreatment();
+    }
+  }
+
+  @override
   void didUpdateWidget(TreatmentBuilder oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.name != widget.name || oldWidget.context != widget.context) {
       _cancelTimeout();
+      setState(() {
+        _isReady = false;
+        _timedOut = false;
+        _variant = 0;
+        _variables = {};
+      });
       _initializeTreatment();
     }
   }
 
   void _initializeTreatment() {
     final ctx = _context;
+    _boundContext = ctx;
+    final generation = ++_generation;
 
     if (ctx.isReady()) {
       _updateTreatment(ctx);
     } else {
       _startTimeoutIfNeeded();
       ctx.waitUntilReady().then((_) {
-        if (mounted) {
+        if (mounted && generation == _generation) {
           _cancelTimeout();
           _updateTreatment(ctx);
         }
-      }).catchError((_) {
-        if (mounted) {
+      }).catchError((error) {
+        assert(() {
+          debugPrint(
+              'ABSmartly: TreatmentBuilder "${widget.name}" error: $error');
+          return true;
+        }());
+        if (mounted && generation == _generation) {
           _cancelTimeout();
           setState(() {
             _isReady = true;
@@ -113,22 +145,22 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
   }
 
   void _updateTreatment(Context ctx) {
-    if (ctx.isFailed()) {
-      setState(() {
-        _isReady = true;
-        _variant = 0;
-        _variables = {};
-      });
-      return;
-    }
-
-    final variant = ctx.getTreatment(widget.name);
-
-    final variableKeys = ctx.getVariableKeys();
+    // Reads throw once the context is finalized; a widget still bound to such
+    // a context renders the control instead of failing the build.
+    int variant = 0;
     final variables = <String, dynamic>{};
+    try {
+      variant = ctx.getTreatment(widget.name);
 
-    for (final key in variableKeys.keys) {
-      variables[key] = ctx.peekVariableValue(key, null);
+      variables.addAll(ctx.getAssignment(widget.name).variables);
+    } catch (error) {
+      assert(() {
+        debugPrint(
+            'ABSmartly: TreatmentBuilder "${widget.name}" error: $error');
+        return true;
+      }());
+      variant = 0;
+      variables.clear();
     }
 
     setState(() {
@@ -181,7 +213,8 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
     }
 
     final providerData = _providerData;
-    final loadingBehavior = providerData?.defaultLoadingBehavior ?? LoadingBehavior.control;
+    final loadingBehavior =
+        providerData?.defaultLoadingBehavior ?? LoadingBehavior.control;
 
     if (_timedOut || loadingBehavior == LoadingBehavior.control) {
       return widget.builder(context, 0, {});

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:absmartly_dart/src/context_data_deserializer.dart';
@@ -122,6 +123,112 @@ void main() {
         experiment3
       ];
       expect(data, expected);
+    });
+
+    // JSON has one number type, so a whole-number weight may arrive as `1`
+    // rather than `1.0` (the collector emits `double[]`, but any JSON
+    // producer, proxy or re-encoder in between may drop the fraction).
+    Map<String, dynamic> experimentJson(
+        {required List<num> split, required List<num> trafficSplit}) {
+      return {
+        'id': 1,
+        'name': 'exp_int_split',
+        'unitType': 'session_id',
+        'iteration': 1,
+        'seedHi': 3603515,
+        'seedLo': 233373850,
+        'split': split,
+        'trafficSeedHi': 449867249,
+        'trafficSeedLo': 455443629,
+        'trafficSplit': trafficSplit,
+        'fullOnVariant': 0,
+        'applications': [
+          {'name': 'website'}
+        ],
+        'variants': [
+          {'name': 'A', 'config': null},
+          {'name': 'B', 'config': null}
+        ],
+        'audience': '',
+      };
+    }
+
+    ContextData? deserializeJson(Object json) {
+      final bytes = utf8.encode(jsonEncode(json));
+      return DefaultContextDataDeserializer()
+          .deserialize(bytes, 0, bytes.length);
+    }
+
+    test('deserializeIntegerTrafficSplitAsDoubles', () {
+      final data = deserializeJson({
+        'experiments': [
+          experimentJson(split: [0.5, 0.5], trafficSplit: [0, 1])
+        ]
+      });
+
+      expect(data, isNotNull);
+      final experiment = data!.experiments.single;
+      expect(experiment.trafficSplit, [0.0, 1.0]);
+      expect(experiment.trafficSplit, everyElement(isA<double>()));
+      expect(experiment.split, [0.5, 0.5]);
+    });
+
+    test('deserializeIntegerSplitAsDoubles', () {
+      final data = deserializeJson({
+        'experiments': [
+          experimentJson(split: [1, 0], trafficSplit: [0, 1])
+        ]
+      });
+
+      expect(data, isNotNull);
+      final experiment = data!.experiments.single;
+      expect(experiment.split, [1.0, 0.0]);
+      expect(experiment.split, everyElement(isA<double>()));
+    });
+
+    test('deserializeIntegerSplitsEqualsDoubleSplits', () {
+      final fromInts = deserializeJson({
+        'experiments': [
+          experimentJson(split: [1, 0], trafficSplit: [0, 1])
+        ]
+      });
+      final fromDoubles = deserializeJson({
+        'experiments': [
+          experimentJson(split: [1.0, 0.0], trafficSplit: [0.0, 1.0])
+        ]
+      });
+
+      expect(fromInts, isNotNull);
+      expect(fromInts, fromDoubles);
+    });
+
+    test('deserializeIgnoresUnknownFields', () {
+      final data = deserializeJson({
+        'experiments': [
+          {
+            ...experimentJson(split: [0.5, 0.5], trafficSplit: [0, 1]),
+            'holdoutIds': [7],
+            'assignmentRules': '{}',
+            'someFutureField': {'nested': true},
+          }
+        ],
+        'holdouts': [],
+        'someFutureTopLevelField': 1,
+      });
+
+      expect(data, isNotNull);
+      expect(data!.experiments.single.trafficSplit, [0.0, 1.0]);
+    });
+
+    test('deserializeRejectsNonNumericSplitEntries', () {
+      final data = deserializeJson({
+        'experiments': [
+          experimentJson(split: [0.5, 0.5], trafficSplit: [0, 1])
+            ..['trafficSplit'] = ['0', '1']
+        ]
+      });
+
+      expect(data, isNull);
     });
   });
 }

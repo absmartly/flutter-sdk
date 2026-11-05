@@ -78,12 +78,14 @@ void main() {
 
     test('getContextDataDeserializer returns default if not set', () {
       final config = ClientConfig();
-      expect(config.getContextDataDeserializer(), isA<DefaultContextDataDeserializer>());
+      expect(config.getContextDataDeserializer(),
+          isA<DefaultContextDataDeserializer>());
     });
 
     test('getContextEventSerializer returns default if not set', () {
       final config = ClientConfig();
-      expect(config.getContextEventSerializer(), isA<DefaultContextEventSerializer>());
+      expect(config.getContextEventSerializer(),
+          isA<DefaultContextEventSerializer>());
     });
   });
 
@@ -123,24 +125,19 @@ void main() {
 
     test('can set multiple units via setUnits', () {
       final config = ContextConfig.create()
-        ..setUnits({
-          'user_id': '12345',
-          'device_id': 'device-abc'
-        });
+        ..setUnits({'user_id': '12345', 'device_id': 'device-abc'});
 
       expect(config, isNotNull);
     });
 
     test('can set publish delay', () {
-      final config = ContextConfig.create()
-        ..setPublishDelay(1000);
+      final config = ContextConfig.create()..setPublishDelay(1000);
 
       expect(config, isNotNull);
     });
 
     test('can set refresh interval', () {
-      final config = ContextConfig.create()
-        ..setRefreshInterval(3600000);
+      final config = ContextConfig.create()..setRefreshInterval(3600000);
 
       expect(config, isNotNull);
     });
@@ -252,9 +249,12 @@ void main() {
     });
 
     test('GoalAchievement equality works', () {
-      final goal1 = GoalAchievement(name: 'signup', achievedAt: 123, properties: null);
-      final goal2 = GoalAchievement(name: 'signup', achievedAt: 123, properties: null);
-      final goal3 = GoalAchievement(name: 'purchase', achievedAt: 123, properties: null);
+      final goal1 =
+          GoalAchievement(name: 'signup', achievedAt: 123, properties: null);
+      final goal2 =
+          GoalAchievement(name: 'signup', achievedAt: 123, properties: null);
+      final goal3 =
+          GoalAchievement(name: 'purchase', achievedAt: 123, properties: null);
 
       expect(goal1, equals(goal2));
       expect(goal1, isNot(equals(goal3)));

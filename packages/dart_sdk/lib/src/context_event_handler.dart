@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'context.dart';
+import 'context_publisher.dart';
 import 'json/publish_event.dart';
 
-abstract class ContextEventHandler {
-  Completer<void> publish(Context context, PublishEvent event);
-}
+@Deprecated('Use ContextPublisher instead.')
+typedef ContextEventHandler = ContextPublisher;

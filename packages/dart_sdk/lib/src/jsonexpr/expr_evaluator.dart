@@ -126,12 +126,13 @@ class ExprEvaluator extends Evaluator {
     } else if (lhs is bool) {
       final rvalue = booleanConvert(rhs);
       return (lhs ? 1 : 0).compareTo(rvalue ? 1 : 0);
+    } else if (lhs is Map || lhs is List) {
+      if ((lhs is Map && rhs is Map || lhs is List && rhs is List) &&
+          const DeepCollectionEquality().equals(lhs, rhs)) {
+        return 0;
+      }
     } else if (lhs.runtimeType == rhs.runtimeType) {
-      if (lhs is Map && const MapEquality().equals(lhs, rhs)) {
-        return 0;
-      } else if (lhs is List && const ListEquality().equals(lhs, rhs)) {
-        return 0;
-      } else if (lhs is Comparable) {
+      if (lhs is Comparable) {
         return (lhs).compareTo(rhs);
       }
     }
