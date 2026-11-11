@@ -11,6 +11,7 @@ Applies to `absmartly_dart` and `absmartly_sdk`.
 
 ### Changed
 - The `Treatment`, `TreatmentBuilder`, `TreatmentSwitch` and `VariableValue` widgets read a failed context through the SDK (control/default values) instead of skipping it.
+- **Audiences now always evaluate `application` and `environment`.** The application and environment names from the client config are placed in the attribute map that audience filters read, always on (no opt-in). User-set attributes of the same name still win, including when set after the context is created. These values are not added to the publish payload (the collector already attaches them server-side), and no `app_version`/`application_version` attribute is injected. **This changes assignment for running experiments:** a unit whose experiment has Audience enforced (`audienceStrict`) and an `environment`/`application` condition currently gets variant 0 (control) on every evaluation — those experiments are broken today. After upgrading, that unit is randomised normally.
 
 ### Added
 - `finalize`/`isFinalized`/`isFinalizing` aliases, custom field support (`customFieldKeys`/`Value`/`ValueType`), `readyError`.

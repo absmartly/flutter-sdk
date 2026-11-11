@@ -43,6 +43,9 @@ class Client {
       throw ArgumentError("Missing Environment configuration");
     }
 
+    application_ = application;
+    environment_ = environment;
+
     url_ = "$endpoint/context";
     httpClient_ = httpClient;
     deserializer_ = config.deserializer_;
@@ -92,6 +95,14 @@ class Client {
     return dataFuture;
   }
 
+  /// The application name from the client config, or `null` when not set.
+  /// Audience filters read this as the `application` attribute.
+  String? getApplication() => application_;
+
+  /// The environment name from the client config, or `null` when not set.
+  /// Audience filters read this as the `environment` attribute.
+  String? getEnvironment() => environment_;
+
   Completer<void> publish(final PublishEvent event) {
     Completer<void> publishFuture = Completer<void>();
 
@@ -116,6 +127,9 @@ class Client {
   late final Map<String, String> query_;
   late final Map<String, String> headers_;
   late final HTTPClient httpClient_;
+
+  String? application_;
+  String? environment_;
 
   ContextDataDeserializer? deserializer_;
   ContextEventSerializer? serializer_;
