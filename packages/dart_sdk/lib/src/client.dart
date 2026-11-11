@@ -95,12 +95,12 @@ class Client {
     return dataFuture;
   }
 
-  /// The application name from the client config, or `null` when not set.
-  /// Audience filters read this as the `application` attribute.
+  /// The configured application name, read by audience filters as the
+  /// `application` attribute.
   String? getApplication() => application_;
 
-  /// The environment name from the client config, or `null` when not set.
-  /// Audience filters read this as the `environment` attribute.
+  /// The configured environment name, read by audience filters as the
+  /// `environment` attribute.
   String? getEnvironment() => environment_;
 
   Completer<void> publish(final PublishEvent event) {

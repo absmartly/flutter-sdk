@@ -83,7 +83,6 @@ void main() {
           application: application, environment: environment);
     }
 
-    // §4.1 Strict audience on the environment matches.
     test('strict audience on environment matches', () async {
       final context = createContext();
       await context.waitUntilReady();
@@ -93,7 +92,6 @@ void main() {
       expect(context.exposures_.last.audienceMismatch, isFalse);
     });
 
-    // §4.2 Strict audience on the application matches.
     test('strict audience on application matches', () async {
       final context = createContext();
       await context.waitUntilReady();
@@ -103,7 +101,6 @@ void main() {
       expect(context.exposures_.last.audienceMismatch, isFalse);
     });
 
-    // §4.3 No match: an environment of staging gives variant 0, mismatch true.
     test('strict audience on environment does not match wrong value', () async {
       final context = createContext();
       await context.waitUntilReady();
@@ -113,8 +110,6 @@ void main() {
       expect(context.exposures_.last.audienceMismatch, isTrue);
     });
 
-    // §4.4 User value overrides the system value, even set after creation, and
-    // invalidates an assignment cached before the attribute was set.
     test('user attribute overrides system value and invalidates cache',
         () async {
       final context = createContext();
@@ -140,8 +135,6 @@ void main() {
       expect(context.peekTreatment('exp_env_staging'), equals(1));
     });
 
-    // §4.6 Missing config: no environment configured means no key in the map,
-    // so a filter on environment does not match and nothing crashes.
     test('missing environment config leaves the key out', () async {
       final context = createContext(environment: null);
       await context.waitUntilReady();
@@ -161,8 +154,6 @@ void main() {
       expect(context.peekTreatment('exp_env'), equals(0));
     });
 
-    // §4.7 Nothing extra published: the serialized payload has no application,
-    // environment or app_version attribute entries.
     test('system attributes are not published', () async {
       final context = createContext(attributes: {'custom': 'value'});
       await context.waitUntilReady();
@@ -194,8 +185,6 @@ void main() {
       expect(attributes, isNot(contains('app_version')));
     });
 
-    // §4.8 app_version gone: a filter on app_version does not match even when
-    // the SDK has an application configured.
     test('app_version is not injected into the evaluation map', () async {
       final context = createContext();
       await context.waitUntilReady();
