@@ -32,9 +32,12 @@ class Context {
       final ContextPublisher eventHandler,
       final VariableParser variableParser,
       AudienceMatcher audienceMatcher,
-      ContextEventLogger? eventLogger) {
+      ContextEventLogger? eventLogger,
+      {String? application,
+      String? environment}) {
     return Context(clock, config, dataFuture, dataProvider, eventHandler,
-        variableParser, audienceMatcher, eventLogger);
+        variableParser, audienceMatcher, eventLogger,
+        application: application, environment: environment);
   }
 
   Context(
@@ -45,7 +48,9 @@ class Context {
       ContextPublisher eventHandler,
       VariableParser variableParser,
       AudienceMatcher audienceMatcher,
-      ContextEventLogger? eventLogger) {
+      ContextEventLogger? eventLogger,
+      {String? application,
+      String? environment}) {
     clock_ = clock;
 
     publishDelay_ = config.getPublishDelay();
@@ -55,6 +60,18 @@ class Context {
     variableParser_ = variableParser;
     audienceMatcher_ = audienceMatcher;
     eventLogger_ = eventLogger;
+
+    // System attributes (the application and environment names configured on
+    // the client) are always evaluated by audiences, no opt-in. The collector
+    // attaches the same values to every exposure server-side, so nothing extra
+    // is published. Skip null/empty values so a missing config leaves the key
+    // out of the evaluation map.
+    if ((application != null) && application.isNotEmpty) {
+      systemAttributes_["application"] = application;
+    }
+    if ((environment != null) && environment.isNotEmpty) {
+      systemAttributes_["environment"] = environment;
+    }
 
     setUnits(config.getUnits());
     setAttributes(config.getAttributes());
@@ -621,14 +638,24 @@ class Context {
             .equals(experiment.trafficSplit, assignment.trafficSplit);
   }
 
+  // System attributes (application, environment) first, then user attributes
+  // overlaid on top, so a user-set value always wins, even one set after an
+  // assignment was cached (the attrsSeq_ bump invalidates it). This map is what
+  // audience filters evaluate against.
+  Map<String, dynamic> getAttributesMap() {
+    final Map<String, dynamic> attrs = {};
+    attrs.addAll(systemAttributes_);
+    for (final Attribute attr in attributes_) {
+      attrs[attr.name] = attr.value;
+    }
+    return attrs;
+  }
+
   bool audienceMatches(
       final Experiment experiment, final Assignment assignment) {
     if (attrsSeq_ > assignment.attrsSeq) {
       if (experiment.audience != null && experiment.audience!.isNotEmpty) {
-        final Map<String, dynamic> attrs = {};
-        for (final Attribute attr in attributes_) {
-          attrs[attr.name] = attr.value;
-        }
+        final Map<String, dynamic> attrs = getAttributesMap();
         final Result? match =
             audienceMatcher_.evaluate(experiment.audience!, attrs);
         // An indeterminate (null) result keeps the cached flag.
@@ -688,10 +715,7 @@ class Context {
 
         if (experiment.data.audience != null &&
             experiment.data.audience!.isNotEmpty) {
-          final Map<String, dynamic> attrs = {};
-          for (final Attribute attr in attributes_) {
-            attrs[attr.name] = attr.value;
-          }
+          final Map<String, dynamic> attrs = getAttributesMap();
 
           final Result? match =
               audienceMatcher_.evaluate(experiment.data.audience!, attrs);
@@ -931,6 +955,7 @@ class Context {
   final List<Exposure> exposures_ = [];
   final List<GoalAchievement> achievements_ = [];
   final List<Attribute> attributes_ = [];
+  final Map<String, dynamic> systemAttributes_ = {};
   final Map<String, int> overrides_ = {};
   final Map<String, int> cassignments_ = {};
   int pendingCount_ = 0;
