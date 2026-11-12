@@ -71,6 +71,7 @@ class Context {
     }
     if ((environment != null) && environment.isNotEmpty) {
       systemAttributes_["environment"] = environment;
+      environmentName_ = environment;
     }
 
     setUnits(config.getUnits());
@@ -210,6 +211,18 @@ class Context {
     }
 
     units_[unitType] = value;
+
+    invalidateAssignmentsPinnedWithMissingUnit(unitType);
+  }
+
+  // A split rule resolved without its unit gave the experiment's no-unit
+  // result. Evict it so getAssignment() hashes the unit now; an exposed one is
+  // kept, since re-resolving would queue a second, conflicting exposure.
+  void invalidateAssignmentsPinnedWithMissingUnit(final String unitType) {
+    assignmentCache_.removeWhere((_, assignment) =>
+        assignment.unitType == unitType &&
+        !assignment.exposed &&
+        assignment.isRuleMissingUnit);
   }
 
   Map<String, Object> getUnits() {
@@ -282,7 +295,8 @@ class Context {
           overridden: assignment.overridden,
           fullOn: assignment.fullOn,
           custom: assignment.custom,
-          audienceMismatch: assignment.audienceMismatch);
+          audienceMismatch: assignment.audienceMismatch,
+          ruleOverride: assignment.ruleOverride);
 
       pendingCount_++;
       exposures_.add(exposure);
@@ -651,11 +665,82 @@ class Context {
     return attrs;
   }
 
+  String ruleKey(final Experiment experiment) {
+    final String? rules = experiment.assignmentRules;
+    return (rules != null && rules.isNotEmpty)
+        ? "$rules:$environmentName_"
+        : "";
+  }
+
+  // The variant of the first assignment rule that matches, or null when none
+  // does or the matched rule cannot be applied: an assign variant out of
+  // bounds, or a split whose value count differs from the variant count. A
+  // split rule matched while the experiment's unit is missing gives the
+  // experiment's own no-unit result (its full-on variant, otherwise 0).
+  RuleResult? resolveRule(final Experiment experiment,
+      final Map<String, dynamic> attrs, final bool unitPinnedMissing) {
+    final int variantCount = experiment.variants.length;
+    final RuleAction? action = audienceMatcher_.evaluateRules(
+        experiment.assignmentRules ?? "", environmentName_, attrs);
+    if (action == null) {
+      return null;
+    }
+
+    final int? variant = action.variant;
+    if (variant != null) {
+      return (variant >= 0 && variant < variantCount)
+          ? RuleResult(variant, false)
+          : null;
+    }
+
+    final List<double> split = action.split!;
+    if (split.length != variantCount) {
+      return null;
+    }
+
+    final String unitType = experiment.unitType;
+    final Object? uid = unitPinnedMissing ? null : units_[unitType];
+    if (uid == null) {
+      return RuleResult(experiment.fullOnVariant, true);
+    }
+
+    final VariantAssigner assigner =
+        getVariantAssigner(unitType, getUnitHash(unitType, uid));
+    return RuleResult(
+        assigner.assign(split, experiment.seedHi, experiment.seedLo), false);
+  }
+
   bool audienceMatches(
       final Experiment experiment, final Assignment assignment) {
-    if (attrsSeq_ > assignment.attrsSeq) {
-      if (experiment.audience != null && experiment.audience!.isNotEmpty) {
-        final Map<String, dynamic> attrs = getAttributesMap();
+    final String key = ruleKey(experiment);
+    final bool ruleKeyChanged = key != (assignment.ruleKey ?? "");
+
+    if (ruleKeyChanged &&
+        key.isEmpty &&
+        (assignment.ruleVariant != null || assignment.ruleOverride)) {
+      return false;
+    }
+
+    if (attrsSeq_ > assignment.attrsSeq || ruleKeyChanged) {
+      final Map<String, dynamic> attrs = getAttributesMap();
+
+      if (key.isNotEmpty) {
+        // An exposed split resolved without its unit keeps resolving as if the
+        // unit were still missing, so a unit set afterwards cannot switch the
+        // variant the user already saw.
+        final bool unitPinnedMissing =
+            assignment.exposed && assignment.isRuleMissingUnit;
+        final RuleResult? rule =
+            resolveRule(experiment, attrs, unitPinnedMissing);
+        if (rule?.variant != assignment.ruleVariant) {
+          return false;
+        }
+        assignment.isRuleMissingUnit = rule?.isMissingUnit ?? false;
+      }
+
+      if (!assignment.ruleOverride &&
+          experiment.audience != null &&
+          experiment.audience!.isNotEmpty) {
         final Result? match =
             audienceMatcher_.evaluate(experiment.audience!, attrs);
         // An indeterminate (null) result keeps the cached flag.
@@ -665,6 +750,7 @@ class Context {
           return false;
         }
       }
+      assignment.ruleKey = key;
       assignment.attrsSeq = attrsSeq_;
     }
     return true;
@@ -683,11 +769,15 @@ class Context {
           return assignment;
         }
       } else if (experiment == null) {
-        if (!assignment.assigned) {
+        if (!assignment.assigned && !assignment.ruleOverride) {
           // previously not-running experiment
           return assignment;
         }
-      } else if ((custom == null) || custom == assignment.variant) {
+      } else if (assignment.ruleOverride ||
+          (custom == null) ||
+          custom == assignment.variant) {
+        // A matching rule wins over a custom assignment, so a custom mismatch
+        // is not staleness.
         if (experimentMatches(experiment.data, assignment) &&
             audienceMatches(experiment.data, assignment)) {
           // assignment up-to-date
@@ -712,11 +802,18 @@ class Context {
     } else {
       if (experiment != null) {
         final String unitType = experiment.data.unitType;
+        final Map<String, dynamic> attrs = getAttributesMap();
 
-        if (experiment.data.audience != null &&
+        assignment.ruleKey = ruleKey(experiment.data);
+        final RuleResult? rule = assignment.ruleKey!.isNotEmpty
+            ? resolveRule(experiment.data, attrs, false)
+            : null;
+        assignment.ruleVariant = rule?.variant;
+        assignment.isRuleMissingUnit = rule?.isMissingUnit ?? false;
+
+        if (rule == null &&
+            experiment.data.audience != null &&
             experiment.data.audience!.isNotEmpty) {
-          final Map<String, dynamic> attrs = getAttributesMap();
-
           final Result? match =
               audienceMatcher_.evaluate(experiment.data.audience!, attrs);
           if (match != null) {
@@ -724,7 +821,14 @@ class Context {
           }
         }
 
-        if (experiment.data.audienceStrict && assignment.audienceMismatch) {
+        if (rule != null) {
+          // A matching assignment rule is an explicit, author-specified
+          // assignment: it wins over audience, traffic, full-on and custom
+          // assignments, and is flagged ruleOverride (excluded from analysis).
+          assignment.variant = rule.variant;
+          assignment.ruleOverride = true;
+        } else if (experiment.data.audienceStrict &&
+            assignment.audienceMismatch) {
           assignment.variant = 0;
         } else if (experiment.data.fullOnVariant == 0) {
           final Object? uid = units_[experiment.data.unitType];
@@ -787,7 +891,9 @@ class Context {
       for (ExperimentVariables experimentVariables in keyExperimentVariables) {
         final Assignment assignment =
             getAssignment(experimentVariables.data.name);
-        if (assignment.assigned || assignment.overridden) {
+        if (assignment.assigned ||
+            assignment.overridden ||
+            assignment.ruleOverride) {
           return assignment;
         }
       }
@@ -905,7 +1011,7 @@ class Context {
       }
       final ExperimentVariables? experiment = index[experimentName];
       if (experiment == null) {
-        return assignment.assigned;
+        return assignment.assigned || assignment.ruleOverride;
       }
       return !experimentMatches(experiment.data, assignment);
     });
@@ -941,6 +1047,7 @@ class Context {
   late VariableParser variableParser_;
   late AudienceMatcher audienceMatcher_;
   late ContextEventLogger? eventLogger_;
+  String? environmentName_;
   final Map<String, Object> units_ = {};
   bool failed_ = false;
   dynamic failedError_;
@@ -990,7 +1097,18 @@ class Assignment {
   bool fullOn = false;
   bool custom = false;
   bool audienceMismatch = false;
+  bool ruleOverride = false;
+  int? ruleVariant;
+  String? ruleKey;
+  bool isRuleMissingUnit = false;
   Map<String, dynamic> variables = {};
   bool exposed = false;
   int attrsSeq = 0;
+}
+
+class RuleResult {
+  RuleResult(this.variant, this.isMissingUnit);
+
+  final int variant;
+  final bool isMissingUnit;
 }
