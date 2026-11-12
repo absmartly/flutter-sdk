@@ -10,7 +10,8 @@ name: Publish to pub.dev
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*'
+      # Glob, not a regular expression: matches v3.0.0, v3.10.2, v3.1.0-beta.1.
+      - 'v[0-9]*.[0-9]*.[0-9]*'
 
 permissions:
   contents: read
