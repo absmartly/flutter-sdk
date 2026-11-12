@@ -1,0 +1,146 @@
+name: Publish to pub.dev
+
+# Pushing a tag v<version> (e.g. v3.0.0) publishes absmartly_dart, waits for it
+# to be available on pub.dev, then publishes absmartly_sdk, which depends on it.
+# Both packages must carry the tag's version.
+#
+# Uses pub.dev automated publishing (OIDC): enable it for each package on
+# pub.dev (Admin > Automated publishing) for this repository, tag pattern
+# "v{{version}}" and environment "pub.dev".
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate packages
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: 'stable'
+          cache: true
+
+      - name: Check versions match the tag
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          dart_version=$(sed -n 's/^version: *//p' packages/dart_sdk/pubspec.yaml)
+          flutter_version=$(sed -n 's/^version: *//p' packages/flutter_sdk/pubspec.yaml)
+          agent_version=$(sed -n "s/.*static const String version = '\(.*\)';/\1/p" packages/dart_sdk/lib/src/sdk_version.dart)
+          for v in "$dart_version" "$flutter_version" "$agent_version"; do
+            if [ "$v" != "$tag" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match versions (absmartly_dart $dart_version, absmartly_sdk $flutter_version, SdkVersion $agent_version)"
+              exit 1
+            fi
+          done
+          echo "version=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies (dart_sdk)
+        run: dart pub get
+        working-directory: packages/dart_sdk
+
+      - name: Generate mocks (dart_sdk)
+        run: dart run build_runner build --delete-conflicting-outputs
+        working-directory: packages/dart_sdk
+
+      - name: Test dart_sdk
+        run: dart test
+        working-directory: packages/dart_sdk
+
+      - name: Dry-run publish (dart_sdk)
+        run: dart pub publish --dry-run
+        working-directory: packages/dart_sdk
+
+  publish_dart:
+    name: Publish absmartly_dart
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: pub.dev
+    permissions:
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: Publish
+        run: dart pub publish --force
+        working-directory: packages/dart_sdk
+
+  wait_for_dart:
+    name: Wait for absmartly_dart on pub.dev
+    needs: [validate, publish_dart]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for absmartly_dart ${{ needs.validate.outputs.version }}
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl -fsS https://pub.dev/api/packages/absmartly_dart/versions/"$VERSION" > /dev/null; then
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::absmartly_dart $VERSION did not appear on pub.dev"
+          exit 1
+
+  # Separate from the wait so the short-lived OIDC token is fetched right
+  # before publishing.
+  publish_flutter:
+    name: Publish absmartly_sdk
+    needs: wait_for_dart
+    runs-on: ubuntu-latest
+    environment: pub.dev
+    permissions:
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: 'stable'
+          cache: true
+
+      # Configures the pub.dev OIDC token, which flutter pub publish also uses.
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+
+      # pubspec_overrides.yaml points absmartly_dart at the local path for
+      # development; drop it so the package resolves against pub.dev.
+      - name: Remove local overrides
+        run: rm -f pubspec_overrides.yaml
+        working-directory: packages/flutter_sdk
+
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: packages/flutter_sdk
+
+      - name: Dry-run publish
+        run: flutter pub publish --dry-run
+        working-directory: packages/flutter_sdk
+
+      - name: Publish
+        run: flutter pub publish --force
+        working-directory: packages/flutter_sdk

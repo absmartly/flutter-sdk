@@ -70,6 +70,10 @@ jobs:
         run: dart test
         working-directory: packages/dart_sdk
 
+      - name: Validate dart_sdk package
+        run: dart pub publish --dry-run
+        working-directory: packages/dart_sdk
+
       - name: Install dependencies (flutter_sdk)
         run: flutter pub get
         working-directory: packages/flutter_sdk

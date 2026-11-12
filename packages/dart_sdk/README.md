@@ -19,7 +19,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  absmartly_dart: ^2.1.2
+  absmartly_dart: ^3.0.0
 ```
 
 Then run:
@@ -109,6 +109,7 @@ final ABSmartly sdk = ABSmartly(sdkConfig);
 | apiKey      | `String`                          |  &#9989;  | `null`      | Your API key which can be found on the Web Console.                                                                                                                           |
 | environment | `String`                          |  &#9989;  | `null`      | The environment of the platform where the SDK is installed. Environments are created on the Web Console and should match the available environments in your infrastructure.   |
 | application | `String`                          |  &#9989;  | `null`      | The name of the application where the SDK is installed. Applications are created on the Web Console and should match the applications where your experiments will be running. |
+| applicationVersion | `String`                   |  &#10060; | `"0"`       | The version of your application, e.g. `"2.4.1"`. Sent as the `X-Application-Version` header only when it is a whole number (at most 18 digits); otherwise the header is `"0"`. |
 
 **HTTP Client Options**
 
@@ -126,7 +127,7 @@ final ABSmartly sdk = ABSmartly(sdkConfig);
 | :------------------- | :----------------------- | :-------: | :-----: | :------------------------------------------------------ |
 | client               | `Client`                 |  &#9989;  | `null`  | The Client instance (created from ClientConfig)         |
 | contextDataProvider  | `ContextDataProvider`    |  &#10060; | auto    | Custom provider for context data (advanced usage)       |
-| contextEventHandler  | `ContextEventHandler`    |  &#10060; | auto    | Custom handler for publishing events (advanced usage)   |
+| contextEventHandler  | `ContextPublisher`       |  &#10060; | auto    | Custom publisher for events (advanced usage)            |
 | contextEventLogger   | `ContextEventLogger`     |  &#10060; | `null`  | Callback to handle SDK events (ready, exposure, etc.)   |
 | variableParser       | `VariableParser`         |  &#10060; | auto    | Custom parser for experiment variables (advanced usage)  |
 | audienceDeserializer | `AudienceDeserializer`   |  &#10060; | auto    | Custom deserializer for audience data (advanced usage)  |
@@ -279,6 +280,25 @@ context.setAttribute("user_agent", "Mozilla/5.0...");
 context.setAttributes({
     "customer_age": "new_customer",
 });
+```
+
+### Audience System Attributes
+
+Audience filters and assignment rule conditions can read `application` and `environment`, filled in from the client config. An attribute you set with the same name wins. These values are not added to the publish payload.
+
+### Assignment Rules
+
+Experiments can define assignment rules on the Web Console. The first rule whose environments and conditions match the context decides the variant:
+
+- an `assign` rule gives a fixed variant;
+- a `split` rule (for example `"20/30/50"`) distributes units across the variants, hashing the unit with the experiment's seed.
+
+A matching rule wins over audiences, `audienceStrict`, traffic eligibility, full-on variants and custom assignments; only `setOverride` beats it. Exposures from a rule are flagged `ruleOverride: true` (with `assigned: false`) and excluded from analysis.
+
+Conditions use the same JSON expressions as audiences, including the semantic version operators `semver_eq`, `semver_gt`, `semver_gte`, `semver_lt` and `semver_lte`:
+
+```json
+{ "semver_gte": [{ "var": "app_version" }, { "value": "2.4.0" }] }
 ```
 
 ### Custom Assignments

@@ -5,10 +5,8 @@ import 'default_variable_parser.dart';
 import 'client.dart';
 import 'context_data_provider.dart';
 import 'context_publisher.dart';
-import 'context_event_handler.dart';
 import 'default_context_data_provider.dart';
 import 'default_context_publisher.dart';
-import 'default_context_event_handler.dart';
 import 'variable_parser.dart';
 import 'audience_deserializer.dart';
 
