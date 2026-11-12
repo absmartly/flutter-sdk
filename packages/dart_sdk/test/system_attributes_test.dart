@@ -185,6 +185,37 @@ void main() {
       expect(attributes, isNot(contains('app_version')));
     });
 
+    test('an explicit user environment attribute is published', () async {
+      final context = createContext(attributes: {'environment': 'staging'});
+      await context.waitUntilReady();
+
+      context.getTreatment('exp_env');
+
+      PublishEvent? captured;
+      when(eventHandler.publish(any, any)).thenAnswer((invocation) {
+        captured = invocation.positionalArguments[1] as PublishEvent;
+        return Completer<void>()..complete();
+      });
+
+      await context.publish();
+
+      final serialized = DefaultContextEventSerializer().serialize(captured!);
+      final decoded =
+          jsonDecode(utf8.decode(serialized!)) as Map<String, dynamic>;
+      final environments = (decoded['attributes'] as List)
+          .cast<Map<String, dynamic>>()
+          .where((a) => a['name'] == 'environment')
+          .map((a) => a['value'])
+          .toList();
+
+      expect(environments, ['staging']);
+      expect(
+          (decoded['attributes'] as List)
+              .cast<Map<String, dynamic>>()
+              .any((a) => a['name'] == 'application'),
+          isFalse);
+    });
+
     test('app_version is not injected into the evaluation map', () async {
       final context = createContext();
       await context.waitUntilReady();
