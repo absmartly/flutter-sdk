@@ -110,6 +110,33 @@ jobs:
         run: dart test
         working-directory: packages/dart_sdk
 
+  test_min_flutter:
+    name: Test flutter_sdk on the minimum Flutter SDK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Keep in sync with environment.flutter in packages/flutter_sdk/pubspec.yaml.
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+
+      # Fresh solves, as a consumer on this SDK would get.
+      - name: Install dependencies (flutter_sdk)
+        run: rm -f pubspec.lock ../dart_sdk/pubspec.lock && flutter pub get
+        working-directory: packages/flutter_sdk
+
+      - name: Test flutter_sdk
+        run: flutter test
+        working-directory: packages/flutter_sdk
+
+      - name: Build example app
+        run: rm -f pubspec.lock && flutter pub get && flutter build web --release
+        working-directory: packages/flutter_sdk/example
+
   build_example:
     name: Build Example App
     runs-on: ubuntu-latest
