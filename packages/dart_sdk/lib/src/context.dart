@@ -665,11 +665,15 @@ class Context {
     return attrs;
   }
 
+  // Everything a rule's outcome depends on besides the attributes and units:
+  // a refresh that changes any of it re-resolves the rules.
   String ruleKey(final Experiment experiment) {
     final String? rules = experiment.assignmentRules;
-    return (rules != null && rules.isNotEmpty)
-        ? "$rules:$environmentName_"
-        : "";
+    if (rules == null || rules.isEmpty) {
+      return "";
+    }
+    return "$rules:$environmentName_:${experiment.variants.length}:"
+        "${experiment.seedHi}:${experiment.seedLo}";
   }
 
   // The variant of the first assignment rule that matches, or null when none

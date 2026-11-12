@@ -4,7 +4,7 @@ Pure Dart SDK for [ABsmartly](https://www.absmartly.com/) A/B testing platform. 
 
 ## Compatibility
 
-The ABsmartly Dart SDK is compatible with Dart versions 2.18.6 and later (including Dart 3.x).
+The ABsmartly Dart SDK is compatible with Dart 3.4.0 and later.
 
 | Platform    | Support |
 |-------------|---------|

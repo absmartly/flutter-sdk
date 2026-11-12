@@ -5,8 +5,8 @@ Flutter SDK for [ABsmartly](https://www.absmartly.com/) A/B testing platform. Th
 ## Compatibility
 
 The ABsmartly Flutter SDK is compatible with:
-- Dart versions 2.18.6 and later
-- Flutter 3.3.10 and later
+- Dart 3.4.0 and later
+- Flutter 3.22.0 and later
 
 ## Getting Started
 

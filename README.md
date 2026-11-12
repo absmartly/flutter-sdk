@@ -19,8 +19,8 @@ A/B Smartly SDK for Flutter and Dart. This repository contains two packages: a p
 
 The A/B Smartly Flutter SDK is compatible with:
 
-- **Dart**: Version 2.18.6 and later (up to Dart 3.x)
-- **Flutter**: Version 1.17.0 and later
+- **Dart**: Version 3.4.0 and later
+- **Flutter**: Version 3.22.0 and later
 
 ## Installation
 

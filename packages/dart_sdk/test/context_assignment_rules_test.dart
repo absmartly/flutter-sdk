@@ -519,6 +519,54 @@ void main() {
       expect(context.getPendingCount(), 1);
     });
 
+    test('a rule variant removed by a refresh falls back', () async {
+      final context = await ready(data(rules([assign('Third', us, 2)])));
+      context.setAttribute('country', 'US');
+      expect(context.getTreatment(exp), 2);
+
+      final fewer = data(rules([assign('Third', us, 2)]));
+      final experiment = fewer.experiments.firstWhere((e) => e.name == exp);
+      experiment.variants = experiment.variants.sublist(0, 2);
+      experiment.split = [0.5, 0.5];
+      await refreshWith(context, fewer);
+
+      final variant = context.getTreatment(exp);
+      expect(variant, lessThan(2));
+      expect(exposures(context).last.ruleOverride, isFalse);
+    });
+
+    test('a changed seed re-resolves a split rule', () async {
+      final context = await ready(data(rules([split(us, '50/0/50')])));
+      context.setAttribute('country', 'US');
+      final before = context.getTreatment(exp);
+
+      // Find a seed whose split hashes this unit to the other variant.
+      for (int seed = 0; seed < 64; seed++) {
+        final next = data(rules([split(us, '50/0/50')]));
+        final experiment = next.experiments.firstWhere((e) => e.name == exp);
+        experiment.seedHi = seed;
+        experiment.seedLo = seed * 7919;
+        await refreshWith(context, next);
+        if (context.getTreatment(exp) != before) {
+          expect(exposures(context).last.ruleOverride, isTrue);
+          return;
+        }
+      }
+      fail('no seed moved the unit to the other variant');
+    });
+
+    test('a refresh that keeps the rule outcome is not re-exposed', () async {
+      final context = await ready(data(rules([split(us, '0/100/0')])));
+      context.setAttribute('country', 'US');
+      expect(context.getTreatment(exp), 1);
+
+      final next = data(rules([split(us, '0/100/0')]));
+      next.experiments.firstWhere((e) => e.name == exp).seedHi = 42;
+      await refreshWith(context, next);
+      expect(context.getTreatment(exp), 1);
+      expect(context.getPendingCount(), 1);
+    });
+
     test('rule variant is dropped when the experiment is removed', () async {
       final context = await ready(rulesData());
       context.setAttribute('country', 'US');

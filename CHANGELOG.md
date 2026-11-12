@@ -3,6 +3,7 @@
 Applies to `absmartly_dart` and `absmartly_sdk`.
 
 ### BREAKING
+- **Minimum Dart 3.4.0 / Flutter 3.22.0.** The package constraints said Dart 2.18.6, but the dependencies (`crypto ^3.0.6`) already required Dart 3.4, so older SDKs could not resolve them.
 - **Unit UIDs keep their type.** `setUnit`/`setUnits` on `Context` and `ContextConfig` accept a `String` or a number (`Object`), and `getUnit`/`getUnits` return the value exactly as it was set (`Object?`, `Map<String, Object>`), as in the JavaScript SDK. A numeric UID is hashed after rounding to a whole number, like JavaScript's `toFixed(0)` (so `125.75` is hashed as `"126"`). Code that reads units as `String` must cast or convert them (see "Migrating to 3.0.0" in the README).
 - `track(name, null)` records `properties: null` in the goal event and the publish payload, instead of `{}`.
 - `ContextEventHandler` renamed to `ContextPublisher` (`setContextPublisher` added).
