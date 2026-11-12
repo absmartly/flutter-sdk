@@ -46,6 +46,7 @@ class Experiment {
   late List<ExperimentVariant> variants;
   late bool audienceStrict;
   late String? audience;
+  late String? assignmentRules;
   late List<CustomFieldValue>? customFieldValues;
 
   Experiment({
@@ -64,6 +65,7 @@ class Experiment {
     required this.variants,
     required this.audienceStrict,
     required this.audience,
+    this.assignmentRules,
     this.customFieldValues,
   });
 
@@ -85,7 +87,8 @@ class Experiment {
             const ListEquality().equals(applications, other.applications) &&
             const ListEquality().equals(variants, other.variants) &&
             audienceStrict == other.audienceStrict &&
-            audience == other.audience;
+            audience == other.audience &&
+            assignmentRules == other.assignmentRules;
   }
 
   @override
@@ -103,6 +106,7 @@ class Experiment {
       fullOnVariant,
       audienceStrict,
       audience,
+      assignmentRules,
       listEquality.hash(split),
       listEquality.hash(trafficSplit),
       listEquality.hash(applications),
@@ -112,7 +116,7 @@ class Experiment {
 
   @override
   String toString() {
-    return "ContextExperiment{id=$id, name='$name', unitType='$unitType', iteration=$iteration, seedHi=$seedHi, seedLo=$seedLo, split=$split, trafficSeedHi=$trafficSeedHi, trafficSeedLo=$trafficSeedLo, trafficSplit=$trafficSplit, fullOnVariant=$fullOnVariant, applications=$applications, variants=$variants, audienceStrict=$audienceStrict, audience='$audience'}";
+    return "ContextExperiment{id=$id, name='$name', unitType='$unitType', iteration=$iteration, seedHi=$seedHi, seedLo=$seedLo, split=$split, trafficSeedHi=$trafficSeedHi, trafficSeedLo=$trafficSeedLo, trafficSplit=$trafficSplit, fullOnVariant=$fullOnVariant, applications=$applications, variants=$variants, audienceStrict=$audienceStrict, audience='$audience', assignmentRules='$assignmentRules'}";
   }
 
   Experiment.fromMap(Map<String, dynamic> data) {
@@ -137,6 +141,7 @@ class Experiment {
 
     audienceStrict = data["audienceStrict"] ?? false;
     audience = data["audience"];
+    assignmentRules = _parseAssignmentRules(data["assignmentRules"]);
     final rawCustomFields = data["customFieldValues"];
     if (rawCustomFields != null) {
       customFieldValues = (rawCustomFields as List)
@@ -145,6 +150,20 @@ class Experiment {
     } else {
       customFieldValues = null;
     }
+  }
+
+  // The API sends assignmentRules as a JSON string. An object or array in its
+  // place only drops this experiment's rules instead of failing the whole
+  // context; other scalars are kept in their string form (Java
+  // AssignmentRulesDeserializer).
+  static String? _parseAssignmentRules(dynamic value) {
+    if (value == null || value is String) {
+      return value;
+    }
+    if (value is Map || value is List) {
+      return null;
+    }
+    return value.toString();
   }
 
   // JSON has a single number type, so a producer may legitimately encode a
@@ -186,6 +205,7 @@ class Experiment {
       "variants": variants,
       "audienceStrict": audienceStrict,
       "audience": audience,
+      if (assignmentRules != null) "assignmentRules": assignmentRules,
       if (customFieldValues != null)
         "customFieldValues": customFieldValues!.map((e) => e.toMap()).toList(),
     };

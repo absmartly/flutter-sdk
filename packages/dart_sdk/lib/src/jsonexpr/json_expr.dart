@@ -11,6 +11,11 @@ import 'operators/match_operator.dart';
 import 'operators/not_operator.dart';
 import 'operators/null_operator.dart';
 import 'operators/or_combinator.dart';
+import 'operators/semver_equals_operator.dart';
+import 'operators/semver_greater_than_operator.dart';
+import 'operators/semver_greater_than_or_equal_operator.dart';
+import 'operators/semver_less_than_operator.dart';
+import 'operators/semver_less_than_or_equal_operator.dart';
 import 'operators/value_operator.dart';
 import 'operators/var_operator.dart';
 
@@ -30,6 +35,11 @@ class JsonExpr {
     'gte': GreaterThanOrEqualOperator(),
     'lt': LessThanOperator(),
     'lte': LessThanOrEqualOperator(),
+    'semver_eq': SemverEqualsOperator(),
+    'semver_gt': SemverGreaterThanOperator(),
+    'semver_gte': SemverGreaterThanOrEqualOperator(),
+    'semver_lt': SemverLessThanOperator(),
+    'semver_lte': SemverLessThanOrEqualOperator(),
   };
 
   bool evaluateBooleanExpr(dynamic expr, Map<String?, dynamic> vars) {
