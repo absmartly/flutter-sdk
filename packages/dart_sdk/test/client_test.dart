@@ -145,7 +145,16 @@ void main() {
       "environment": "dev"
     };
 
-    when(httpClient.get("https://localhost/v1/context", expectedQuery, null))
+    final expectedHeaders = {
+      "X-API-Key": "test-api-key",
+      "X-Application": "website",
+      "X-Environment": "dev",
+      "X-Application-Version": "0",
+      "X-Agent": "absmartly-dart-sdk/3.0.0"
+    };
+
+    when(httpClient.get(
+            "https://localhost/v1/context", expectedQuery, expectedHeaders))
         .thenAnswer((_) => getByteResponse(bytes));
 
     final ContextData expected = ContextData();
@@ -176,7 +185,16 @@ void main() {
       'environment': 'dev'
     };
 
-    when(httpClient.get('https://localhost/v1/context', expectedQuery, null))
+    final expectedHeaders = {
+      'X-API-Key': 'test-api-key',
+      'X-Application': 'website',
+      'X-Environment': 'dev',
+      'X-Application-Version': '0',
+      'X-Agent': 'absmartly-dart-sdk/3.0.0'
+    };
+
+    when(httpClient.get(
+            'https://localhost/v1/context', expectedQuery, expectedHeaders))
         .thenAnswer((_) => getByteResponse(bytes));
     when(deser.deserialize(bytes, 0, bytes.length)).thenReturn(null);
 

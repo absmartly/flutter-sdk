@@ -77,7 +77,7 @@ class Client {
   Completer<ContextData> getContextData() {
     Completer<ContextData> dataFuture = Completer<ContextData>();
 
-    httpClient_.get(url_, query_, null).then((response) {
+    httpClient_.get(url_, query_, headers_).then((response) {
       final int code = response.getStatusCode() ?? 0;
       if ((code / 100) == 2) {
         final Uint8List content =
