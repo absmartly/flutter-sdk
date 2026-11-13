@@ -11,10 +11,12 @@ on:
   push:
     tags:
       # GitHub filter patterns, where "+" means one or more of the preceding
-      # character: v3.0.0, v3.10.2 and pre-releases such as v3.1.0-beta.1.
-      # The validate job then requires the tag to be exactly v<pubspec version>.
+      # character and "\+" is a literal plus. Together they cover every tag the
+      # validate job accepts: v3.0.0, pre-releases (v3.1.0-beta.1) and build
+      # metadata (v3.0.0+1). That job then requires v<pubspec version>.
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+-*'
+      - 'v[0-9]+.[0-9]+.[0-9]+\+*'
 
 permissions:
   contents: read
