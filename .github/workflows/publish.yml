@@ -114,7 +114,8 @@ jobs:
         env:
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
-          if curl -fsS https://pub.dev/api/packages/absmartly_dart/versions/"$VERSION" > /dev/null; then
+          exists=$(../../.github/scripts/pub_version_exists.sh absmartly_dart "$VERSION")
+          if [ "$exists" = true ]; then
             echo "absmartly_dart $VERSION is already on pub.dev; skipping."
           else
             dart pub publish --force
@@ -128,12 +129,17 @@ jobs:
     outputs:
       version: ${{ needs.validate.outputs.version }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Wait for absmartly_dart ${{ needs.validate.outputs.version }}
         env:
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
           for attempt in $(seq 1 30); do
-            if curl -fsS https://pub.dev/api/packages/absmartly_dart/versions/"$VERSION" > /dev/null; then
+            # A failed lookup (not a 404) fails the step instead of waiting on.
+            exists=$(.github/scripts/pub_version_exists.sh absmartly_dart "$VERSION")
+            if [ "$exists" = true ]; then
               exit 0
             fi
             sleep 20
@@ -174,12 +180,11 @@ jobs:
         env:
           VERSION: ${{ needs.wait_for_dart.outputs.version }}
         run: |
-          if curl -fsS https://pub.dev/api/packages/absmartly_sdk/versions/"$VERSION" > /dev/null; then
+          exists=$(.github/scripts/pub_version_exists.sh absmartly_sdk "$VERSION")
+          if [ "$exists" = true ]; then
             echo "absmartly_sdk $VERSION is already on pub.dev; skipping."
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
+          echo "exists=$exists" >> "$GITHUB_OUTPUT"
 
       # pubspec_overrides.yaml points absmartly_dart at the local path for
       # development; drop it so the package resolves against pub.dev.
