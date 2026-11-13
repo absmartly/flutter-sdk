@@ -3,8 +3,8 @@ name: Publish to pub.dev
 # Pushing a tag v<version> (e.g. v3.0.0) publishes absmartly_dart, waits for it
 # to be available on pub.dev, then publishes absmartly_sdk, which depends on it.
 # Both packages must carry the tag's version. Both are tested and dry-run
-# before either is published; if absmartly_sdk still fails afterwards, re-run
-# the workflow: an absmartly_dart version already on pub.dev is skipped.
+# before either is published; if a publish still fails afterwards, re-run the
+# workflow: a package version already on pub.dev is skipped.
 #
 # Uses pub.dev automated publishing (OIDC): enable it for each package on
 # pub.dev (Admin > Automated publishing) for this repository, tag pattern
@@ -125,6 +125,8 @@ jobs:
     name: Wait for absmartly_dart on pub.dev
     needs: [validate, publish_dart]
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ needs.validate.outputs.version }}
     steps:
       - name: Wait for absmartly_dart ${{ needs.validate.outputs.version }}
         env:
@@ -164,20 +166,39 @@ jobs:
       - name: Setup Dart
         uses: dart-lang/setup-dart@v1
 
+      # Skips the remaining steps when this version is already on pub.dev, so a
+      # rerun after an upload that succeeded but reported a failure completes
+      # cleanly.
+      - name: Check whether absmartly_sdk is already published
+        id: published
+        env:
+          VERSION: ${{ needs.wait_for_dart.outputs.version }}
+        run: |
+          if curl -fsS https://pub.dev/api/packages/absmartly_sdk/versions/"$VERSION" > /dev/null; then
+            echo "absmartly_sdk $VERSION is already on pub.dev; skipping."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # pubspec_overrides.yaml points absmartly_dart at the local path for
       # development; drop it so the package resolves against pub.dev.
       - name: Remove local overrides
+        if: steps.published.outputs.exists != 'true'
         run: rm -f pubspec_overrides.yaml
         working-directory: packages/flutter_sdk
 
       - name: Install dependencies
+        if: steps.published.outputs.exists != 'true'
         run: flutter pub get
         working-directory: packages/flutter_sdk
 
       - name: Dry-run publish
+        if: steps.published.outputs.exists != 'true'
         run: flutter pub publish --dry-run
         working-directory: packages/flutter_sdk
 
       - name: Publish
+        if: steps.published.outputs.exists != 'true'
         run: flutter pub publish --force
         working-directory: packages/flutter_sdk
