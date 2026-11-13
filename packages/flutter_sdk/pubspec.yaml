@@ -5,8 +5,8 @@ homepage: https://github.com/absmartly/flutter-sdk
 repository: https://github.com/absmartly/flutter-sdk/tree/main/packages/flutter_sdk
 
 environment:
-  sdk: '>=2.18.6 <4.0.0'
-  flutter: ">=3.3.10"
+  sdk: '>=3.4.0 <4.0.0'
+  flutter: ">=3.22.0"
 
 dependencies:
   flutter:

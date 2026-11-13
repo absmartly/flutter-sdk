@@ -22,6 +22,7 @@ export 'src/default_http_client.dart';
 export 'src/default_http_client_config.dart';
 export 'src/default_variable_parser.dart';
 export 'src/http_client.dart';
+export 'src/sdk_version.dart';
 export 'src/variable_parser.dart';
 export 'src/audience_deserializer.dart';
 

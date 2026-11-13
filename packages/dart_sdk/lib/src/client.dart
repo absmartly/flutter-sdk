@@ -10,6 +10,7 @@ import 'context_event_serializer.dart';
 import 'http_client.dart';
 import 'json/context_data.dart';
 import 'json/publish_event.dart';
+import 'sdk_version.dart';
 
 class Client {
   static Client create(ClientConfig config, {HTTPClient? httpClient}) {
@@ -43,6 +44,10 @@ class Client {
       throw ArgumentError("Missing Environment configuration");
     }
 
+    application_ = application;
+    environment_ = environment;
+    applicationVersion_ = config.applicationVersion_ ?? "0";
+
     url_ = "$endpoint/context";
     httpClient_ = httpClient;
     deserializer_ = config.deserializer_;
@@ -56,8 +61,11 @@ class Client {
       "X-API-Key": apiKey,
       "X-Application": application,
       "X-Environment": environment,
-      "X-Application-Version": "0",
-      "X-Agent": "absmartly-dart-sdk",
+      // The collector parses X-Application-Version as a whole number and
+      // rejects the request otherwise, so a version such as "2.4.1" is sent
+      // as "0".
+      "X-Application-Version": applicationVersionHeader(applicationVersion_),
+      "X-Agent": SdkVersion.agent,
     };
 
     query_ = {
@@ -69,7 +77,7 @@ class Client {
   Completer<ContextData> getContextData() {
     Completer<ContextData> dataFuture = Completer<ContextData>();
 
-    httpClient_.get(url_, query_, null).then((response) {
+    httpClient_.get(url_, query_, headers_).then((response) {
       final int code = response.getStatusCode() ?? 0;
       if ((code / 100) == 2) {
         final Uint8List content =
@@ -90,6 +98,37 @@ class Client {
     });
 
     return dataFuture;
+  }
+
+  /// The configured application name, read by audience filters as the
+  /// `application` attribute.
+  String? getApplication() => application_;
+
+  /// The configured environment name, read by audience filters as the
+  /// `environment` attribute.
+  String? getEnvironment() => environment_;
+
+  /// The configured application version, or "0" when none is set.
+  String getApplicationVersion() => applicationVersion_;
+
+  /// The SDK name without version: "absmartly-dart-sdk".
+  String getAgentName() => SdkVersion.name;
+
+  /// The SDK version, e.g. "3.0.0".
+  String getAgentVersion() => SdkVersion.version;
+
+  /// The X-Agent header value: "<name>/<version>".
+  String getAgent() => SdkVersion.agent;
+
+  // At most 18 ASCII digits, so the value fits the collector's signed 64-bit
+  // integer; anything else is sent as "0".
+  static String applicationVersionHeader(String applicationVersion) {
+    if (applicationVersion.isEmpty ||
+        applicationVersion.length > 18 ||
+        !RegExp(r'^[0-9]+$').hasMatch(applicationVersion)) {
+      return "0";
+    }
+    return applicationVersion;
   }
 
   Completer<void> publish(final PublishEvent event) {
@@ -116,6 +155,10 @@ class Client {
   late final Map<String, String> query_;
   late final Map<String, String> headers_;
   late final HTTPClient httpClient_;
+
+  String? application_;
+  String? environment_;
+  late final String applicationVersion_;
 
   ContextDataDeserializer? deserializer_;
   ContextEventSerializer? serializer_;

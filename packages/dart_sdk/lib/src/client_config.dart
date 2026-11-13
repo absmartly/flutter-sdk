@@ -12,6 +12,7 @@ class ClientConfig {
     String? apiKey,
     String? environment,
     String? application,
+    String? applicationVersion,
     ContextDataDeserializer? contextDataDeserializer,
     ContextEventSerializer? contextEventSerializer,
   }) {
@@ -20,6 +21,9 @@ class ClientConfig {
     if (apiKey != null) config.setAPIKey(apiKey);
     if (environment != null) config.setEnvironment(environment);
     if (application != null) config.setApplication(application);
+    if (applicationVersion != null) {
+      config.setApplicationVersion(applicationVersion);
+    }
     if (contextDataDeserializer != null) {
       config.setContextDataDeserializer(contextDataDeserializer);
     }
@@ -38,6 +42,7 @@ class ClientConfig {
         endpoint: properties["${prefix}endpoint"],
         environment: properties["${prefix}environment"],
         application: properties["${prefix}application"],
+        applicationVersion: properties["${prefix}applicationVersion"],
         apiKey: properties["${prefix}apikey"],
         contextDataDeserializer: DefaultContextDataDeserializer(),
       );
@@ -82,6 +87,18 @@ class ClientConfig {
     return this;
   }
 
+  String? getApplicationVersion() {
+    return applicationVersion_;
+  }
+
+  /// The application's version, e.g. "2.4.1" or "1042". The
+  /// X-Application-Version header carries it only when it is a whole number,
+  /// otherwise "0".
+  ClientConfig setApplicationVersion(String applicationVersion) {
+    applicationVersion_ = applicationVersion;
+    return this;
+  }
+
   ContextDataDeserializer getContextDataDeserializer() {
     return deserializer_ ?? DefaultContextDataDeserializer();
   }
@@ -105,6 +122,7 @@ class ClientConfig {
   String? apiKey_;
   String? environment_;
   String? application_;
+  String? applicationVersion_;
 
   ContextDataDeserializer? deserializer_;
   ContextEventSerializer? serializer_;
