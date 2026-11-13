@@ -82,6 +82,10 @@ jobs:
         run: flutter test --coverage
         working-directory: packages/flutter_sdk
 
+      - name: Validate flutter_sdk package
+        run: flutter pub publish --dry-run
+        working-directory: packages/flutter_sdk
+
   test_min_sdk:
     name: Test dart_sdk on the minimum Dart SDK
     runs-on: ubuntu-latest

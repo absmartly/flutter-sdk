@@ -2,7 +2,9 @@ name: Publish to pub.dev
 
 # Pushing a tag v<version> (e.g. v3.0.0) publishes absmartly_dart, waits for it
 # to be available on pub.dev, then publishes absmartly_sdk, which depends on it.
-# Both packages must carry the tag's version.
+# Both packages must carry the tag's version. Both are tested and dry-run
+# before either is published; if absmartly_sdk still fails afterwards, re-run
+# the workflow: an absmartly_dart version already on pub.dev is skipped.
 #
 # Uses pub.dev automated publishing (OIDC): enable it for each package on
 # pub.dev (Admin > Automated publishing) for this repository, tag pattern
@@ -73,6 +75,23 @@ jobs:
         run: dart pub publish --dry-run
         working-directory: packages/dart_sdk
 
+      # Preflight absmartly_sdk before anything is published: pub.dev versions
+      # are immutable, so a Flutter failure after absmartly_dart is uploaded
+      # would leave a half-published release. absmartly_dart <version> is not on
+      # pub.dev yet, so it resolves from the sibling path here; the publish job
+      # repeats the dry-run against pub.dev.
+      - name: Install dependencies (flutter_sdk)
+        run: flutter pub get
+        working-directory: packages/flutter_sdk
+
+      - name: Test flutter_sdk
+        run: flutter test
+        working-directory: packages/flutter_sdk
+
+      - name: Dry-run publish (flutter_sdk)
+        run: flutter pub publish --dry-run
+        working-directory: packages/flutter_sdk
+
   publish_dart:
     name: Publish absmartly_dart
     needs: validate
@@ -88,8 +107,18 @@ jobs:
       - name: Setup Dart
         uses: dart-lang/setup-dart@v1
 
+      # Skipped when this version is already on pub.dev, so re-running the
+      # workflow after a later failure completes the release instead of failing
+      # on an immutable version.
       - name: Publish
-        run: dart pub publish --force
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          if curl -fsS https://pub.dev/api/packages/absmartly_dart/versions/"$VERSION" > /dev/null; then
+            echo "absmartly_dart $VERSION is already on pub.dev; skipping."
+          else
+            dart pub publish --force
+          fi
         working-directory: packages/dart_sdk
 
   wait_for_dart:
