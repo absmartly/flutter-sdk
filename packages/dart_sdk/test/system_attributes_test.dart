@@ -216,6 +216,54 @@ void main() {
           isFalse);
     });
 
+    test('app_version is absent from the evaluation map', () async {
+      // A null check catches any injected value, not just one that differs
+      // from the compared version.
+      final fixture = jsonDecode(utf8
+              .decode(await getResourceBytes('system_attributes_context.json')))
+          as Map<String, dynamic>;
+      final experiment = (fixture['experiments'] as List)
+          .cast<Map<String, dynamic>>()
+          .firstWhere((e) => e['name'] == 'exp_appversion');
+      experiment['audience'] = jsonEncode({
+        'filter': [
+          {
+            'null': {'var': 'app_version'}
+          }
+        ]
+      });
+      final bytes = utf8.encode(jsonEncode(fixture));
+      final data = deser.deserialize(bytes, 0, bytes.length)!;
+      final context = createContext(data: data);
+      await context.waitUntilReady();
+
+      expect(context.peekTreatment('exp_appversion'), equals(1));
+    });
+
+    test('a user app_version is evaluated and published', () async {
+      final context = createContext(attributes: {'app_version': '1.2.3'});
+      await context.waitUntilReady();
+
+      expect(context.getTreatment('exp_appversion'), equals(1));
+
+      PublishEvent? captured;
+      when(eventHandler.publish(any, any)).thenAnswer((invocation) {
+        captured = invocation.positionalArguments[1] as PublishEvent;
+        return Completer<void>()..complete();
+      });
+      await context.publish();
+
+      final serialized = DefaultContextEventSerializer().serialize(captured!);
+      final decoded =
+          jsonDecode(utf8.decode(serialized!)) as Map<String, dynamic>;
+      expect(
+          (decoded['attributes'] as List)
+              .cast<Map<String, dynamic>>()
+              .where((a) => a['name'] == 'app_version')
+              .map((a) => a['value']),
+          ['1.2.3']);
+    });
+
     test('app_version is not injected into the evaluation map', () async {
       final context = createContext();
       await context.waitUntilReady();
