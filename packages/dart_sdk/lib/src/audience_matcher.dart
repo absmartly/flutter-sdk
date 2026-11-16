@@ -41,6 +41,15 @@ class AudienceMatcher {
   /// checked here; that is the caller's job.
   RuleAction? evaluateRules(String assignmentRules, String? environmentName,
       Map<String, dynamic>? attributes) {
+    final List? rules = parseRules(assignmentRules);
+    return rules != null
+        ? evaluateParsedRules(rules, environmentName, attributes)
+        : null;
+  }
+
+  /// The `rules` list of [assignmentRules], or null when it is not valid JSON
+  /// or has no `rules` list (JS AudienceMatcher.parseRules).
+  List? parseRules(String assignmentRules) {
     final dynamic parsed;
     try {
       final bytes = utf8.encode(assignmentRules);
@@ -52,8 +61,14 @@ class AudienceMatcher {
     if (parsed is! Map || parsed['rules'] is! List) {
       return null;
     }
+    return parsed['rules'] as List;
+  }
 
-    for (final rule in parsed['rules'] as List) {
+  /// [evaluateRules] on rules already returned by [parseRules]
+  /// (JS AudienceMatcher.evaluateParsedRules).
+  RuleAction? evaluateParsedRules(
+      List rules, String? environmentName, Map<String, dynamic>? attributes) {
+    for (final rule in rules) {
       if (rule is! Map) continue;
 
       final action = _parseRuleAction(rule);
@@ -97,10 +112,13 @@ class AudienceMatcher {
           return RuleAction.assign(variant);
         }
         // JSON has a single number type, so 1.0 is the integer 1
-        // (JS Number.isInteger).
+        // (JS Number.isInteger). An integral value beyond the int range (1e20)
+        // is still selected: toInt() saturates, so it stays out of bounds and
+        // the caller falls back to normal assignment instead of trying later
+        // rules, as JS does.
         if (variant is double &&
             variant.isFinite &&
-            variant == variant.ceil()) {
+            variant == variant.truncateToDouble()) {
           return RuleAction.assign(variant.toInt());
         }
         return null;

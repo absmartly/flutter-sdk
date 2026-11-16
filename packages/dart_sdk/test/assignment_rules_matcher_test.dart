@@ -189,6 +189,15 @@ void main() {
       expect(evaluate([assignRule(1.0)]), RuleAction.assign(1));
     });
 
+    test('selects an integral variant beyond the int range', () {
+      // Selected (not skipped), so the caller's bounds check falls back to
+      // normal assignment instead of trying the next rule.
+      final action = evaluate([assignRule(1e20), assignRule(1, name: 'next')]);
+      expect(action, isNotNull);
+      expect(action!.variant, greaterThan(1 << 31));
+      expect(evaluate([assignRule(-1e20)])!.variant, lessThan(0));
+    });
+
     test('supports variant 0', () {
       expect(evaluate([assignRule(0)]), RuleAction.assign(0));
     });

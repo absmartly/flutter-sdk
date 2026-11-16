@@ -7,9 +7,11 @@ import 'package:absmartly_dart/src/context_config.dart';
 import 'package:absmartly_dart/src/default_audience_deserializer.dart';
 import 'package:absmartly_dart/src/default_context_data_serializer.dart';
 import 'package:absmartly_dart/src/default_variable_parser.dart';
+import 'package:absmartly_dart/src/internal/context_counters.dart';
 import 'package:absmartly_dart/src/java/time/clock.dart';
 import 'package:absmartly_dart/src/json/context_data.dart';
 import 'package:absmartly_dart/src/json/exposure.dart';
+import 'package:absmartly_dart/src/jsonexpr/json_expr.dart';
 import 'package:mockito/mockito.dart';
 import 'package:test/test.dart';
 
@@ -62,12 +64,40 @@ Map<String, dynamic> split(dynamic conditions, String percentages) => {
 
 String rules(List<Map<String, dynamic>> rules) => jsonEncode({'rules': rules});
 
+// Counts how often assignment rules are parsed.
+class CountingAudienceDeserializer extends DefaultAudienceDeserializer {
+  int ruleParses = 0;
+
+  @override
+  Map<String, dynamic>? deserialize(
+      List<int> bytes, final int offset, final int length) {
+    if (utf8.decode(bytes.sublist(offset, offset + length)).contains('rules')) {
+      ruleParses++;
+    }
+    return super.deserialize(bytes, offset, length);
+  }
+}
+
+// Counts rule condition evaluations.
+class CountingJsonExpr extends JsonExpr {
+  int evaluations = 0;
+
+  @override
+  bool evaluateBooleanExpr(dynamic expr, Map<String?, dynamic> vars) {
+    evaluations++;
+    return super.evaluateBooleanExpr(expr, vars);
+  }
+}
+
 void main() {
   late List<int> contextBytes;
   late MockContextDataProvider dataProvider;
   late MockContextEventHandler eventHandler;
   final clock = Clock.fixed(1620000000000);
   String? environment;
+  String? application;
+  late CountingAudienceDeserializer audienceDeserializer;
+  late CountingJsonExpr jsonExpr;
 
   setUpAll(() async {
     contextBytes = await getResourceBytes('context.json');
@@ -77,6 +107,10 @@ void main() {
     dataProvider = MockContextDataProvider();
     eventHandler = MockContextEventHandler();
     environment = 'production';
+    application = 'website';
+    audienceDeserializer = CountingAudienceDeserializer();
+    jsonExpr = CountingJsonExpr();
+    ContextCounters.reset();
   });
 
   ContextData data(String? assignmentRules,
@@ -110,9 +144,9 @@ void main() {
         dataProvider,
         eventHandler,
         DefaultVariableParser(),
-        AudienceMatcher(DefaultAudienceDeserializer()),
+        AudienceMatcher(audienceDeserializer, jsonExpr: jsonExpr),
         null,
-        application: 'website',
+        application: application,
         environment: environment);
   }
 
@@ -768,5 +802,298 @@ void main() {
     final context = await ready(rulesData());
     context.setAttribute('country', 'US');
     expect(context.getVariableKeys()['button.color'], [exp]);
+  });
+
+  group('rule scope', () {
+    Map<String, dynamic> always() => {
+          'and': [
+            {'value': true}
+          ]
+        };
+
+    test('uses the configured environment, not a user environment attribute',
+        () async {
+      final context = await ready(data(rules([
+        assign('Staging', always(), 1, ['staging'])
+      ])));
+      context.setAttribute('environment', 'staging');
+      expect(context.getTreatment(exp), normalVariant);
+      expect(exposures(context).single.ruleOverride, isFalse);
+    });
+
+    test('a user environment attribute does not unscope a production rule',
+        () async {
+      final context = await ready(data(rules([
+        assign('Production', always(), 1, ['production'])
+      ])));
+      context.setAttribute('environment', 'staging');
+      expect(context.getTreatment(exp), 1);
+      expect(exposures(context).single.ruleOverride, isTrue);
+    });
+
+    test('a user environment attribute is what conditions read', () async {
+      final context = await ready(data(rules([
+        assign(
+            'Staging users',
+            {
+              'eq': [
+                {'var': 'environment'},
+                {'value': 'staging'}
+              ]
+            },
+            1)
+      ])));
+      expect(context.peekTreatment(exp), normalVariant);
+      context.setAttribute('environment', 'staging');
+      expect(context.peekTreatment(exp), 1);
+    });
+  });
+
+  group('rules and traffic', () {
+    ContextData excluded(String? assignmentRules) {
+      final d = data(assignmentRules);
+      d.experiments.firstWhere((e) => e.name == exp).trafficSplit = [1.0, 0.0];
+      return d;
+    }
+
+    test('a matching rule wins over zero traffic', () async {
+      final context = await ready(excluded(rules([assign('US', us, 1)])));
+      context.setAttribute('country', 'US');
+      expect(context.getTreatment(exp), 1);
+
+      final exposure = exposures(context).single;
+      expect(exposure.ruleOverride, isTrue);
+      expect(exposure.eligible, isTrue);
+      expect(exposure.assigned, isFalse);
+    });
+
+    test('zero traffic applies when no rule matches', () async {
+      final context = await ready(excluded(rules([assign('US', us, 1)])));
+      context.setAttribute('country', 'GB');
+      expect(context.getTreatment(exp), 0);
+      expect(exposures(context).single.eligible, isFalse);
+    });
+  });
+
+  group('empty system names', () {
+    String nullAudience(String name) => jsonEncode({
+          'filter': [
+            {
+              'null': {'var': name}
+            }
+          ]
+        });
+
+    for (final name in ['application', 'environment']) {
+      test('an empty $name is absent from the evaluation map', () async {
+        if (name == 'application') {
+          application = '';
+        } else {
+          environment = '';
+        }
+        final context = await ready(
+            data(null, audience: nullAudience(name), audienceStrict: true));
+        // A present "" is not null, so this strict audience only matches
+        // when the key is left out.
+        expect(context.getTreatment(exp), normalVariant);
+        expect(exposures(context).single.audienceMismatch, isFalse);
+      });
+
+      test('a configured $name is present in the evaluation map', () async {
+        final context = await ready(
+            data(null, audience: nullAudience(name), audienceStrict: true));
+        expect(context.getTreatment(exp), 0);
+        expect(exposures(context).single.audienceMismatch, isTrue);
+      });
+    }
+  });
+
+  group('revalidation cost', () {
+    test('reads without rules or audience build no attribute map', () async {
+      final context = await ready(data(null, audience: ''));
+      for (int i = 0; i < 1000; i++) {
+        context.setAttribute('attr$i', i);
+      }
+      expect(context.getTreatment(exp), normalVariant);
+      context.setAttribute('late', true);
+      expect(context.getTreatment(exp), normalVariant);
+      expect(context.getTreatment('exp_test_ab'), isNotNull);
+      expect(ContextCounters.attributesMapBuilds, 0);
+    });
+
+    test('one attribute map per attribute change, shared by experiments',
+        () async {
+      final context = await ready(rulesData());
+      context.setAttribute('country', 'US');
+      expect(context.getTreatment(exp), 1);
+      expect(ContextCounters.attributesMapBuilds, 1);
+
+      context.setAttribute('unrelated', true);
+      context.getTreatment(exp);
+      for (final name in context.getExperiments()) {
+        context.peekTreatment(name);
+      }
+      expect(ContextCounters.attributesMapBuilds, 2);
+    });
+
+    test('cached reads build no rule key and evaluate no rule', () async {
+      final big = List.generate(200, (i) => assign('GB $i', gb, 2));
+      final context = await ready(data(rules([...big, assign('US', us, 1)])));
+      context.setAttribute('country', 'US');
+      expect(context.getTreatment(exp), 1);
+      final keys = ContextCounters.ruleKeyBuilds;
+      final evaluations = jsonExpr.evaluations;
+
+      for (int i = 0; i < 1000; i++) {
+        expect(context.getTreatment(exp), 1);
+      }
+      expect(ContextCounters.ruleKeyBuilds, keys);
+      expect(jsonExpr.evaluations, evaluations);
+    });
+
+    test('a same-outcome refresh revalidates once, not on every read',
+        () async {
+      final context = await ready(rulesData());
+      context.setAttribute('country', 'US');
+      expect(context.getTreatment(exp), 1);
+
+      await refreshWith(context, data(rules([assign('US renamed', us, 1)])));
+      expect(context.getTreatment(exp), 1);
+      final evaluations = jsonExpr.evaluations;
+      for (int i = 0; i < 100; i++) {
+        expect(context.getTreatment(exp), 1);
+      }
+      expect(jsonExpr.evaluations, evaluations);
+      expect(context.getPendingCount(), 1);
+    });
+
+    test('a same-outcome attribute change revalidates once', () async {
+      final context = await ready(rulesData());
+      context.setAttribute('country', 'US');
+      expect(context.getTreatment(exp), 1);
+
+      context.setAttribute('unrelated', true);
+      expect(context.getTreatment(exp), 1);
+      final evaluations = jsonExpr.evaluations;
+      for (int i = 0; i < 100; i++) {
+        expect(context.getTreatment(exp), 1);
+      }
+      expect(jsonExpr.evaluations, evaluations);
+    });
+
+    test('rules are parsed once per data install', () async {
+      final context = await ready(rulesData());
+      for (final country in ['US', 'GB', 'US', 'FR']) {
+        context.setAttribute('country', country);
+        context.getTreatment(exp);
+      }
+      expect(audienceDeserializer.ruleParses, 1);
+
+      await refreshWith(context, data(rules([assign('US', us, 2)])));
+      context.setAttribute('country', 'US');
+      expect(context.getTreatment(exp), 2);
+      context.setAttribute('country', 'GB');
+      context.getTreatment(exp);
+      expect(audienceDeserializer.ruleParses, 2);
+    });
+
+    test('invalid rules are parsed once and stay inert', () async {
+      final context = await ready(data('{"rules": not json'));
+      for (final country in ['US', 'GB', 'US']) {
+        context.setAttribute('country', country);
+        expect(context.getTreatment(exp), normalVariant);
+      }
+      expect(audienceDeserializer.ruleParses, 1);
+    });
+  });
+
+  test(
+      'an integral variant beyond the int range falls back, not to later rules',
+      () async {
+    final context = await ready(data(rules([
+      assign('Huge', null, 0)..['variant'] = 1e20,
+      assign('One', null, 1)
+    ])));
+    expect(context.getTreatment(exp), normalVariant);
+    expect(exposures(context).single.ruleOverride, isFalse);
+  });
+
+  test('unknown fields at every level and a malformed rule stay isolated',
+      () async {
+    final json = jsonDecode(utf8.decode(contextBytes)) as Map<String, dynamic>;
+    json['someFutureRoot'] = {
+      'nested': [1, 'two', null]
+    };
+    json['holdouts'] = [
+      {'id': 1, 'future': true}
+    ];
+    for (final experiment in json['experiments'] as List) {
+      experiment['someFutureField'] = {
+        'a': [
+          {'b': 1}
+        ]
+      };
+      experiment['switchback'] = {'periodMinutes': 30, 'unknown': []};
+      for (final application in experiment['applications'] as List) {
+        application['futureFlag'] = 7;
+      }
+      for (final variant in experiment['variants'] as List) {
+        variant['futureVariantField'] = {'x': null};
+      }
+    }
+    final experiments = json['experiments'] as List;
+    experiments.firstWhere((e) => e['name'] == exp)['assignmentRules'] =
+        jsonEncode({
+      'rules': [
+        {'type': 'assign', 'variant': 'one', 'future': {}},
+        {
+          'type': 'futureType',
+          'variant': 1,
+          'conditions': {
+            'futureOperator': [1]
+          }
+        },
+        {
+          'name': 'unknown operator',
+          'type': 'assign',
+          'variant': 2,
+          'conditions': {
+            'futureOperator': [1]
+          }
+        },
+        {
+          'name': 'ok',
+          'type': 'assign',
+          'variant': 1,
+          'environments': [],
+          'futureRuleField': [1, 2],
+          'conditions': {
+            'and': [
+              {'value': true}
+            ]
+          }
+        },
+      ],
+      'futureRoot': true,
+    });
+    experiments
+        .firstWhere((e) => e['name'] == 'exp_test_ab')['assignmentRules'] = {
+      'rules': 'not a string'
+    };
+
+    final bytes = utf8.encode(jsonEncode(json));
+    final parsed =
+        DefaultContextDataDeserializer().deserialize(bytes, 0, bytes.length);
+    expect(parsed, isNotNull);
+
+    final context = await ready(parsed!);
+    final baseline = await ready(data(null));
+    expect(context.isFailed(), isFalse);
+    expect(context.getTreatment('exp_test_ab'),
+        baseline.getTreatment('exp_test_ab'));
+    expect(context.getTreatment('exp_test_fullon'),
+        baseline.getTreatment('exp_test_fullon'));
+    expect(context.getTreatment(exp), 1);
+    expect(exposures(context).single.ruleOverride, isTrue);
   });
 }

@@ -224,17 +224,6 @@ void main() {
       context.getTreatment('exp_appversion');
       expect(context.exposures_.last.audienceMismatch, isTrue);
     });
-
-    test('system attributes are available to audiences via getAttributesMap',
-        () async {
-      final context = createContext();
-      await context.waitUntilReady();
-
-      final attrs = context.getAttributesMap();
-      expect(attrs['application'], equals('website'));
-      expect(attrs['environment'], equals('production'));
-      expect(attrs.containsKey('app_version'), isFalse);
-    });
   });
 
   // End-to-end: the application and environment names flow from the client
@@ -257,8 +246,6 @@ void main() {
           .createContext(ContextConfig.create()..setUnit('session_id', 'abc'));
       await context.waitUntilReady();
 
-      expect(context.getAttributesMap()['application'], equals('website'));
-      expect(context.getAttributesMap()['environment'], equals('production'));
       expect(context.peekTreatment('exp_env'), equals(1));
       expect(context.peekTreatment('exp_app'), equals(1));
       expect(context.peekTreatment('exp_env_staging'), equals(0));
