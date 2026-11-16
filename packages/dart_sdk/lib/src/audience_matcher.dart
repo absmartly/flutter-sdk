@@ -147,13 +147,20 @@ class AudienceMatcher {
     return values.map((value) => value / 100).toList();
   }
 
+  // ECMAScript WhiteSpace and LineTerminator, the characters parseFloat skips.
+  // Dart's trimLeft() also strips U+0085, which JS does not.
+  static final RegExp _leadingWhiteSpace =
+      RegExp('^[\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F'
+          '\u3000\uFEFF]+');
+
   static final RegExp _floatPrefix =
       RegExp(r'^[+-]?(Infinity|(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?)');
 
   // JS parseFloat: leading whitespace is skipped and the longest numeric prefix
   // is parsed, so "50abc" is 50 and "abc" is NaN.
   static double _parseFloat(String value) {
-    final match = _floatPrefix.firstMatch(value.trimLeft());
+    final match =
+        _floatPrefix.firstMatch(value.replaceFirst(_leadingWhiteSpace, ''));
     if (match == null) return double.nan;
     final text = match.group(0)!;
     if (text.endsWith('Infinity')) {

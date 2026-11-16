@@ -282,6 +282,20 @@ void main() {
       expect(evaluate([splitRule('/100'), fallbackRule]), RuleAction.assign(2));
     });
 
+    test('skips only ECMAScript whitespace before a percentage', () {
+      // parseFloat skips U+FEFF and U+00A0 but not U+0085 or U+200B.
+      for (final ws in ['\uFEFF', '\u00A0', '\u2028', '\t\n']) {
+        expect(
+            evaluate([splitRule('${ws}50/50')]), RuleAction.split([0.5, 0.5]),
+            reason: ws.codeUnits.toString());
+      }
+      for (final ws in ['\u0085', '\u200B', '\u180E']) {
+        expect(evaluate([splitRule('${ws}50/50'), fallbackRule]),
+            RuleAction.assign(2),
+            reason: ws.codeUnits.toString());
+      }
+    });
+
     test('skips a split with negative percentages', () {
       expect(
           evaluate([splitRule('150/-50'), fallbackRule]), RuleAction.assign(2));
