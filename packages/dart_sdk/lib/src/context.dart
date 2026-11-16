@@ -753,7 +753,6 @@ class Context {
     if (!identical(key, cachedKey)) {
       ContextCounters.ruleKeyComparisons++;
       if (key == cachedKey) {
-        // Adopt the entry's key so later reads compare by identity.
         assignment._ruleKey = key;
       } else {
         ruleKeyChanged = true;

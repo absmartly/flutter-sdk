@@ -3,13 +3,10 @@
 class ContextCounters {
   ContextCounters._();
 
-  // Attribute maps built for audience or rule evaluation.
   static int attributesMapBuilds = 0;
 
-  // Rule keys built from an experiment's assignment rules.
   static int ruleKeyBuilds = 0;
 
-  // Rule keys compared by content because they were not the same object.
   static int ruleKeyComparisons = 0;
 
   static void reset() {

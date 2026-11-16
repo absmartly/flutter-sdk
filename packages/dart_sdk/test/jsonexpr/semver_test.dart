@@ -105,7 +105,6 @@ void main() {
     test('formats numbers like JavaScript toFixed(15)', () {
       final vectors = <num, String>{
         0: '0',
-        -0.0: '0',
         1: '1',
         2.5: '2.5',
         0.1: '0.1',
@@ -124,6 +123,8 @@ void main() {
         expect(SemverComparator.numberToString(value), expected,
             reason: '$value');
       });
+      // A map key would merge -0.0 with 0.
+      expect(SemverComparator.numberToString(-0.0), '0');
     });
 
     test('compares numbers with their JavaScript string form', () {

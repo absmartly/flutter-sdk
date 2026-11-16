@@ -47,8 +47,7 @@ class AudienceMatcher {
         : null;
   }
 
-  /// The `rules` list of [assignmentRules], or null when it is not valid JSON
-  /// or has no `rules` list (JS AudienceMatcher.parseRules).
+  // JS AudienceMatcher.parseRules.
   List? parseRules(String assignmentRules) {
     final dynamic parsed;
     try {
@@ -64,8 +63,7 @@ class AudienceMatcher {
     return parsed['rules'] as List;
   }
 
-  /// [evaluateRules] on rules already returned by [parseRules]
-  /// (JS AudienceMatcher.evaluateParsedRules).
+  // JS AudienceMatcher.evaluateParsedRules.
   RuleAction? evaluateParsedRules(
       List rules, String? environmentName, Map<String, dynamic>? attributes) {
     for (final rule in rules) {

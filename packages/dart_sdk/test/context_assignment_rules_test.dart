@@ -64,7 +64,6 @@ Map<String, dynamic> split(dynamic conditions, String percentages) => {
 
 String rules(List<Map<String, dynamic>> rules) => jsonEncode({'rules': rules});
 
-// Counts how often assignment rules are parsed.
 class CountingAudienceDeserializer extends DefaultAudienceDeserializer {
   int ruleParses = 0;
 
@@ -78,7 +77,6 @@ class CountingAudienceDeserializer extends DefaultAudienceDeserializer {
   }
 }
 
-// Counts rule condition evaluations.
 class CountingJsonExpr extends JsonExpr {
   int evaluations = 0;
 
