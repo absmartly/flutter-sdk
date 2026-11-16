@@ -967,6 +967,44 @@ void main() {
       expect(context.getPendingCount(), 1);
     });
 
+    test('reads after an unchanged-rules refresh do not compare rule text',
+        () async {
+      final context = await ready(rulesData());
+      context.setAttribute('country', 'US');
+      expect(context.getTreatment(exp), 1);
+
+      await refreshWith(context, rulesData());
+      for (int i = 0; i < 100; i++) {
+        expect(context.getTreatment(exp), 1);
+      }
+      context.setAttribute('unrelated', true);
+      for (int i = 0; i < 100; i++) {
+        expect(context.getTreatment(exp), 1);
+      }
+      expect(ContextCounters.ruleKeyComparisons, 0);
+      expect(context.getPendingCount(), 1);
+    });
+
+    test('an experiment back after a refresh compares rule text once',
+        () async {
+      // Without its unit the assignment is unassigned, so it stays cached
+      // while the experiment is missing from the data.
+      final context = await ready(rulesData(), withSession: false);
+      context.setAttribute('country', 'GB');
+      expect(context.getTreatment(exp), 0);
+
+      final without = rulesData();
+      without.experiments =
+          without.experiments.where((e) => e.name != exp).toList();
+      await refreshWith(context, without);
+      await refreshWith(context, rulesData());
+      for (int i = 0; i < 100; i++) {
+        expect(context.getTreatment(exp), 0);
+      }
+      expect(ContextCounters.ruleKeyComparisons, 1);
+      expect(context.getPendingCount(), 1);
+    });
+
     test('a same-outcome attribute change revalidates once', () async {
       final context = await ready(rulesData());
       context.setAttribute('country', 'US');

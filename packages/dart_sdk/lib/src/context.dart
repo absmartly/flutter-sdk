@@ -676,8 +676,8 @@ class Context {
   }
 
   // Everything a rule's outcome depends on besides the attributes and units:
-  // a refresh that changes any of it re-resolves the rules. Built at most once
-  // per installed experiment (see _entryRuleKey), never per read.
+  // a refresh that changes any of it re-resolves the rules. Built once per
+  // experiment when its data is installed, never per read.
   String _ruleKey(final Experiment experiment) {
     final String? rules = experiment.assignmentRules;
     if (rules == null || rules.isEmpty) {
@@ -686,11 +686,6 @@ class Context {
     ContextCounters.ruleKeyBuilds++;
     return "$rules:$_environmentName:${experiment.variants.length}:"
         "${experiment.seedHi}:${experiment.seedLo}";
-  }
-
-  // The rule key of [entry], built on its first use after setData installed it.
-  String _entryRuleKey(final ExperimentVariables entry) {
-    return entry._ruleKey ??= _ruleKey(entry.data);
   }
 
   // The variant of the first assignment rule that matches, or null when none
@@ -743,20 +738,22 @@ class Context {
     return _audienceMatches(
         entry != null && identical(entry.data, experiment)
             ? entry
-            : (ExperimentVariables()..data = experiment),
+            : (ExperimentVariables()
+              ..data = experiment
+              .._ruleKey = _ruleKey(experiment)),
         assignment);
   }
 
   bool _audienceMatches(
       final ExperimentVariables entry, final Assignment assignment) {
     final Experiment experiment = entry.data;
-    final String key = _entryRuleKey(entry);
+    final String key = entry._ruleKey;
     final String cachedKey = assignment._ruleKey ?? "";
     bool ruleKeyChanged = false;
     if (!identical(key, cachedKey)) {
+      ContextCounters.ruleKeyComparisons++;
       if (key == cachedKey) {
-        // Same rules from a refresh: adopt the new key so later reads compare
-        // by identity instead of by content.
+        // Adopt the entry's key so later reads compare by identity.
         assignment._ruleKey = key;
       } else {
         ruleKeyChanged = true;
@@ -851,7 +848,7 @@ class Context {
       if (experiment != null) {
         final String unitType = experiment.data.unitType;
 
-        final String key = _entryRuleKey(experiment);
+        final String key = experiment._ruleKey;
         assignment._ruleKey = key;
         final _RuleResult? rule = key.isNotEmpty
             ? _resolveRule(experiment, _getAttributesMap(), false)
@@ -1013,6 +1010,14 @@ class Context {
     for (Experiment experiment in data.experiments) {
       final ExperimentVariables experimentVariables = ExperimentVariables();
       experimentVariables.data = experiment;
+      // An unchanged key keeps the previous String, so cached assignments
+      // still match it by identity and reads never compare rule contents.
+      final String ruleKey = _ruleKey(experiment);
+      final String? previousKey = index_[experiment.name]?._ruleKey;
+      experimentVariables._ruleKey =
+          (previousKey != null && previousKey == ruleKey)
+              ? previousKey
+              : ruleKey;
       for (ExperimentVariant variant in experiment.variants) {
         if ((variant.config != null) && variant.config!.isNotEmpty) {
           final Map<String, dynamic>? variables = variableParser_.parse(
@@ -1131,9 +1136,9 @@ class Context {
 class ExperimentVariables {
   late Experiment data;
   List<Map<String, dynamic>?> variables = [];
-  // Rule key and parsed rules of [data], built on first use; setData installs
-  // new entries, so they never outlive the rules they came from.
-  String? _ruleKey;
+  // Rule key of [data], set when installed, and its rules, parsed on first
+  // use. setData installs new entries, so neither outlives its rules.
+  String _ruleKey = "";
   List? _rules;
 }
 
