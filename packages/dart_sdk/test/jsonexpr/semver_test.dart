@@ -100,6 +100,46 @@ void main() {
       }
     });
 
+    // Expected strings are what the JavaScript SDK's
+    // x.toFixed(15).replace(/\.?0{0,15}$/, "") produces.
+    test('formats numbers like JavaScript toFixed(15)', () {
+      final vectors = <num, String>{
+        0: '0',
+        -0.0: '0',
+        1: '1',
+        2.5: '2.5',
+        0.1: '0.1',
+        1e-7: '0.0000001',
+        1e-16: '0',
+        1.0000000000000002: '1',
+        123.456: '123.456000000000003',
+        1e20: '100000000000000000000',
+        1e21: '1e+21',
+        1.5e21: '1.5e+21',
+        -1e21: '-1e+21',
+        -1e-20: '-0',
+        999999999999999.9: '999999999999999.875',
+      };
+      vectors.forEach((value, expected) {
+        expect(SemverComparator.numberToString(value), expected,
+            reason: '$value');
+      });
+    });
+
+    test('compares numbers with their JavaScript string form', () {
+      expect(cmp(1e21, '1e+21'), 0);
+      expect(cmp(1e-7, '0.0000001'), 0);
+      expect(cmp(1.0000000000000002, '1'), 0);
+      expect(cmp(1e-16, '0'), 0);
+      expect(cmp(123.456, '123.456000000000003'), 0);
+      expect(cmp(123.456, '123.456'), 1);
+    });
+
+    test('does not change how other operators convert numbers', () {
+      expect(evaluator.stringConvert(123.456), '123.456000000000003');
+      expect(evaluator.stringConvert(1e21), isNot('1e+21'));
+    });
+
     test('unconvertible inputs', () {
       expect(cmp(<String, dynamic>{}, '1.0.0'), isNull);
       expect(cmp('1.0.0', <String, dynamic>{}), isNull);

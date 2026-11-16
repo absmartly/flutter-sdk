@@ -1,5 +1,3 @@
-import 'package:intl/intl.dart';
-
 import 'evaluator.dart';
 
 /// Semantic version comparison used by the semver_* operators, ported from
@@ -14,14 +12,7 @@ import 'evaluator.dart';
 class SemverComparator {
   SemverComparator._();
 
-  // Same format as ExprEvaluator.stringConvert, but with a fixed locale: under
-  // a locale with a comma decimal separator, 2.5 would otherwise become "2,5",
-  // a single alphanumeric core part instead of "2" and "5".
-  static final NumberFormat _formatter = NumberFormat.decimalPattern('en_US')
-    ..maximumFractionDigits = 15
-    ..minimumFractionDigits = 0
-    ..minimumIntegerDigits = 1
-    ..turnOffGrouping();
+  static final RegExp _trailingZeros = RegExp(r'\.?0{0,15}$');
 
   static final RegExp _numeric = RegExp(r'^\d+$');
 
@@ -38,7 +29,19 @@ class SemverComparator {
   }
 
   static String? _stringConvert(Evaluator evaluator, dynamic x) {
-    return x is num ? _formatter.format(x) : evaluator.stringConvert(x);
+    return x is num ? numberToString(x) : evaluator.stringConvert(x);
+  }
+
+  /// A number as the JavaScript SDK's Evaluator.stringConvert writes it:
+  /// `x.toFixed(15).replace(/\.?0{0,15}$/, "")`. That is locale independent,
+  /// keeps 15 decimals (123.456 is "123.456000000000003"), and switches to
+  /// exponent notation from 1e21 ("1e+21"). Only the semver operators use it,
+  /// so the other operators keep their number format.
+  static String numberToString(num x) {
+    final double value = x.toDouble();
+    // toFixed drops the sign of negative zero.
+    final String fixed = (value == 0 ? 0.0 : value).toStringAsFixed(15);
+    return fixed.replaceFirst(_trailingZeros, '');
   }
 
   static int? compare(String lhs, String rhs) {
