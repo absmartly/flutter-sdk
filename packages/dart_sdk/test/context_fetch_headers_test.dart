@@ -124,4 +124,49 @@ void main() {
     expect(get.headers, containsPair("X-Environment", "dev"));
     expect(get.headers, containsPair("X-Application-Version", "0"));
   });
+
+  // The collector binds X-Application-Version as a Long on GET and PUT and
+  // rejects anything else with a 400, so both requests carry a whole number.
+  for (final entry in {
+    null: "0",
+    "": "0",
+    "1004": "1004",
+    " 1004 ": "1004",
+    "3.2.1": "0",
+    "-1": "0",
+    "١٢": "0",
+    "123456789012345678": "123456789012345678",
+    "1234567890123456789": "0",
+  }.entries) {
+    test("X-Application-Version for ${jsonEncode(entry.key)} on GET and PUT",
+        () async {
+      final httpClient = CapturingHTTPClient({"experiments": []});
+      final config = ClientConfig()
+          .setAPIKey("test-api-key")
+          .setEndpoint("https://localhost/v1")
+          .setApplication("website")
+          .setEnvironment("dev");
+      if (entry.key != null) {
+        config.setApplicationVersion(entry.key!);
+      }
+      final client = Client.create(config, httpClient: httpClient);
+      final sdk = ABSmartly(ABSmartlyConfig.create(client: client));
+
+      final context = sdk.createContext(ContextConfig.create()
+        ..setUnit("session_id", "svk-unit-1")
+        ..setPublishDelay(-1)
+        ..setRefreshInterval(0));
+      await context.waitUntilReady();
+      context.track("goal", null);
+      await context.publish();
+
+      final methods = httpClient.requests.map((r) => r.method).toSet();
+      expect(methods, containsAll(["GET", "PUT"]));
+      for (final request in httpClient.requests) {
+        expect(request.headers?["X-Application-Version"], entry.value,
+            reason: request.method);
+      }
+      expect(client.getApplicationVersion(), entry.key ?? "0");
+    });
+  }
 }

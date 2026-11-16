@@ -44,9 +44,9 @@ class Client {
       throw ArgumentError("Missing Environment configuration");
     }
 
-    application_ = application;
-    environment_ = environment;
-    applicationVersion_ = config.applicationVersion_ ?? "0";
+    final String applicationVersion = config.getApplicationVersion() ?? "0";
+    _metadata[this] =
+        _ClientMetadata(application, environment, applicationVersion);
 
     url_ = "$endpoint/context";
     httpClient_ = httpClient;
@@ -64,7 +64,7 @@ class Client {
       // The collector parses X-Application-Version as a whole number and
       // rejects the request otherwise, so a version such as "2.4.1" is sent
       // as "0".
-      "X-Application-Version": applicationVersionHeader(applicationVersion_),
+      "X-Application-Version": applicationVersionHeader(applicationVersion),
       "X-Agent": SdkVersion.agent,
     };
 
@@ -100,35 +100,17 @@ class Client {
     return dataFuture;
   }
 
-  /// The configured application name, read by audience filters as the
-  /// `application` attribute.
-  String? getApplication() => application_;
-
-  /// The configured environment name, read by audience filters as the
-  /// `environment` attribute.
-  String? getEnvironment() => environment_;
-
-  /// The configured application version, or "0" when none is set.
-  String getApplicationVersion() => applicationVersion_;
-
-  /// The SDK name without version: "absmartly-dart-sdk".
-  String getAgentName() => SdkVersion.name;
-
-  /// The SDK version, e.g. "3.0.0".
-  String getAgentVersion() => SdkVersion.version;
-
-  /// The X-Agent header value: "<name>/<version>".
-  String getAgent() => SdkVersion.agent;
-
-  // At most 18 ASCII digits, so the value fits the collector's signed 64-bit
-  // integer; anything else is sent as "0".
+  // The collector binds X-Application-Version as a Long, so after trimming
+  // only 1 to 18 ASCII digits are sent; anything else is sent as "0" (Java
+  // Client.applicationVersionHeader).
   static String applicationVersionHeader(String applicationVersion) {
-    if (applicationVersion.isEmpty ||
-        applicationVersion.length > 18 ||
-        !RegExp(r'^[0-9]+$').hasMatch(applicationVersion)) {
+    final String trimmed = applicationVersion.trim();
+    if (trimmed.isEmpty ||
+        trimmed.length > 18 ||
+        !RegExp(r'^[0-9]+$').hasMatch(trimmed)) {
       return "0";
     }
-    return applicationVersion;
+    return trimmed;
   }
 
   Completer<void> publish(final PublishEvent event) {
@@ -156,10 +138,43 @@ class Client {
   late final Map<String, String> headers_;
   late final HTTPClient httpClient_;
 
-  String? application_;
-  String? environment_;
-  late final String applicationVersion_;
-
   ContextDataDeserializer? deserializer_;
   ContextEventSerializer? serializer_;
+}
+
+// Client is implementable by customers, so the configuration it keeps for the
+// SDK lives outside the class: new members would break `implements Client`.
+final Expando<_ClientMetadata> _metadata = Expando<_ClientMetadata>();
+
+class _ClientMetadata {
+  _ClientMetadata(this.application, this.environment, this.applicationVersion);
+
+  final String application;
+  final String environment;
+  final String applicationVersion;
+}
+
+/// SDK metadata of a [Client] created by the SDK. An extension rather than
+/// members of [Client], so existing `implements Client` classes keep
+/// compiling; for those the configuration getters return null.
+extension ClientMetadata on Client {
+  /// The configured application name, read by audience filters as the
+  /// `application` attribute.
+  String? getApplication() => _metadata[this]?.application;
+
+  /// The configured environment name, read by audience filters as the
+  /// `environment` attribute and used to scope assignment rules.
+  String? getEnvironment() => _metadata[this]?.environment;
+
+  /// The configured application version, or "0" when none is set.
+  String? getApplicationVersion() => _metadata[this]?.applicationVersion;
+
+  /// The SDK name without version: "absmartly-dart-sdk".
+  String getAgentName() => SdkVersion.name;
+
+  /// The SDK version, e.g. "3.0.0".
+  String getAgentVersion() => SdkVersion.version;
+
+  /// The X-Agent header value: "<name>/<version>".
+  String getAgent() => SdkVersion.agent;
 }

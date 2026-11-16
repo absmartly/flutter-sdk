@@ -87,18 +87,6 @@ class ClientConfig {
     return this;
   }
 
-  String? getApplicationVersion() {
-    return applicationVersion_;
-  }
-
-  /// The application's version, e.g. "2.4.1" or "1042". The
-  /// X-Application-Version header carries it only when it is a whole number,
-  /// otherwise "0".
-  ClientConfig setApplicationVersion(String applicationVersion) {
-    applicationVersion_ = applicationVersion;
-    return this;
-  }
-
   ContextDataDeserializer getContextDataDeserializer() {
     return deserializer_ ?? DefaultContextDataDeserializer();
   }
@@ -122,8 +110,26 @@ class ClientConfig {
   String? apiKey_;
   String? environment_;
   String? application_;
-  String? applicationVersion_;
 
   ContextDataDeserializer? deserializer_;
   ContextEventSerializer? serializer_;
+}
+
+// ClientConfig is implementable by customers, so the application version is
+// kept outside the class: a new member would break `implements ClientConfig`.
+final Expando<String> _applicationVersions = Expando<String>();
+
+/// The application version setting of [ClientConfig]. An extension rather than
+/// members of [ClientConfig], so existing `implements ClientConfig` classes
+/// keep compiling.
+extension ClientConfigApplicationVersion on ClientConfig {
+  String? getApplicationVersion() => _applicationVersions[this];
+
+  /// The application's version, e.g. "2.4.1" or "1042". The
+  /// X-Application-Version header carries it only when it is a whole number of
+  /// at most 18 digits (after trimming), otherwise "0".
+  ClientConfig setApplicationVersion(String applicationVersion) {
+    _applicationVersions[this] = applicationVersion;
+    return this;
+  }
 }

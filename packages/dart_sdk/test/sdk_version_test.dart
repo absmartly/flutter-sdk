@@ -49,11 +49,17 @@ void main() {
   });
 
   test('non-numeric application version is kept but sends header "0"', () {
-    for (final version in ['2.4.1', 'v3', '-1', ' 12', '١٢', '']) {
+    for (final version in ['2.4.1', 'v3', '-1', '+12', '1 2', '١٢', '', ' ']) {
       final c = client(applicationVersion: version);
       expect(c.getApplicationVersion(), version);
       expect(c.headers_['X-Application-Version'], '0', reason: version);
     }
+  });
+
+  test('whole-number application version is trimmed for the header', () {
+    final c = client(applicationVersion: ' 1004 ');
+    expect(c.getApplicationVersion(), ' 1004 ');
+    expect(c.headers_['X-Application-Version'], '1004');
   });
 
   test('application version over 18 digits sends header "0"', () {
