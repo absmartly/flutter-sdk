@@ -2162,6 +2162,56 @@ void main() {
       ]);
     });
 
+    test('a covered candidate passed over before setUnit stays pinned',
+        () async {
+      // JS exposes every covered candidate a variable read passes over, so a
+      // later setUnit does not re-randomize it.
+      final context = await readyWithoutUnits(contextDataOf([
+        newHoldout(11, 'holdout_a', holdoutBSeedHi, holdoutBSeedLo,
+            unit: 'user_id')
+      ], [
+        withVariables(
+            newExperiment(1, 'exp_var_late', unit: 'user_id', holdoutIds: [11]),
+            'color')
+      ]));
+
+      expect(context.getVariableValue('color', 'default'), 'default');
+      expect(context.getPendingCount(), 1);
+
+      context.setUnit('user_id', uid);
+
+      expect(context.getTreatment('exp_var_late'), 0);
+      expect(context.getVariableValue('color', 'default'), 'default');
+      await expectPublished(context,
+          [exposure(1, 'exp_var_late', 0, unit: 'user_id', assigned: false)],
+          unit: 'user_id');
+    });
+
+    test('a covered candidate passed over is exposed once with its holdouts',
+        () async {
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_a', holdoutBSeedHi, holdoutBSeedLo),
+      ], [
+        withVariables(
+            newExperiment(1, 'exp_mismatch', holdoutIds: [11])
+              ..audienceStrict = true
+              ..audience = ageAudience,
+            'color'),
+        withVariables(newExperiment(2, 'exp_assigned'), 'color'),
+      ]));
+      context.setAttribute('age', 5);
+
+      expect(context.getVariableValue('color', 'default'), 'treatment');
+      expect(context.getVariableValue('color', 'default'), 'treatment');
+      await expectPublished(context, [
+        exposure(1, 'exp_mismatch', 0, assigned: false, audienceMismatch: true),
+        holdoutExposure(11, 'holdout_a', 1),
+        exposure(2, 'exp_assigned', normalVariant),
+      ], attributes: [
+        Attribute(name: 'age', value: 5, setAt: now)
+      ]);
+    });
+
     test('a suppressed key with no other candidate reads the control value',
         () async {
       final context = await ready(contextDataOf([

@@ -48,6 +48,11 @@ class Experiment {
   late String? audience;
   late String? assignmentRules;
   late List<CustomFieldValue>? customFieldValues;
+  // Library-private, so classes implementing Experiment in other libraries
+  // are not required to declare them; read through [ExperimentHoldouts]. A
+  // field (unlike an Expando) travels with the object across isolates.
+  List<int>? _holdoutIdList;
+  String? _holdoutTypeValue;
 
   Experiment({
     required this.id,
@@ -242,30 +247,54 @@ class Experiment {
       if (assignmentRules != null) "assignmentRules": assignmentRules,
       if (customFieldValues != null)
         "customFieldValues": customFieldValues!.map((e) => e.toMap()).toList(),
-      if (_holdoutIds[this] != null) "holdoutIds": _holdoutIds[this],
-      if (_holdoutTypes[this] != null) "holdoutType": _holdoutTypes[this],
+      if (_holdoutIdList != null) "holdoutIds": _holdoutIdList,
+      if (_holdoutTypeValue != null) "holdoutType": _holdoutTypeValue,
     };
   }
 }
 
-// Experiment is implementable by customers, so the holdout fields are kept
-// outside the class: a new member would break `implements Experiment`.
-final Expando<List<int>> _holdoutIds = Expando<List<int>>();
-final Expando<String> _holdoutTypes = Expando<String>();
+// Holdout fields of a customer class that implements Experiment, which has no
+// private fields to hold them.
+final Expando<List<int>> _foreignHoldoutIds = Expando<List<int>>();
+final Expando<String> _foreignHoldoutTypes = Expando<String>();
 
 /// The holdout fields of an [Experiment]. An extension rather than members of
 /// [Experiment], so existing classes that implement it keep compiling.
 extension ExperimentHoldouts on Experiment {
   /// The ids of the holdouts (in the payload's `holdouts`) that cover this
   /// experiment. Null or empty when it is not covered.
-  List<int>? get holdoutIds => _holdoutIds[this];
+  List<int>? get holdoutIds {
+    try {
+      return _holdoutIdList;
+    } on NoSuchMethodError {
+      return _foreignHoldoutIds[this];
+    }
+  }
 
-  set holdoutIds(List<int>? holdoutIds) => _holdoutIds[this] = holdoutIds;
+  set holdoutIds(List<int>? holdoutIds) {
+    try {
+      _holdoutIdList = holdoutIds;
+    } on NoSuchMethodError {
+      _foreignHoldoutIds[this] = holdoutIds;
+    }
+  }
 
   /// Set only on holdout entries sent in the legacy experiment shape
   /// (`"full"`, `"all_full_on"`). Informational: the SDK derives a holdout's
   /// arm count from its split.
-  String? get holdoutType => _holdoutTypes[this];
+  String? get holdoutType {
+    try {
+      return _holdoutTypeValue;
+    } on NoSuchMethodError {
+      return _foreignHoldoutTypes[this];
+    }
+  }
 
-  set holdoutType(String? holdoutType) => _holdoutTypes[this] = holdoutType;
+  set holdoutType(String? holdoutType) {
+    try {
+      _holdoutTypeValue = holdoutType;
+    } on NoSuchMethodError {
+      _foreignHoldoutTypes[this] = holdoutType;
+    }
+  }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:absmartly_dart/absmartly_dart.dart';
 import 'package:absmartly_dart/src/audience_matcher.dart';
@@ -106,6 +107,25 @@ class LegacyExperiment implements Experiment {
   Map<String, dynamic> toMap() => _delegate.toMap();
 }
 
+Map<String, dynamic> experimentMap() => {
+      'id': 1,
+      'name': 'exp',
+      'unitType': 'session_id',
+      'iteration': 1,
+      'seedHi': 0,
+      'seedLo': 0,
+      'split': [0.5, 0.5],
+      'trafficSeedHi': 0,
+      'trafficSeedLo': 0,
+      'trafficSplit': [0.0, 1.0],
+      'fullOnVariant': 0,
+      'applications': [],
+      'variants': [
+        {'name': 'A', 'config': null},
+        {'name': 'B', 'config': null}
+      ],
+    };
+
 class NullPublisher implements ContextPublisher {
   @override
   Completer<void> publish(Context context, PublishEvent event) =>
@@ -148,10 +168,69 @@ void main() {
     }
   });
 
-  test('a payload without holdouts never resolves a holdout arm', () async {
-    ContextCounters.reset();
-    await publishProbe(await getResourceBytes('context.json'));
-    expect(ContextCounters.holdoutAssignmentLookups, 0);
+  test('a payload without holdouts never takes the holdout path', () async {
+    for (final fixture in fixtures) {
+      final payload = await getResourceBytes('$fixture.json');
+      final json = jsonDecode(utf8.decode(payload)) as Map<String, dynamic>;
+      json['holdouts'] = [
+        {'id': 404, 'name': 'unservable', 'split': []}
+      ];
+      for (final experiment in json['experiments'] as List) {
+        experiment['holdoutIds'] = [404, 405];
+      }
+      // A servable holdout that no experiment references.
+      final unreferenced =
+          jsonDecode(utf8.decode(payload)) as Map<String, dynamic>;
+      unreferenced['holdouts'] = [
+        {
+          'id': 7,
+          'name': 'unreferenced',
+          'split': [0.5, 0.5]
+        }
+      ];
+      final unreferencedBytes = utf8.encode(jsonEncode(unreferenced));
+      // ... referenced by no id at all, and only through dangling ids.
+      for (final experiment in unreferenced['experiments'] as List) {
+        experiment['holdoutIds'] = [404];
+      }
+      for (final bytes in [
+        payload,
+        utf8.encode(jsonEncode(json)),
+        unreferencedBytes,
+        utf8.encode(jsonEncode(unreferenced)),
+      ]) {
+        ContextCounters.reset();
+        await publishProbe(bytes);
+        expect(ContextCounters.coveredAssignmentResolutions, 0,
+            reason: fixture);
+        expect(ContextCounters.holdoutAssignmentLookups, 0, reason: fixture);
+      }
+    }
+  });
+
+  test('holdouts survive an isolate copy of the context data', () async {
+    final json =
+        jsonDecode(utf8.decode(await getResourceBytes('holdouts_context.json')))
+            as Map<String, dynamic>;
+    final copied = await Isolate.run(() => ContextData.fromMap(json));
+
+    expect(copied.holdouts.map((h) => h.id), [11, 12]);
+    expect(copied.experiments.single.holdoutIds, [11]);
+    expect(copied.holdouts.first.holdoutType, 'full');
+  });
+
+  test('holdout fields of a customer implementation are kept', () {
+    final legacy = LegacyContextData([]);
+    final holdout = ContextHoldout(
+        id: 1, name: 'h', iteration: 1, seedHi: 0, seedLo: 0, split: [1.0]);
+    legacy.holdouts = [holdout];
+    expect(legacy.holdouts, [holdout]);
+
+    final experiment = LegacyExperiment(Experiment.fromMap(experimentMap()));
+    experiment.holdoutIds = [1];
+    experiment.holdoutType = 'full';
+    expect(experiment.holdoutIds, [1]);
+    expect(experiment.holdoutType, 'full');
   });
 
   test('cached reads of a covered experiment do not re-resolve its holdouts',

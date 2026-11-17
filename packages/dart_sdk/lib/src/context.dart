@@ -797,9 +797,6 @@ class Context {
       final ExperimentVariables experiment, final Assignment assignment) {
     final List<ContextHoldout>? fresh = experiment._holdouts;
     final List<ContextHoldout>? pinned = assignment._holdouts;
-    if (identical(fresh, pinned)) {
-      return true;
-    }
     if (fresh == null || pinned == null || fresh.length != pinned.length) {
       return false;
     }
@@ -938,6 +935,7 @@ class Context {
         if (assignment.overridden &&
             assignment.variant == override &&
             (experiment == null ||
+                identical(experiment._holdouts, assignment._holdouts) ||
                 _holdoutSetMatches(experiment, assignment))) {
           // override up-to-date
           return assignment;
@@ -947,16 +945,17 @@ class Context {
           // previously not-running experiment
           return assignment;
         }
-      } else if (assignment._suppressed ||
+      } else if ((custom == null) ||
           assignment._ruleOverride ||
-          (custom == null) ||
+          assignment._suppressed ||
           custom == assignment.variant) {
         // A suppressed assignment is forced to variant 0 and a matching rule
         // wins over a custom assignment, so a custom mismatch is not
         // staleness.
         if (experimentMatches(experiment.data, assignment) &&
             _audienceMatches(experiment, assignment) &&
-            _holdoutSetMatches(experiment, assignment)) {
+            (identical(experiment._holdouts, assignment._holdouts) ||
+                _holdoutSetMatches(experiment, assignment))) {
           // assignment up-to-date
           return assignment;
         }
@@ -971,6 +970,7 @@ class Context {
     // Resolved for overrides too: the holdouts still publish their exposures.
     final List<ContextHoldout>? holdouts = experiment?._holdouts;
     if (holdouts != null) {
+      ContextCounters.coveredAssignmentResolutions++;
       final ExperimentVariables covered = experiment!;
       final String unitType = covered.data.unitType;
       final List<_HoldoutAssignment?> holdoutAssignments =
@@ -1093,7 +1093,7 @@ class Context {
   // The first candidate the unit is assigned to, overridden into or given by a
   // rule. A suppressed candidate never wins over one of those, but the first
   // one is the fallback (its control values) when nothing else wins. Unless
-  // peeking, every candidate passed over publishes its holdouts' exposures (JS
+  // peeking, every holdout-covered candidate passed over is exposed (JS
   // context.ts _resolveVariableValue).
   Assignment? _getVariableAssignment(final String key, final bool peek) {
     final List<ExperimentVariables>? keyExperimentVariables =
@@ -1110,12 +1110,13 @@ class Context {
           // The caller exposes the winner and then its holdouts.
           return assignment;
         }
-        if (!peek) {
-          final List<_HoldoutAssignment?>? holdoutAssignments =
-              assignment._holdoutAssignments;
-          if (holdoutAssignments != null) {
-            _triggerHoldoutExposures(assignment._holdouts!, holdoutAssignments);
-          }
+        // A covered candidate passed over is exposed like JS does it: its
+        // own exposure (unless suppressed) and its holdouts'. Marking it
+        // exposed also keeps a later setUnit from re-randomizing it.
+        if (!peek &&
+            assignment._holdoutAssignments != null &&
+            !assignment.exposed) {
+          _triggerExposures(assignment);
         }
         if (assignment._suppressed) {
           suppressedFallback ??= assignment;

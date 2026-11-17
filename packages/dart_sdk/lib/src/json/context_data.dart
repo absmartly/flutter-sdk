@@ -5,6 +5,10 @@ import 'experiment.dart';
 
 class ContextData {
   late List<Experiment> experiments;
+  // Library-private, so classes implementing ContextData in other libraries
+  // are not required to declare it; read through [ContextDataHoldouts]. A
+  // field (unlike an Expando) travels with the object across isolates.
+  List<ContextHoldout>? _holdoutList;
 
   ContextData({this.experiments = const [], List<ContextHoldout>? holdouts}) {
     if (holdouts != null) {
@@ -27,7 +31,7 @@ class ContextData {
 
   @override
   String toString() {
-    final List<ContextHoldout>? holdouts = _holdouts[this];
+    final List<ContextHoldout>? holdouts = _holdoutList;
     return holdouts == null
         ? "ContextData{experiments=$experiments}"
         : "ContextData{experiments=$experiments, holdouts=$holdouts}";
@@ -49,8 +53,6 @@ class ContextData {
             holdouts.add(ContextHoldout.fromMap(entry));
           } on FormatException {
             // skipped
-          } on TypeError {
-            // skipped
           }
         }
       }
@@ -61,7 +63,7 @@ class ContextData {
   Map<String, dynamic> toMap() {
     List experiments = List.generate(
         this.experiments.length, (index) => this.experiments[index].toMap());
-    final List<ContextHoldout>? holdouts = _holdouts[this];
+    final List<ContextHoldout>? holdouts = _holdoutList;
     return {
       "experiments": experiments,
       if (holdouts != null)
@@ -70,9 +72,10 @@ class ContextData {
   }
 }
 
-// ContextData is implementable by customers, so the holdouts are kept outside
-// the class: a new member would break `implements ContextData`.
-final Expando<List<ContextHoldout>> _holdouts = Expando<List<ContextHoldout>>();
+// Holdouts of a customer class that implements ContextData, which has no
+// private field to hold them.
+final Expando<List<ContextHoldout>> _foreignHoldouts =
+    Expando<List<ContextHoldout>>();
 
 /// The holdouts of a [ContextData] (the payload's top-level `holdouts`
 /// array). An extension rather than a member of [ContextData], so existing
@@ -80,7 +83,20 @@ final Expando<List<ContextHoldout>> _holdouts = Expando<List<ContextHoldout>>();
 extension ContextDataHoldouts on ContextData {
   /// The holdouts that experiments reference through
   /// [ExperimentHoldouts.holdoutIds]; empty when the payload has none.
-  List<ContextHoldout> get holdouts => _holdouts[this] ?? const [];
+  List<ContextHoldout> get holdouts {
+    try {
+      return _holdoutList ?? const [];
+    } on NoSuchMethodError {
+      // A customer class that implements ContextData has no private field.
+      return _foreignHoldouts[this] ?? const [];
+    }
+  }
 
-  set holdouts(List<ContextHoldout> holdouts) => _holdouts[this] = holdouts;
+  set holdouts(List<ContextHoldout> holdouts) {
+    try {
+      _holdoutList = holdouts;
+    } on NoSuchMethodError {
+      _foreignHoldouts[this] = holdouts;
+    }
+  }
 }
