@@ -17,6 +17,7 @@ import 'internal/variant_assigner.dart';
 import 'java/time/clock.dart';
 import 'json/attribute.dart';
 import 'json/context_data.dart';
+import 'json/context_holdout.dart';
 import 'json/experiment.dart';
 import 'json/experiment_variant.dart';
 import 'json/exposure.dart';
@@ -217,13 +218,16 @@ class Context {
   }
 
   // A split rule resolved without its unit gave the experiment's no-unit
-  // result. Evict it so getAssignment() hashes the unit now; an exposed one is
-  // kept, since re-resolving would queue a second, conflicting exposure.
+  // result, and a null holdout entry means a holdout could not be resolved
+  // without it. Evict those so getAssignment() hashes the unit now; an exposed
+  // one is kept, since re-resolving would queue a second, conflicting exposure
+  // (JS context.ts _invalidateAssignmentsPinnedWithMissingUnit).
   void _invalidateAssignmentsPinnedWithMissingUnit(final String unitType) {
     assignmentCache_.removeWhere((_, assignment) =>
         assignment.unitType == unitType &&
         !assignment.exposed &&
-        assignment._isRuleMissingUnit);
+        (assignment._isRuleMissingUnit ||
+            (assignment._holdoutAssignments?.contains(null) ?? false)));
   }
 
   Map<String, Object> getUnits() {
@@ -276,10 +280,64 @@ class Context {
     final Assignment assignment = getAssignment(experimentName);
 
     if (!assignment.exposed) {
-      queueExposure(assignment);
+      _triggerExposures(assignment);
     }
 
     return assignment.variant;
+  }
+
+  // A suppressed experiment publishes no exposure of its own; the holdouts
+  // that cover it publish theirs (JS context.ts _triggerExposures).
+  void _triggerExposures(final Assignment assignment) {
+    if (!assignment._suppressed ||
+        assignment.overridden ||
+        assignment._ruleOverride) {
+      queueExposure(assignment);
+    } else {
+      assignment.exposed = true;
+    }
+
+    final List<_HoldoutAssignment?>? holdoutAssignments =
+        assignment._holdoutAssignments;
+    if (holdoutAssignments != null) {
+      _triggerHoldoutExposures(assignment._holdouts!, holdoutAssignments);
+    }
+  }
+
+  // Fires the holdout decisions pinned when the assignment was resolved, not
+  // a live re-resolution, so a refresh in between cannot publish a holdout
+  // exposure from another epoch. Each holdout is exposed once per unit type
+  // and iteration, in holdout id order.
+  void _triggerHoldoutExposures(final List<ContextHoldout> holdouts,
+      final List<_HoldoutAssignment?> holdoutAssignments) {
+    for (int i = 0; i < holdoutAssignments.length; i++) {
+      final _HoldoutAssignment? holdoutAssignment = holdoutAssignments[i];
+      if (holdoutAssignment == null || holdoutAssignment.exposed) {
+        continue;
+      }
+      holdoutAssignment.exposed = true;
+
+      final Exposure exposure = Exposure(
+          id: holdoutAssignment.id,
+          name: holdouts[i].name,
+          unit: holdoutAssignment.unitType,
+          variant: holdoutAssignment.variant,
+          exposedAt: clock_.millis(),
+          assigned: true,
+          eligible: true,
+          overridden: false,
+          fullOn: false,
+          custom: false,
+          audienceMismatch: false,
+          ruleOverride: false);
+
+      pendingCount_++;
+      exposures_.add(exposure);
+
+      logEvent(EventType.exposure, exposure);
+
+      setTimeout();
+    }
   }
 
   void queueExposure(final Assignment assignment) {
@@ -410,13 +468,13 @@ class Context {
   dynamic getVariableValue(final String key, final dynamic defaultValue) {
     checkReady(true);
 
-    final Assignment? assignment = getVariableAssignment(key);
+    final Assignment? assignment = _getVariableAssignment(key, false);
     if (assignment != null) {
       // Queue exposure when assignment exists, regardless of whether key is in variables
       // This matches JavaScript SDK behavior - exposure is logged even when user
       // is not in traffic (eligible=false) to record that the variable was accessed
       if (!assignment.exposed) {
-        queueExposure(assignment);
+        _triggerExposures(assignment);
       }
       if (assignment.variables.containsKey(key)) {
         return assignment.variables[key];
@@ -732,6 +790,75 @@ class Context {
         assigner.assign(split, experiment.seedHi, experiment.seedLo), false);
   }
 
+  // Only the (id, iteration) of each holdout, in order: a same-iteration seed
+  // or split edit must not force a duplicate exposure (JS context.ts
+  // holdoutSetMatches).
+  static bool _holdoutSetMatches(
+      final ExperimentVariables experiment, final Assignment assignment) {
+    final List<ContextHoldout>? fresh = experiment._holdouts;
+    final List<ContextHoldout>? pinned = assignment._holdouts;
+    if (identical(fresh, pinned)) {
+      return true;
+    }
+    if (fresh == null || pinned == null || fresh.length != pinned.length) {
+      return false;
+    }
+    for (int i = 0; i < fresh.length; i++) {
+      if (fresh[i].id != pinned[i].id ||
+          fresh[i].iteration != pinned[i].iteration) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Arm 0 always holds the experiment out; in a 3-arm holdout, arm 1 holds out
+  // experiments that are not full-on. The arm count is the holdout's split
+  // length (JS context.ts isHeldOutBy).
+  static bool _isHeldOutBy(
+      final int holdoutVariant, final int armCount, final int fullOnVariant) {
+    if (holdoutVariant == 0) {
+      return true;
+    }
+    if (armCount == 3 && holdoutVariant == 1) {
+      return fullOnVariant == 0;
+    }
+    return false;
+  }
+
+  // A holdout's arm is hashed with the covered experiment's unit type, cached
+  // per (holdout, unit type) and kept while the holdout's iteration is
+  // unchanged, so a same-iteration seed or split edit neither re-randomizes
+  // nor re-exposes. Null while the unit is not set (JS context.ts
+  // _getHoldoutAssignment).
+  _HoldoutAssignment? _getHoldoutAssignment(
+      final ContextHoldout live, final String unitType) {
+    ContextCounters.holdoutAssignmentLookups++;
+    // `live` is always the installed definition: setData rebuilds every
+    // experiment's holdout list, so no stale reference reaches here.
+    final (int, String) cacheKey = (live.id, unitType);
+    final _HoldoutAssignment? cached = _holdoutAssignmentCache[cacheKey];
+    if (cached != null && cached.iteration == live.iteration) {
+      return cached;
+    }
+
+    final Object? uid = units_[unitType];
+    if (uid == null) {
+      return null;
+    }
+
+    final VariantAssigner assigner =
+        getVariantAssigner(unitType, getUnitHash(unitType, uid));
+    final _HoldoutAssignment assignment = _HoldoutAssignment(
+        live.id,
+        live.iteration,
+        unitType,
+        assigner.assign(live.split, live.seedHi, live.seedLo),
+        live.split.length);
+    _holdoutAssignmentCache[cacheKey] = assignment;
+    return assignment;
+  }
+
   bool audienceMatches(
       final Experiment experiment, final Assignment assignment) {
     final ExperimentVariables? entry = index_[experiment.name];
@@ -808,7 +935,10 @@ class Context {
 
     if (assignment != null) {
       if (override != null) {
-        if (assignment.overridden && assignment.variant == override) {
+        if (assignment.overridden &&
+            assignment.variant == override &&
+            (experiment == null ||
+                _holdoutSetMatches(experiment, assignment))) {
           // override up-to-date
           return assignment;
         }
@@ -817,13 +947,16 @@ class Context {
           // previously not-running experiment
           return assignment;
         }
-      } else if (assignment._ruleOverride ||
+      } else if (assignment._suppressed ||
+          assignment._ruleOverride ||
           (custom == null) ||
           custom == assignment.variant) {
-        // A matching rule wins over a custom assignment, so a custom mismatch
-        // is not staleness.
+        // A suppressed assignment is forced to variant 0 and a matching rule
+        // wins over a custom assignment, so a custom mismatch is not
+        // staleness.
         if (experimentMatches(experiment.data, assignment) &&
-            _audienceMatches(experiment, assignment)) {
+            _audienceMatches(experiment, assignment) &&
+            _holdoutSetMatches(experiment, assignment)) {
           // assignment up-to-date
           return assignment;
         }
@@ -834,6 +967,27 @@ class Context {
     assignment = Assignment();
     assignment.name = experimentName;
     assignment.eligible = true;
+
+    // Resolved for overrides too: the holdouts still publish their exposures.
+    final List<ContextHoldout>? holdouts = experiment?._holdouts;
+    if (holdouts != null) {
+      final ExperimentVariables covered = experiment!;
+      final String unitType = covered.data.unitType;
+      final List<_HoldoutAssignment?> holdoutAssignments =
+          List<_HoldoutAssignment?>.generate(holdouts.length,
+              (index) => _getHoldoutAssignment(holdouts[index], unitType),
+              growable: false);
+      assignment._holdouts = holdouts;
+      assignment._holdoutAssignments = holdoutAssignments;
+      for (final _HoldoutAssignment? holdoutAssignment in holdoutAssignments) {
+        if (holdoutAssignment != null &&
+            _isHeldOutBy(holdoutAssignment.variant, holdoutAssignment.armCount,
+                covered.data.fullOnVariant)) {
+          assignment._suppressed = true;
+          break;
+        }
+      }
+    }
 
     if (override != null) {
       if (experiment != null) {
@@ -856,6 +1010,7 @@ class Context {
         assignment._isRuleMissingUnit = rule?.isMissingUnit ?? false;
 
         if (rule == null &&
+            !assignment._suppressed &&
             experiment.data.audience != null &&
             experiment.data.audience!.isNotEmpty) {
           final Result? match = audienceMatcher_.evaluate(
@@ -871,6 +1026,10 @@ class Context {
           // assignments, and is flagged ruleOverride (excluded from analysis).
           assignment.variant = rule.variant;
           assignment._ruleOverride = true;
+        } else if (assignment._suppressed) {
+          // A holdout wins over audience, traffic, full-on and custom
+          // assignments; only an override or a matching rule beats it.
+          assignment.variant = 0;
         } else if (experiment.data.audienceStrict &&
             assignment.audienceMismatch) {
           assignment.variant = 0;
@@ -928,19 +1087,41 @@ class Context {
   }
 
   Assignment? getVariableAssignment(final String key) {
+    return _getVariableAssignment(key, true);
+  }
+
+  // The first candidate the unit is assigned to, overridden into or given by a
+  // rule. A suppressed candidate never wins over one of those, but the first
+  // one is the fallback (its control values) when nothing else wins. Unless
+  // peeking, every candidate passed over publishes its holdouts' exposures (JS
+  // context.ts _resolveVariableValue).
+  Assignment? _getVariableAssignment(final String key, final bool peek) {
     final List<ExperimentVariables>? keyExperimentVariables =
         getVariableExperiments(key);
 
     if (keyExperimentVariables != null) {
+      Assignment? suppressedFallback;
       for (ExperimentVariables experimentVariables in keyExperimentVariables) {
         final Assignment assignment =
             getAssignment(experimentVariables.data.name);
         if (assignment.assigned ||
             assignment.overridden ||
             assignment._ruleOverride) {
+          // The caller exposes the winner and then its holdouts.
           return assignment;
         }
+        if (!peek) {
+          final List<_HoldoutAssignment?>? holdoutAssignments =
+              assignment._holdoutAssignments;
+          if (holdoutAssignments != null) {
+            _triggerHoldoutExposures(assignment._holdouts!, holdoutAssignments);
+          }
+        }
+        if (assignment._suppressed) {
+          suppressedFallback ??= assignment;
+        }
       }
+      return suppressedFallback;
     }
     return null;
   }
@@ -1006,9 +1187,21 @@ class Context {
     final Map<String, ExperimentVariables> index = {};
     final Map<String, List<ExperimentVariables>> indexVariables = {};
 
+    // Only holdouts with a split can be served (JS context.ts _init).
+    final Map<int, ContextHoldout> holdoutsById = {};
+    for (final ContextHoldout holdout in data.holdouts) {
+      if (holdout.split.isNotEmpty) {
+        holdoutsById[holdout.id] = holdout;
+      }
+    }
+
     for (Experiment experiment in data.experiments) {
       final ExperimentVariables experimentVariables = ExperimentVariables();
       experimentVariables.data = experiment;
+      if (holdoutsById.isNotEmpty) {
+        experimentVariables._holdouts =
+            _resolveHoldouts(experiment.holdoutIds, holdoutsById);
+      }
       // An unchanged key keeps the previous String, so cached assignments
       // still match it by identity and reads never compare rule contents.
       final String ruleKey = _ruleKey(experiment);
@@ -1071,6 +1264,38 @@ class Context {
     setRefreshTimer();
   }
 
+  // The holdouts covering an experiment, sorted by id without duplicates;
+  // unknown ids are ignored. Null when none applies.
+  static List<ContextHoldout>? _resolveHoldouts(final List<int>? holdoutIds,
+      final Map<int, ContextHoldout> holdoutsById) {
+    if (holdoutIds == null || holdoutIds.isEmpty) {
+      return null;
+    }
+    final List<ContextHoldout> resolved = [];
+    for (final int holdoutId in holdoutIds) {
+      final ContextHoldout? holdout = holdoutsById[holdoutId];
+      if (holdout == null) {
+        continue;
+      }
+      int insertAt = resolved.length;
+      bool duplicate = false;
+      for (int i = 0; i < resolved.length; i++) {
+        if (resolved[i].id == holdoutId) {
+          duplicate = true;
+          break;
+        }
+        if (resolved[i].id > holdoutId) {
+          insertAt = i;
+          break;
+        }
+      }
+      if (!duplicate) {
+        resolved.insert(insertAt, holdout);
+      }
+    }
+    return resolved.isEmpty ? null : List.unmodifiable(resolved);
+  }
+
   void setDataFailed(exception) {
     index_ = {};
     indexVariables_ = {};
@@ -1110,6 +1335,7 @@ class Context {
   final Map<String, Uint8List> hashedUnits_ = {};
   final Map<String, VariantAssigner> assigners_ = {};
   final Map<String, Assignment> assignmentCache_ = {};
+  final Map<(int, String), _HoldoutAssignment> _holdoutAssignmentCache = {};
 
   final List<Exposure> exposures_ = [];
   final List<GoalAchievement> achievements_ = [];
@@ -1139,6 +1365,8 @@ class ExperimentVariables {
   // use. setData installs new entries, so neither outlives its rules.
   String _ruleKey = "";
   List? _rules;
+  // The holdouts covering [data], sorted by id; null when none applies.
+  List<ContextHoldout>? _holdouts;
 }
 
 class Assignment {
@@ -1159,6 +1387,12 @@ class Assignment {
   int? _ruleVariant;
   String? _ruleKey;
   bool _isRuleMissingUnit = false;
+  // Held out by a covering holdout: variant 0, no exposure of its own.
+  bool _suppressed = false;
+  // The covering holdouts and their arms when this was resolved; an arm is
+  // null when the unit was not set.
+  List<ContextHoldout>? _holdouts;
+  List<_HoldoutAssignment?>? _holdoutAssignments;
   Map<String, dynamic> variables = {};
   bool exposed = false;
   int attrsSeq = 0;
@@ -1169,4 +1403,18 @@ class _RuleResult {
 
   final int variant;
   final bool isMissingUnit;
+}
+
+class _HoldoutAssignment {
+  _HoldoutAssignment(
+      this.id, this.iteration, this.unitType, this.variant, this.armCount);
+
+  final int id;
+  final int iteration;
+  final String unitType;
+  final int variant;
+  // The split length `variant` was hashed against: a same-iteration refresh
+  // can change the live split without re-randomizing.
+  final int armCount;
+  bool exposed = false;
 }

@@ -9,9 +9,12 @@ class ContextCounters {
 
   static int ruleKeyComparisons = 0;
 
+  static int holdoutAssignmentLookups = 0;
+
   static void reset() {
     attributesMapBuilds = 0;
     ruleKeyBuilds = 0;
     ruleKeyComparisons = 0;
+    holdoutAssignmentLookups = 0;
   }
 }
