@@ -9,6 +9,12 @@ name: Publish to pub.dev
 # Uses pub.dev automated publishing (OIDC): enable it for each package on
 # pub.dev (Admin > Automated publishing) for this repository, tag pattern
 # "v{{version}}" and environment "pub.dev".
+#
+# pub.dev only accepts the first version of a new package from a user, and
+# automated publishing can only be enabled once the package exists: an
+# uploader must publish absmartly_dart's first version by hand
+# (`cd packages/dart_sdk && dart pub publish`) and then enable automated
+# publishing for it. The workflow skips a version already on pub.dev.
 on:
   push:
     tags:

@@ -330,6 +330,18 @@ void main() {
       expect(() => context.publish(), returnsNormally);
     });
 
+    test('refreshBeforeReadyFetchesAsIn21', () async {
+      final Context context = createContextWithDefaultConfig(dataFuture);
+      expect(context.isReady(), isFalse);
+
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+      final Future<void> refreshing = context.refresh();
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+
+      verify(dataProvider.getContextData()).called(1);
+    });
+
     test('throwsWhenClosed', () async {
       final Context context = createReadyContext();
       await context.waitUntilReady();
@@ -1040,16 +1052,22 @@ void main() {
       context.setUnit('float_id', 125.75);
       context.setUnit('text_id', ' 007 ');
 
-      expect(context.getUnit('int_id'), equals(125));
-      expect(context.getUnit('int_id'), isA<int>());
-      expect(context.getUnit('float_id'), equals(125.75));
+      // The 2.1 getters return strings; the extension returns the value as set.
+      expect(context.getUnit('int_id'), equals('125'));
+      expect(context.getUnitValue('int_id'), isA<int>());
+      expect(context.getUnitValue('int_id'), equals(125));
+      expect(context.getUnitValue('float_id'), equals(125.75));
       expect(context.getUnit('text_id'), equals('007'));
-      expect(context.getUnits()['int_id'], isA<int>());
+      expect(context.getUnitValue('text_id'), equals('007'));
+      expect(context.getUnits()['int_id'], equals('125'));
+      expect(context.getUnitValues()['int_id'], isA<int>());
+      expect(
+          context.getUnitValues()['session_id'], equals(units['session_id']));
 
       expect(
           () => context.setUnit('int_id', '125'),
           throwsA(predicate(
-              (e) => e.toString().contains("Unit 'int_id' already set."))));
+              (e) => e.toString() == 'Exception: Unit int_id already set.')));
       context.setUnit('int_id', 125);
 
       expect(
@@ -1057,6 +1075,38 @@ void main() {
           throwsA(predicate((e) => e
               .toString()
               .contains("Unit 'bad' must be a string or a number."))));
+    });
+
+    test('contextConfigUnitValuesKeepTheirType', () {
+      final config = ContextConfig.create()
+        ..setUnit('user_id', 42)
+        ..setUnit('session_id', 'abc');
+      final String? uid = config.getUnit('user_id');
+      final Map<String, String> units = config.getUnits();
+      expect(uid, equals('42'));
+      expect(units, equals({'user_id': '42', 'session_id': 'abc'}));
+      expect(config.getUnitValue('user_id'), equals(42));
+      expect(
+          config.getUnitValues(), equals({'user_id': 42, 'session_id': 'abc'}));
+
+      // A UID replaced through the released units_ field wins.
+      config.units_['user_id'] = '43';
+      expect(config.getUnitValue('user_id'), equals('43'));
+
+      final Context context = Context.create(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher, null);
+      expect(context.getUnitValue('user_id'), equals('43'));
+      expect(context.getUnitValue('session_id'), equals('abc'));
+    });
+
+    test('numericUnitFromConfigIsHashedAsANumber', () async {
+      final config = ContextConfig.create()..setUnit('float_id', 125.75);
+      final Context context = Context.create(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher, null);
+      await context.waitUntilReady();
+      expect(context.getUnitValue('float_id'), equals(125.75));
+      expect(context.getUnitHash('float_id', 125.75),
+          equals(Hashing.hashUnit('126')));
     });
 
     test('numericUnitHashesLikeJavaScript', () async {
@@ -2474,8 +2524,10 @@ void main() {
       expect(uid, equals('e791e240fcd3df7d238cfc285f475e8152fcc0ec'));
 
       context.setUnit('org_id', 42);
-      expect(context.getUnits(), isA<Map<String, Object>>());
-      expect(context.getUnits()['org_id'], equals(42));
+      final Map<String, String> after = context.getUnits();
+      expect(after['org_id'], equals('42'));
+      final Map<String, String> field = context.units_;
+      expect(field['org_id'], equals('42'));
     });
 
     test('trackPassesPropertiesToGoalAchievement', () async {

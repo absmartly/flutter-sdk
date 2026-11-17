@@ -75,7 +75,7 @@ class Context {
       _environmentName = environment;
     }
 
-    setUnits(Map<String, Object>.from(config.getUnits()));
+    setUnits(config.getUnitValues());
     setAttributes(config.getAttributes());
     setOverrides(config.getOverrides());
     setCustomAssignments(config.getCustomAssignments());
@@ -168,15 +168,14 @@ class Context {
     }
   }
 
-  /// Returns the UID as it was set: a [String], or a [num] for a numeric UID.
-  /// Typed `dynamic` so code written for 2.1 (`String? uid = getUnit(...)`)
-  /// keeps compiling.
-  dynamic getUnit(final String unitType) {
-    return _units[unitType];
+  /// The UID of [unitType] as a string. A numeric UID is returned in its
+  /// `toString()` form; [ContextExtensions.getUnitValue] returns it as set.
+  String? getUnit(final String unitType) {
+    return units_[unitType];
   }
 
   /// Sets the UID of [unitType]. [uid] is a [String] or a [num]; a number
-  /// keeps its type (JS context.ts unit()).
+  /// keeps its type for hashing (JS context.ts unit()).
   void setUnit(final String unitType, covariant final Object uid) {
     checkNotClosed();
 
@@ -185,16 +184,17 @@ class Context {
     }
     final Object value = uid is String ? uid.trim() : uid;
 
-    final Object? previous = _units[unitType];
+    final Object? previous = _unitValue(unitType);
     if ((previous != null) && !(previous == value)) {
-      throw Exception("Unit '$unitType' already set.");
+      throw Exception("Unit $unitType already set.");
     }
 
     if (value is String && value.isEmpty) {
       throw Exception("Unit $unitType UID must not be blank.");
     }
 
-    _units[unitType] = value;
+    units_[unitType] = value is String ? value : value.toString();
+    _unitValues[unitType] = value;
 
     _invalidateAssignmentsPinnedWithMissingUnit(unitType);
   }
@@ -209,15 +209,24 @@ class Context {
         assignment._isRuleMissingUnit);
   }
 
-  /// A copy of the units: a `Map<String, String>` when every UID is a
-  /// [String] (as in 2.1), otherwise a `Map<String, Object>`.
-  dynamic getUnits() {
-    return _unitsCopy(_units);
+  /// A copy of the units, numeric UIDs in their `toString()` form.
+  Map<String, String> getUnits() {
+    return Map<String, String>.of(units_);
   }
 
-  /// The units map itself, typed `Map<String, String>` while every UID is a
-  /// [String] (as in 2.1), otherwise `Map<String, Object>`.
-  dynamic get units_ => _unitsView(_units);
+  // The UID of [unitType] as set. A UID changed through [units_] is that
+  // string.
+  Object? _unitValue(final String unitType) {
+    final String? uid = units_[unitType];
+    if (uid == null) {
+      return null;
+    }
+    final Object? value = _unitValues[unitType];
+    return (value != null &&
+            (value is String ? value : value.toString()) == uid)
+        ? value
+        : uid;
+  }
 
   void setUnits(covariant Map<String, Object> units) {
     for (final entry in units.entries) {
@@ -504,10 +513,10 @@ class Context {
 
     try {
       final List<Unit> units = [];
-      for (var entry in _units.entries) {
+      for (var entry in units_.entries) {
         units.add(Unit(
             type: entry.key,
-            uid: utf8.decode(getUnitHash(entry.key, entry.value))));
+            uid: utf8.decode(getUnitHash(entry.key, _unitValue(entry.key)!))));
       }
 
       final PublishEvent event = PublishEvent(
@@ -631,7 +640,7 @@ class Context {
     }
 
     final String unitType = experiment.unitType;
-    final Object? uid = unitPinnedMissing ? null : _units[unitType];
+    final Object? uid = unitPinnedMissing ? null : _unitValue(unitType);
     if (uid == null) {
       return _RuleResult(experiment.fullOnVariant, true);
     }
@@ -773,7 +782,7 @@ class Context {
             assignment.audienceMismatch) {
           assignment.variant = 0;
         } else if (experiment.data.fullOnVariant == 0) {
-          final Object? uid = _units[experiment.data.unitType];
+          final Object? uid = _unitValue(experiment.data.unitType);
           if (uid != null) {
             final Uint8List unitHash = getUnitHash(unitType, uid);
 
@@ -998,7 +1007,8 @@ class Context {
   late AudienceMatcher audienceMatcher_;
   late ContextEventLogger? eventLogger_;
   String? _environmentName;
-  final Map<String, Object> _units = {};
+  final Map<String, String> units_ = {};
+  final Map<String, Object> _unitValues = {};
   bool failed_ = false;
   ContextData? data_;
   Map<String, ExperimentVariables> index_ = {};
@@ -1029,18 +1039,14 @@ class Context {
   Timer? refreshTimer_;
 }
 
-dynamic _unitsView(Map<String, Object> units) {
-  if (units.values.every((uid) => uid is String)) {
-    return units.cast<String, String>();
+// The UID as set for a Context created by the SDK; null for other
+// implementations, which only have string UIDs.
+Object? _unitValueOf(Context context, String unitType) {
+  try {
+    return context._unitValue(unitType);
+  } on NoSuchMethodError {
+    return null;
   }
-  return units;
-}
-
-dynamic _unitsCopy(Map<String, Object> units) {
-  if (units.values.every((uid) => uid is String)) {
-    return Map<String, String>.from(units);
-  }
-  return Map<String, Object>.of(units);
 }
 
 // Context is a public class that customers may implement or mock, so the
@@ -1070,6 +1076,18 @@ extension ContextExtensions on Context {
   /// Same as [Context.close].
   Future<void> finalize() {
     return close();
+  }
+
+  /// The UID of [unitType] as set: a [String] or a [num].
+  Object? getUnitValue(final String unitType) => getUnitValues()[unitType];
+
+  /// Every unit as set, numbers included.
+  Map<String, Object> getUnitValues() {
+    final Map<String, Object> result = {};
+    getUnits().forEach((unitType, uid) {
+      result[unitType] = _unitValueOf(this, unitType) ?? uid;
+    });
+    return result;
   }
 
   Set<String> getCustomFieldKeys() {

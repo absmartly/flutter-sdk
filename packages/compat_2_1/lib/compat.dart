@@ -30,11 +30,11 @@ class CustomEventLogger implements ContextEventLogger {
     seen.add(event);
     switch (event) {
       case EventType.exposure:
-        final Exposure exposure = data;
+        final Exposure exposure = data as Exposure;
         print("exposed to experiment ${exposure.name}");
         break;
       case EventType.goal:
-        final GoalAchievement goal = data;
+        final GoalAchievement goal = data as GoalAchievement;
         print("goal tracked: ${goal.name}");
         break;
       case EventType.error:
@@ -123,6 +123,18 @@ class MyExposure implements Exposure {
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
 
+extension Shout on String {
+  String shout() => toUpperCase();
+}
+
+class ImplContextConfig implements ContextConfig {
+  @override
+  Map<String, String> units_ = {};
+
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
 class SubContextConfig extends ContextConfig {
   @override
   ContextConfig setUnit(final String unitType, final String uid) =>
@@ -168,6 +180,11 @@ Future<Map<String, Object?>> run() async {
   context.setUnits({"db_user_id": "1000013"});
   final String? uid = context.getUnit("db_user_id");
   final Map<String, String> units = context.getUnits();
+  final Map<String, String> unitsField = context.units_;
+  final Map<String, String> configField = contextConfig.units_;
+  final String shouted = context.getUnit("db_user_id")!.shout();
+  final List<String> allShouted =
+      context.getUnits().values.map((v) => v.shout()).toList();
   final int t = context.getTreatment("exp_test_experiment");
   final int p = context.peekTreatment("exp_test_experiment");
   final dynamic v = context.getVariableValue("button.color", "red");
@@ -227,6 +244,10 @@ Future<Map<String, Object?>> run() async {
     'configUnits': configUnits,
     'uid': uid,
     'units': units,
+    'unitsField': unitsField,
+    'configField': configField,
+    'shouted': shouted,
+    'allShouted': allShouted,
     't': t,
     'p': p,
     'v': v,

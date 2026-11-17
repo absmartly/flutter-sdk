@@ -26,8 +26,12 @@ class ContextConfig {
     return config;
   }
 
+  /// Sets the UID of [unitType]: a [String], or a [num] for a numeric UID.
+  /// [getUnit] and [getUnits] return it as a string, as in 2.1;
+  /// [ContextConfigUnitValues.getUnitValue] returns it as set.
   ContextConfig setUnit(final String unitType, covariant final Object uid) {
-    _units[unitType] = uid;
+    units_[unitType] = uid is String ? uid : uid.toString();
+    _unitValuesOf(this)[unitType] = uid;
     return this;
   }
 
@@ -38,13 +42,9 @@ class ContextConfig {
     return this;
   }
 
-  /// The UID as set: a [String], or a [num] for a numeric UID. Typed
-  /// `dynamic` so 2.1 code reading it as `String?` keeps compiling.
-  dynamic getUnit(final String unitType) => _units[unitType];
+  String? getUnit(final String unitType) => units_[unitType];
 
-  /// The units map itself, typed `Map<String, String>` while every UID is a
-  /// [String] (as in 2.1), otherwise `Map<String, Object>`.
-  dynamic getUnits() => units_;
+  Map<String, String> getUnits() => units_;
 
   ContextConfig setAttribute(final String name, final Object value) {
     attributes_[name] = value;
@@ -111,17 +111,7 @@ class ContextConfig {
 
   int getRefreshInterval() => refreshInterval;
 
-  Map<String, Object> _units = {};
-
-  /// The units map, typed `Map<String, String>` while every UID is a
-  /// [String] (as in 2.1), otherwise `Map<String, Object>`.
-  dynamic get units_ => _units.values.every((uid) => uid is String)
-      ? _units.cast<String, String>()
-      : _units;
-
-  set units_(dynamic units) {
-    _units = Map<String, Object>.from(units as Map);
-  }
+  Map<String, String> units_ = {};
 
   Map<String, dynamic> attributes_ = {};
   Map<String, int> overrides_ = {};
@@ -130,4 +120,35 @@ class ContextConfig {
   int refreshInterval = 0;
 
   ContextEventLogger? logger_;
+}
+
+// ContextConfig is implementable by customers, so the UIDs as set (numbers
+// included) are kept outside the class: a new member would break
+// `implements ContextConfig`.
+final Expando<Map<String, Object>> _unitValues = Expando<Map<String, Object>>();
+
+Map<String, Object> _unitValuesOf(ContextConfig config) =>
+    _unitValues[config] ??= <String, Object>{};
+
+/// The units of a [ContextConfig] as they were set, numbers included. An
+/// extension rather than members of [ContextConfig], so existing
+/// `implements ContextConfig` classes keep compiling.
+extension ContextConfigUnitValues on ContextConfig {
+  /// The UID of [unitType] as set: a [String] or a [num].
+  Object? getUnitValue(final String unitType) => getUnitValues()[unitType];
+
+  /// Every unit as set. A UID changed through [ContextConfig.units_] is
+  /// returned as that string.
+  Map<String, Object> getUnitValues() {
+    final Map<String, Object>? values = _unitValues[this];
+    final Map<String, Object> result = {};
+    getUnits().forEach((unitType, uid) {
+      final Object? value = values?[unitType];
+      result[unitType] =
+          (value != null && (value is String ? value : value.toString()) == uid)
+              ? value
+              : uid;
+    });
+    return result;
+  }
 }

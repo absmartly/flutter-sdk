@@ -50,7 +50,9 @@ dart pub get
 
 ### Upgrading from 2.1
 
-2.2.0 is a drop-in upgrade: code written for `absmartly_sdk` 2.1 compiles unchanged, including deep imports such as `package:absmartly_sdk/context.dart`. A few observable behaviours follow the cross-SDK contract now; see the [CHANGELOG](CHANGELOG.md) under **Changed** for who is affected (the versioned `X-Agent`, `ruleOverride` in exposures, `application`/`environment` in audiences, headers on the context fetch, audience re-evaluation after `setAttribute`).
+2.2.0 keeps the 2.1 API: code written for `absmartly_sdk` 2.1 compiles unchanged, including deep imports such as `package:absmartly_sdk/context.dart`, with one exception: `absmartly_sdk.dart` now exports more names (`ClientConfig`, `ContextConfig`, `Treatment`, …), which clash with an app class of the same name imported without a prefix. A few observable behaviours follow the cross-SDK contract now; see the [CHANGELOG](CHANGELOG.md) under **Changed** for who is affected (the versioned `X-Agent`, `ruleOverride` in exposures, `application`/`environment` in audiences, headers on the context fetch, audience re-evaluation after `setAttribute`).
+
+To use a numeric unit UID, pass the number to `setUnit`; `getUnit`/`getUnits` still return strings, and `getUnitValue`/`getUnitValues` return the value as set.
 
 ## Getting Started
 

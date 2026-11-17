@@ -1,5 +1,8 @@
 # Mirrors code a 2.1.2 customer would write; only compile errors matter here.
+# strict-casts catches an API that starts returning dynamic.
 analyzer:
+  language:
+    strict-casts: true
   errors:
     unused_import: ignore
     unused_local_variable: ignore
