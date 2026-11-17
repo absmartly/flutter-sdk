@@ -141,6 +141,33 @@ class SubContextConfig extends ContextConfig {
       super.setUnit(unitType, uid);
 }
 
+class SubContext extends Context {
+  SubContext(
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher,
+      ContextEventLogger? eventLogger)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, eventLogger);
+
+  Map<String, String>? seenUnits;
+
+  @override
+  void setUnits(Map<String, String> units) {
+    seenUnits = Map.of(units);
+    super.setUnits(units);
+  }
+
+  @override
+  void setUnit(final String unitType, final String uid) {
+    super.setUnit(unitType, uid);
+  }
+}
+
 class Holder {
   late ContextEventHandler h;
   late ABSmartly sdk;
@@ -232,6 +259,16 @@ Future<Map<String, Object?>> run() async {
       custom: false,
       audienceMismatch: false);
   final Clock clock = Clock.fixed(1);
+  final sub = SubContext(
+      clock,
+      ContextConfig.create().setUnit("session_id", "abc"),
+      Completer<ContextData>()..complete(ContextData()),
+      MyProvider(),
+      MyHandler(),
+      MyParser(),
+      AudienceMatcher(MyDeserializer()),
+      null);
+  await sub.waitUntilReady();
   final m = AudienceMatcher(MyDeserializer());
   final JsonExpr j = JsonExpr();
   final GreaterThenOperator g = GreaterThenOperator();
@@ -245,6 +282,7 @@ Future<Map<String, Object?>> run() async {
     'uid': uid,
     'units': units,
     'unitsField': unitsField,
+    'subUnits': sub.seenUnits,
     'configField': configField,
     'shouted': shouted,
     'allShouted': allShouted,

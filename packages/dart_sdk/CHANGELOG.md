@@ -1,6 +1,6 @@
 ## 2.2.0
 
-Applies to `absmartly_sdk` and to the new `absmartly_dart` package. Code written for `absmartly_sdk` 2.1.x keeps compiling and behaving as before; nothing has to change to upgrade. Breaking API changes are kept for the next major version.
+Applies to `absmartly_sdk` and to the new `absmartly_dart` package. Code written for `absmartly_sdk` 2.1.x keeps compiling (see Added for one naming clash to watch for) and behaves as before apart from the items under Changed. Breaking API changes are kept for the next major version.
 
 ### Added
 - **`absmartly_dart`**, a pure Dart package with the SDK core and no Flutter dependency, for Dart CLI and server apps. `absmartly_sdk` depends on it and re-exports it, so `import 'package:absmartly_sdk/absmartly_sdk.dart'` and every 2.1 deep import (`package:absmartly_sdk/context.dart`, `.../client_config.dart`, `.../jsonexpr/operators/greater_then_operator.dart`, …) still resolve, with the same class names. `absmartly_sdk.dart` now also exports `ContextConfig`, `ClientConfig`, `ABSmartly`, `EventType`, the widgets below and the other public types, so the README example needs only that one import. An app that defines a class with one of these names (for example its own `Treatment`) and imports `absmartly_sdk.dart` without a prefix gets an ambiguous-import error; hide the name or import with a prefix. `Response` stays out of it, as in 2.1, because `package:http` has a class of the same name; import it from `package:absmartly_sdk/http_client.dart`.

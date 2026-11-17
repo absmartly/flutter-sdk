@@ -75,7 +75,15 @@ class Context {
       _environmentName = environment;
     }
 
-    setUnits(config.getUnitValues());
+    setUnits(config.getUnits());
+    // Numeric UIDs reach setUnits() in their string form, as in 2.1, so a
+    // subclass overriding setUnits(Map<String, String>) still works; keep the
+    // numbers they were set as for hashing.
+    config.getUnitValues().forEach((unitType, uid) {
+      if (uid is num && units_[unitType] == uid.toString()) {
+        _unitValues[unitType] = uid;
+      }
+    });
     setAttributes(config.getAttributes());
     setOverrides(config.getOverrides());
     setCustomAssignments(config.getCustomAssignments());
@@ -182,12 +190,13 @@ class Context {
     if (uid is! String && uid is! num) {
       throw Exception("Unit '$unitType' must be a string or a number.");
     }
-    final Object value = uid is String ? uid.trim() : uid;
-
     final Object? previous = _unitValue(unitType);
-    if ((previous != null) && !(previous == value)) {
+    // Compared with the UID as passed, before trimming, as in 2.1.
+    if ((previous != null) && !(previous == uid)) {
       throw Exception("Unit $unitType already set.");
     }
+
+    final Object value = uid is String ? uid.trim() : uid;
 
     if (value is String && value.isEmpty) {
       throw Exception("Unit $unitType UID must not be blank.");
@@ -214,18 +223,8 @@ class Context {
     return Map<String, String>.of(units_);
   }
 
-  // The UID of [unitType] as set. A UID changed through [units_] is that
-  // string.
   Object? _unitValue(final String unitType) {
-    final String? uid = units_[unitType];
-    if (uid == null) {
-      return null;
-    }
-    final Object? value = _unitValues[unitType];
-    return (value != null &&
-            (value is String ? value : value.toString()) == uid)
-        ? value
-        : uid;
+    return _unitValueOf(units_[unitType], _unitValues[unitType]);
   }
 
   void setUnits(covariant Map<String, Object> units) {
@@ -1008,7 +1007,9 @@ class Context {
   late ContextEventLogger? eventLogger_;
   String? _environmentName;
   final Map<String, String> units_ = {};
-  final Map<String, Object> _unitValues = {};
+  // The UIDs as set, numbers included. Kept outside the instance so the
+  // ContextExtensions methods can read them for any Context.
+  Map<String, Object> get _unitValues => _contextUnitValues[this] ??= {};
   bool failed_ = false;
   ContextData? data_;
   Map<String, ExperimentVariables> index_ = {};
@@ -1039,14 +1040,18 @@ class Context {
   Timer? refreshTimer_;
 }
 
-// The UID as set for a Context created by the SDK; null for other
-// implementations, which only have string UIDs.
-Object? _unitValueOf(Context context, String unitType) {
-  try {
-    return context._unitValue(unitType);
-  } on NoSuchMethodError {
+final Expando<Map<String, Object>> _contextUnitValues =
+    Expando<Map<String, Object>>();
+
+// The UID as set: [value] when it still matches the string form [uid] (a UID
+// changed through Context.units_ is that string), otherwise [uid].
+Object? _unitValueOf(final String? uid, final Object? value) {
+  if (uid == null) {
     return null;
   }
+  return (value != null && (value is String ? value : value.toString()) == uid)
+      ? value
+      : uid;
 }
 
 // Context is a public class that customers may implement or mock, so the
@@ -1079,15 +1084,15 @@ extension ContextExtensions on Context {
   }
 
   /// The UID of [unitType] as set: a [String] or a [num].
-  Object? getUnitValue(final String unitType) => getUnitValues()[unitType];
+  Object? getUnitValue(final String unitType) {
+    return _unitValueOf(getUnit(unitType), _contextUnitValues[this]?[unitType]);
+  }
 
   /// Every unit as set, numbers included.
   Map<String, Object> getUnitValues() {
-    final Map<String, Object> result = {};
-    getUnits().forEach((unitType, uid) {
-      result[unitType] = _unitValueOf(this, unitType) ?? uid;
-    });
-    return result;
+    final Map<String, Object>? values = _contextUnitValues[this];
+    return getUnits().map((unitType, uid) =>
+        MapEntry(unitType, _unitValueOf(uid, values?[unitType])!));
   }
 
   Set<String> getCustomFieldKeys() {

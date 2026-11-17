@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:absmartly_dart/src/internal/hashing/hashing.dart';
 import 'package:absmartly_dart/src/audience_matcher.dart';
@@ -1097,6 +1098,64 @@ void main() {
           dataProvider, eventHandler, variableParser, audienceMatcher, null);
       expect(context.getUnitValue('user_id'), equals('43'));
       expect(context.getUnitValue('session_id'), equals('abc'));
+    });
+
+    test('unitValueFollowsAUidChangedThroughUnitsField', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.setUnit('u', 7);
+      expect(context.getUnitValue('u'), equals(7));
+      context.units_['u'] = '8';
+      expect(context.getUnitValue('u'), equals('8'));
+      expect(context.getUnitValues()['u'], equals('8'));
+      expect(() => context.setUnit('u', '8'), returnsNormally);
+    });
+
+    test('paddedUidSetAgainThrowsAsIn21', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.setUnit('padded', ' abc ');
+      expect(context.getUnit('padded'), equals('abc'));
+      expect(() => context.setUnit('padded', 'abc'), returnsNormally);
+      expect(
+          () => context.setUnit('padded', ' abc '),
+          throwsA(predicate(
+              (e) => e.toString() == 'Exception: Unit padded already set.')));
+    });
+
+    test('numericUnitIsPublishedWithItsNumericHash', () async {
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      final config = ContextConfig.create()..setUnit('float_id', 125.75);
+      final Context context = Context.create(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher, null);
+      await context.waitUntilReady();
+
+      context.track('goal1', null);
+      await context.publish();
+
+      final PublishEvent event =
+          verify(eventHandler.publish(context, captureAny)).captured.single
+              as PublishEvent;
+      expect(event.units.single.type, equals('float_id'));
+      expect(
+          event.units.single.uid, equals(utf8.decode(Hashing.hashUnit('126'))));
+    });
+
+    test('subclassOverridingSetUnitsWithStringsStillWorks', () async {
+      final config = ContextConfig.create()
+        ..setUnit('session_id', 'abc')
+        ..setUnit('user_id', 42);
+      final context = _StringUnitsContext(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher);
+      await context.waitUntilReady();
+
+      expect(context.seen, equals({'session_id': 'abc', 'user_id': '42'}));
+      expect(context.getUnitValue('user_id'), equals(42));
+      expect(
+          context.getUnitHash('user_id', 42), equals(Hashing.hashUnit('42')));
     });
 
     test('numericUnitFromConfigIsHashedAsANumber', () async {
@@ -2960,5 +3019,27 @@ class _ThrowingVariableParser implements VariableParser {
   Map<String, dynamic>? parse(Context context, String experimentName,
       String variantName, String variableValue) {
     throw error;
+  }
+}
+
+// A 2.1-style subclass: setUnits overridden with the released String types.
+class _StringUnitsContext extends Context {
+  _StringUnitsContext(
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, null);
+
+  Map<String, String>? seen;
+
+  @override
+  void setUnits(Map<String, String> units) {
+    seen = Map.of(units);
+    super.setUnits(units);
   }
 }

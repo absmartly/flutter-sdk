@@ -135,7 +135,15 @@ Map<String, Object> _unitValuesOf(ContextConfig config) =>
 /// `implements ContextConfig` classes keep compiling.
 extension ContextConfigUnitValues on ContextConfig {
   /// The UID of [unitType] as set: a [String] or a [num].
-  Object? getUnitValue(final String unitType) => getUnitValues()[unitType];
+  Object? getUnitValue(final String unitType) {
+    final String? uid = getUnit(unitType);
+    final Object? value = _unitValues[this]?[unitType];
+    return (value != null &&
+            uid != null &&
+            (value is String ? value : value.toString()) == uid)
+        ? value
+        : uid;
+  }
 
   /// Every unit as set. A UID changed through [ContextConfig.units_] is
   /// returned as that string.
