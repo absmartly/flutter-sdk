@@ -4,6 +4,6 @@ class SdkVersion {
   SdkVersion._();
 
   static const String name = 'absmartly-dart-sdk';
-  static const String version = '3.0.0';
+  static const String version = '2.2.0';
   static const String agent = '$name/$version';
 }

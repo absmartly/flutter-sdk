@@ -1,0 +1,252 @@
+// Written against the absmartly_sdk 2.1.2 README and public API. It must
+// keep compiling against the published 2.1.2 package; do not use newer APIs.
+// ignore_for_file: avoid_print, unused_local_variable
+import 'dart:async';
+
+import 'package:absmartly_sdk/absmartly_sdk.dart';
+import 'package:absmartly_sdk/ab_smartly.dart';
+import 'package:absmartly_sdk/ab_smartly_config.dart' as old_cfg;
+import 'package:absmartly_sdk/audience_deserializer.dart';
+import 'package:absmartly_sdk/audience_matcher.dart';
+import 'package:absmartly_sdk/client_config.dart';
+import 'package:absmartly_sdk/context_config.dart';
+import 'package:absmartly_sdk/context_event_logger.dart';
+import 'package:absmartly_sdk/default_http_client.dart';
+import 'package:absmartly_sdk/default_http_client_config.dart';
+import 'package:absmartly_sdk/http_client.dart';
+import 'package:absmartly_sdk/variable_parser.dart';
+import 'package:absmartly_sdk/java/time/clock.dart';
+import 'package:absmartly_sdk/jsonexpr/json_expr.dart';
+import 'package:absmartly_sdk/jsonexpr/operators/greater_then_operator.dart';
+import 'package:absmartly_sdk/jsonexpr/operators/less_then_or_eqal_operator.dart';
+import 'package:absmartly_sdk/internal/hashing/hashing.dart';
+import 'package:absmartly_sdk/json/experiment_application.dart';
+import 'package:http/http.dart' as http;
+
+class CustomEventLogger implements ContextEventLogger {
+  final List<EventType> seen = [];
+  @override
+  void handleEvent(Context context, EventType event, dynamic data) {
+    seen.add(event);
+    switch (event) {
+      case EventType.exposure:
+        final Exposure exposure = data;
+        print("exposed to experiment ${exposure.name}");
+        break;
+      case EventType.goal:
+        final GoalAchievement goal = data;
+        print("goal tracked: ${goal.name}");
+        break;
+      case EventType.error:
+        print("error: $data");
+        break;
+      case EventType.publish:
+      case EventType.ready:
+      case EventType.refresh:
+      case EventType.close:
+        break;
+    }
+  }
+}
+
+class MyHandler implements ContextEventHandler {
+  @override
+  Completer<void> publish(Context context, PublishEvent event) =>
+      Completer<void>()..complete();
+}
+
+class MyProvider implements ContextDataProvider {
+  @override
+  Completer<ContextData> getContextData() =>
+      Completer<ContextData>()..complete(ContextData());
+}
+
+class MyHttp implements HTTPClient {
+  @override
+  Future<Response> get(String url, Map<String, String>? query,
+          Map<String, String>? headers) =>
+      throw UnimplementedError();
+  @override
+  Future<Response> put(String url, Map<String, String>? query,
+          Map<String, String>? headers, List<int>? body) =>
+      throw UnimplementedError();
+  @override
+  Future<Response> post(String url, Map<String, String>? query,
+          Map<String, String>? headers, List<int>? body) =>
+      throw UnimplementedError();
+  @override
+  close() {}
+}
+
+class MyParser implements VariableParser {
+  @override
+  Map<String, dynamic>? parse(Context context, String experimentName,
+          String variantName, String config) =>
+      null;
+}
+
+class MyDeserializer implements AudienceDeserializer {
+  @override
+  Map<String, dynamic>? deserialize(List<int> bytes, int offset, int length) =>
+      null;
+}
+
+class MyClient implements Client {
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
+class MyClientConfig implements ClientConfig {
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
+class MyConfig extends ABSmartlyConfig {}
+
+class MyContext implements Context {
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
+class MyMatcher implements AudienceMatcher {
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
+class MyExperiment implements Experiment {
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
+class MyExposure implements Exposure {
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
+class SubContextConfig extends ContextConfig {
+  @override
+  ContextConfig setUnit(final String unitType, final String uid) =>
+      super.setUnit(unitType, uid);
+}
+
+class Holder {
+  late ContextEventHandler h;
+  late ABSmartly sdk;
+  late http.Response r; // package:http's Response alongside the barrel
+}
+
+Future<Map<String, Object?>> run() async {
+  final ClientConfig clientConfig = ClientConfig()
+    ..setEndpoint("https://your-company.absmartly.io/v1")
+    ..setAPIKey("YOUR API KEY")
+    ..setApplication("website")
+    ..setEnvironment("development");
+  final Client client = Client.create(clientConfig, httpClient: MyHttp());
+  final ABSmartlyConfig sdkConfig = ABSmartlyConfig.create()
+      .setClient(client)
+      .setContextDataProvider(MyProvider())
+      .setContextEventHandler(MyHandler());
+  final old_cfg.ABSmartlyConfig oldConfig = old_cfg.ABSmartlyConfig.create()
+      .setClient(client)
+      .setContextEventHandler(MyHandler());
+  final ContextEventHandler? oldHandler = oldConfig.contextEventHandler_;
+  final ABSmartly sdk =
+      ABSmartly(sdkConfig..setContextEventLogger(CustomEventLogger()));
+  final ContextEventHandler handler = sdk.contextEventHandler_!;
+  final Client? c = sdk.client_;
+
+  final logger = sdk.contextEventLogger_ as CustomEventLogger;
+  final ContextConfig contextConfig = ContextConfig.create()
+      .setUnit("session_id", "5ebf06d8cb5d8137290c4abb64155584fbdb64d8");
+  contextConfig.setContextEventLogger(logger);
+  final String? configUid = contextConfig.getUnit("session_id");
+  final Map<String, String> configUnits = contextConfig.getUnits();
+
+  final Context context =
+      await sdk.createContext(contextConfig).waitUntilReady();
+  context.setUnit("db_user_id", "1000013");
+  context.setUnits({"db_user_id": "1000013"});
+  final String? uid = context.getUnit("db_user_id");
+  final Map<String, String> units = context.getUnits();
+  final int t = context.getTreatment("exp_test_experiment");
+  final int p = context.peekTreatment("exp_test_experiment");
+  final dynamic v = context.getVariableValue("button.color", "red");
+  context.setOverride("exp", 1);
+  context.setOverrides({"exp_test_experiment": 1});
+  context.setAttribute("attribute", 1);
+  context.setCustomAssignment("experimentName", 1);
+  final int? ca = context.getCustomAssignment("experimentName");
+  context.track("payment", {"item_count": 1, "total_amount": 1999.99});
+  await context.publish();
+  await context.close();
+  String? closedError;
+  try {
+    context.track("x", null);
+  } on Exception catch (e) {
+    closedError = e.toString();
+  }
+
+  final Experiment e = Experiment(
+      id: 1,
+      name: 'e',
+      unitType: 'u',
+      iteration: 1,
+      seedHi: 0,
+      seedLo: 0,
+      split: [1],
+      trafficSeedHi: 0,
+      trafficSeedLo: 0,
+      trafficSplit: [0, 1],
+      fullOnVariant: 0,
+      applications: <ExperimentApplication>[],
+      variants: [],
+      audienceStrict: false,
+      audience: null);
+  final Exposure x = Exposure(
+      id: 1,
+      name: 'e',
+      unit: 'u',
+      variant: 0,
+      exposedAt: 0,
+      assigned: true,
+      eligible: true,
+      overridden: false,
+      fullOn: false,
+      custom: false,
+      audienceMismatch: false);
+  final Clock clock = Clock.fixed(1);
+  final m = AudienceMatcher(MyDeserializer());
+  final JsonExpr j = JsonExpr();
+  final GreaterThenOperator g = GreaterThenOperator();
+  final LessThenOrEqualOperator l = LessThenOrEqualOperator();
+  final h = Hashing.hashUnit("a");
+  final dh = DefaultHTTPClient.create(DefaultHTTPClientConfig.create());
+  dh.close();
+  return {
+    'configUid': configUid,
+    'configUnits': configUnits,
+    'uid': uid,
+    'units': units,
+    't': t,
+    'p': p,
+    'v': v,
+    'ca': ca,
+    'closedError': closedError,
+    'events': logger.seen.map((e) => e.name).toList(),
+    'handler': handler.runtimeType.toString(),
+    'oldHandler': oldHandler.runtimeType.toString(),
+    'client': c != null,
+    'e': e.name,
+    'x': x.toMap(),
+    'clock': clock.millis(),
+    'm': m.runtimeType.toString(),
+    'j': j.runtimeType.toString(),
+    'g': g.runtimeType.toString(),
+    'l': l.runtimeType.toString(),
+    'h': h.length,
+    'default': ABSmartly(ABSmartlyConfig.create().setClient(client))
+        .contextEventHandler_
+        .runtimeType
+        .toString(),
+  };
+}

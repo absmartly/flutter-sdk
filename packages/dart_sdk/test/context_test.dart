@@ -314,7 +314,7 @@ void main() {
 
       final notReady = throwsA(predicate((e) =>
           e is Exception &&
-          e.toString().contains('ABsmartly Context is not yet ready.')));
+          e.toString().contains('ABSmartly Context is not yet ready')));
       expect(() => context.peekTreatment('exp_test_ab'), notReady);
       expect(() => context.getTreatment('exp_test_ab'), notReady);
       expect(() => context.getData(), notReady);
@@ -326,8 +326,8 @@ void main() {
       expect(() => context.getCustomFieldValue('exp_test_ab', 'x'), notReady);
       expect(
           () => context.getCustomFieldValueType('exp_test_ab', 'x'), notReady);
-      expect(() => context.publish(), notReady);
-      expect(() => context.refresh(), notReady);
+      // As in 2.1, publish() only rejects a closed context.
+      expect(() => context.publish(), returnsNormally);
     });
 
     test('throwsWhenClosed', () async {
@@ -359,7 +359,7 @@ void main() {
           throwsA(isA<Exception>()));
       final finalized = throwsA(predicate((e) =>
           e is Exception &&
-          e.toString().contains('ABsmartly Context is finalized.')));
+          e.toString().contains('ABSmartly Context is closed')));
       expect(() => context.peekTreatment('exp_test_ab'), finalized);
       expect(() => context.getTreatment('exp_test_ab'), finalized);
       expect(() => context.track('goal1', null), finalized);
@@ -369,9 +369,9 @@ void main() {
       expect(() => context.peekVariableValue('banner.border', 17), finalized);
       expect(() => context.getVariableKeys(), finalized);
       expect(() => context.getCustomFieldKeys(), finalized);
-      // data() and experiments() only require readiness (JS context.ts).
-      expect(context.getData(), equals(data));
-      expect(context.getExperiments(), isNotEmpty);
+      // As in 2.1, data and experiments are not readable after close.
+      expect(() => context.getData(), finalized);
+      expect(() => context.getExperiments(), finalized);
     });
 
     test('getExperiments', () async {
@@ -1049,7 +1049,7 @@ void main() {
       expect(
           () => context.setUnit('int_id', '125'),
           throwsA(predicate(
-              (e) => e.toString().contains("Unit 'int_id' UID already set."))));
+              (e) => e.toString().contains("Unit 'int_id' already set."))));
       context.setUnit('int_id', 125);
 
       expect(
@@ -2453,12 +2453,29 @@ void main() {
       expect(returnedUnits['email'], equals('bleh@absmartly.com'));
     });
 
-    test('getUnitsReturnsUnmodifiableMap', () async {
+    test('getUnitsReturnsACopy', () async {
       final Context context = createReadyContext();
       await context.waitUntilReady();
 
       final returnedUnits = context.getUnits();
-      expect(() => returnedUnits['new_key'] = 'value', throwsUnsupportedError);
+      returnedUnits['new_key'] = 'value';
+      expect(context.getUnit('new_key'), isNull);
+      expect(context.getUnits().containsKey('new_key'), isFalse);
+    });
+
+    test('getUnitsKeepsTheReleasedStringMapType', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      // 2.1 code: `Map<String, String> units = context.getUnits();`
+      final Map<String, String> released = context.getUnits();
+      expect(released, equals(units));
+      final String? uid = context.getUnit('session_id');
+      expect(uid, equals('e791e240fcd3df7d238cfc285f475e8152fcc0ec'));
+
+      context.setUnit('org_id', 42);
+      expect(context.getUnits(), isA<Map<String, Object>>());
+      expect(context.getUnits()['org_id'], equals(42));
     });
 
     test('trackPassesPropertiesToGoalAchievement', () async {

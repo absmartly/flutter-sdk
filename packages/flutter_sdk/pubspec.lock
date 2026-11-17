@@ -7,7 +7,7 @@ packages:
       path: "../dart_sdk"
       relative: true
     source: path
-    version: "3.0.0"
+    version: "2.2.0"
   async:
     dependency: transitive
     description:
@@ -70,7 +70,7 @@ packages:
     source: sdk
     version: "0.0.0"
   flutter_lints:
-    dependency: "direct dev"
+    dependency: "direct main"
     description:
       name: flutter_lints
       sha256: "5398f14efa795ffb7a33e9b6a08798b26a180edac4ad7db3f231e40f82ce11e1"
@@ -265,4 +265,4 @@ packages:
     version: "1.1.1"
 sdks:
   dart: ">=3.13.0-0 <4.0.0"
-  flutter: ">=3.22.0"
+  flutter: ">=3.18.0-18.0.pre.54"

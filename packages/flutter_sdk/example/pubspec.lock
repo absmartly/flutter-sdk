@@ -7,14 +7,14 @@ packages:
       path: "../../dart_sdk"
       relative: true
     source: path
-    version: "3.0.0"
+    version: "2.2.0"
   absmartly_sdk:
     dependency: "direct main"
     description:
       path: ".."
       relative: true
     source: path
-    version: "3.0.0"
+    version: "2.2.0"
   async:
     dependency: transitive
     description:
@@ -272,4 +272,4 @@ packages:
     version: "14.2.1"
 sdks:
   dart: ">=3.13.0-0 <4.0.0"
-  flutter: ">=3.22.0"
+  flutter: ">=3.18.0-18.0.pre.54"

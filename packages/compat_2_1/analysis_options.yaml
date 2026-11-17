@@ -1,0 +1,8 @@
+# Mirrors code a 2.1.2 customer would write; only compile errors matter here.
+analyzer:
+  errors:
+    unused_import: ignore
+    unused_local_variable: ignore
+    unnecessary_import: ignore
+  exclude:
+    - build/**

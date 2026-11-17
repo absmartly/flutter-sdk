@@ -46,8 +46,6 @@ class Experiment {
   late List<ExperimentVariant> variants;
   late bool audienceStrict;
   late String? audience;
-  late String? assignmentRules;
-  late List<CustomFieldValue>? customFieldValues;
 
   Experiment({
     required this.id,
@@ -65,9 +63,12 @@ class Experiment {
     required this.variants,
     required this.audienceStrict,
     required this.audience,
-    this.assignmentRules,
-    this.customFieldValues,
-  });
+    String? assignmentRules,
+    List<CustomFieldValue>? customFieldValues,
+  }) {
+    this.assignmentRules = assignmentRules;
+    this.customFieldValues = customFieldValues;
+  }
 
   @override
   bool operator ==(Object other) {
@@ -210,4 +211,24 @@ class Experiment {
         "customFieldValues": customFieldValues!.map((e) => e.toMap()).toList(),
     };
   }
+}
+
+// Experiment is implementable by customers, so the fields added after 2.1 are
+// kept outside the class: new fields would break `implements Experiment`.
+final Expando<String> _assignmentRules = Expando<String>();
+final Expando<List<CustomFieldValue>> _customFieldValues =
+    Expando<List<CustomFieldValue>>();
+
+/// The experiment's assignment rules (a JSON string) and custom field values.
+/// An extension rather than fields of [Experiment], so existing
+/// `implements Experiment` classes keep compiling.
+extension ExperimentFields on Experiment {
+  String? get assignmentRules => _assignmentRules[this];
+
+  set assignmentRules(String? value) => _assignmentRules[this] = value;
+
+  List<CustomFieldValue>? get customFieldValues => _customFieldValues[this];
+
+  set customFieldValues(List<CustomFieldValue>? value) =>
+      _customFieldValues[this] = value;
 }

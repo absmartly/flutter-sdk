@@ -172,7 +172,7 @@ extension ClientMetadata on Client {
   /// The SDK name without version: "absmartly-dart-sdk".
   String getAgentName() => SdkVersion.name;
 
-  /// The SDK version, e.g. "3.0.0".
+  /// The SDK version, e.g. "2.2.0".
   String getAgentVersion() => SdkVersion.version;
 
   /// The X-Agent header value: "<name>/<version>".

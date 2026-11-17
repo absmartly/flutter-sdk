@@ -35,6 +35,14 @@ class AudienceMatcher {
     return null;
   }
 
+  final AudienceDeserializer deserializer_;
+  late final JsonExpr jsonExpr_;
+}
+
+/// Assignment rule evaluation. An extension rather than members of
+/// [AudienceMatcher], so existing `implements AudienceMatcher` classes keep
+/// compiling.
+extension AssignmentRulesMatcher on AudienceMatcher {
   /// Returns the action of the first rule in [assignmentRules] that applies to
   /// [environmentName] and whose conditions match [attributes], or null when
   /// none does. Malformed rules are skipped. An assign variant is not bounds
@@ -127,48 +135,45 @@ class AudienceMatcher {
         return null;
     }
   }
+}
 
-  // Accepts gaps from 100 that round to 0.01 or less at two decimals, the same
-  // check the backend applies to the experiment split.
-  static const double _splitPercentagesSumTolerance = 0.01;
+// Accepts gaps from 100 that round to 0.01 or less at two decimals, the same
+// check the backend applies to the experiment split.
+const double _splitPercentagesSumTolerance = 0.01;
 
-  static List<double>? _parseSplitPercentages(dynamic percentages) {
-    if (percentages is! String) return null;
+List<double>? _parseSplitPercentages(dynamic percentages) {
+  if (percentages is! String) return null;
 
-    final values = percentages.split('/').map(_parseFloat).toList();
-    if (values.any((value) => value.isNaN || value < 0)) return null;
+  final values = percentages.split('/').map(_parseFloat).toList();
+  if (values.any((value) => value.isNaN || value < 0)) return null;
 
-    final total = values.fold<double>(0, (sum, value) => sum + value);
-    final gap = double.parse((100 - total).abs().toStringAsFixed(2));
-    if (gap > _splitPercentagesSumTolerance) return null;
+  final total = values.fold<double>(0, (sum, value) => sum + value);
+  final gap = double.parse((100 - total).abs().toStringAsFixed(2));
+  if (gap > _splitPercentagesSumTolerance) return null;
 
-    return values.map((value) => value / 100).toList();
+  return values.map((value) => value / 100).toList();
+}
+
+// ECMAScript WhiteSpace and LineTerminator, the characters parseFloat skips.
+// Dart's trimLeft() also strips U+0085, which JS does not.
+final RegExp _leadingWhiteSpace =
+    RegExp('^[\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F'
+        '\u3000\uFEFF]+');
+
+final RegExp _floatPrefix =
+    RegExp(r'^[+-]?(Infinity|(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?)');
+
+// JS parseFloat: leading whitespace is skipped and the longest numeric prefix
+// is parsed, so "50abc" is 50 and "abc" is NaN.
+double _parseFloat(String value) {
+  final match =
+      _floatPrefix.firstMatch(value.replaceFirst(_leadingWhiteSpace, ''));
+  if (match == null) return double.nan;
+  final text = match.group(0)!;
+  if (text.endsWith('Infinity')) {
+    return text.startsWith('-') ? double.negativeInfinity : double.infinity;
   }
-
-  // ECMAScript WhiteSpace and LineTerminator, the characters parseFloat skips.
-  // Dart's trimLeft() also strips U+0085, which JS does not.
-  static final RegExp _leadingWhiteSpace =
-      RegExp('^[\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F'
-          '\u3000\uFEFF]+');
-
-  static final RegExp _floatPrefix =
-      RegExp(r'^[+-]?(Infinity|(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?)');
-
-  // JS parseFloat: leading whitespace is skipped and the longest numeric prefix
-  // is parsed, so "50abc" is 50 and "abc" is NaN.
-  static double _parseFloat(String value) {
-    final match =
-        _floatPrefix.firstMatch(value.replaceFirst(_leadingWhiteSpace, ''));
-    if (match == null) return double.nan;
-    final text = match.group(0)!;
-    if (text.endsWith('Infinity')) {
-      return text.startsWith('-') ? double.negativeInfinity : double.infinity;
-    }
-    return double.parse(text);
-  }
-
-  final AudienceDeserializer deserializer_;
-  late final JsonExpr jsonExpr_;
+  return double.parse(text);
 }
 
 /// The outcome of a matched assignment rule: a fixed [variant] for an assign

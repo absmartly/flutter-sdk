@@ -16,7 +16,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  absmartly_sdk: ^3.0.0
+  absmartly_sdk: ^2.2.0
 ```
 
 ### Import and Initialize the SDK

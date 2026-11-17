@@ -1,4 +1,4 @@
 import 'context_publisher.dart';
 
-@Deprecated('Use ContextPublisher instead.')
+/// The 2.1 name of [ContextPublisher].
 typedef ContextEventHandler = ContextPublisher;

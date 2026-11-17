@@ -49,7 +49,7 @@ void main() {
       expect(client.headers_['X-Application'], equals('website'));
       expect(client.headers_['X-Environment'], equals('dev'));
       expect(client.headers_['X-Application-Version'], equals('0'));
-      expect(client.headers_['X-Agent'], equals('absmartly-dart-sdk/3.0.0'));
+      expect(client.headers_['X-Agent'], equals('absmartly-dart-sdk/2.2.0'));
       expect(client.httpClient_.runtimeType, equals(DefaultHTTPClient));
     });
 
@@ -71,7 +71,7 @@ void main() {
             'X-Application': 'website',
             'X-Environment': 'dev',
             'X-Application-Version': '0',
-            'X-Agent': 'absmartly-dart-sdk/3.0.0',
+            'X-Agent': 'absmartly-dart-sdk/2.2.0',
           }));
       expect(client.httpClient_, equals(httpClient));
       expect(client.deserializer_, isNotNull);
@@ -95,7 +95,7 @@ void main() {
         "X-Application": "website",
         "X-Environment": "dev",
         "X-Application-Version": "0",
-        "X-Agent": "absmartly-dart-sdk/3.0.0"
+        "X-Agent": "absmartly-dart-sdk/2.2.0"
       };
 
       final event = PublishEvent(
@@ -150,7 +150,7 @@ void main() {
       "X-Application": "website",
       "X-Environment": "dev",
       "X-Application-Version": "0",
-      "X-Agent": "absmartly-dart-sdk/3.0.0"
+      "X-Agent": "absmartly-dart-sdk/2.2.0"
     };
 
     when(httpClient.get(
@@ -190,7 +190,7 @@ void main() {
       'X-Application': 'website',
       'X-Environment': 'dev',
       'X-Application-Version': '0',
-      'X-Agent': 'absmartly-dart-sdk/3.0.0'
+      'X-Agent': 'absmartly-dart-sdk/2.2.0'
     };
 
     when(httpClient.get(

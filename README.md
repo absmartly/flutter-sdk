@@ -19,7 +19,7 @@ A/B Smartly SDK for Flutter and Dart. This repository contains two packages: a p
 
 The A/B Smartly Flutter SDK is compatible with:
 
-- **Dart**: Version 3.4.0 and later
+- **Dart**: Version 3.4.0 and later (the package constraint says 2.18.6, but its dependencies, such as `crypto ^3.0.6`, need Dart 3.4)
 - **Flutter**: Version 3.22.0 and later
 
 ## Installation
@@ -30,14 +30,14 @@ Add the following to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  absmartly_sdk: ^3.0.0
+  absmartly_sdk: ^2.2.0
 ```
 
 ### Dart SDK (pure Dart, no Flutter dependency)
 
 ```yaml
 dependencies:
-  absmartly_dart: ^3.0.0
+  absmartly_dart: ^2.2.0
 ```
 
 Then run:
@@ -48,23 +48,9 @@ flutter pub get
 dart pub get
 ```
 
-### Migrating to 3.0.0
+### Upgrading from 2.1
 
-- **Unit UIDs keep their type.** `setUnit`/`setUnits` accept a `String` or a number, and `getUnit`/`getUnits` return what was set (`Object?` / `Map<String, Object>`). If your code reads units as strings, convert them:
-
-  ```dart
-  final String? userId = context.getUnit("user_id")?.toString();
-  ```
-
-  A numeric UID is hashed after rounding to a whole number, as in the JavaScript SDK, so `setUnit("user_id", 125.75)` assigns like `"126"`.
-- **Reads before ready throw.** `getTreatment`, `peekTreatment`, `getVariableValue`, `peekVariableValue`, `getVariableKeys` and the custom-field reads throw `ABsmartly Context is not yet ready.` until the context is ready, and `ABsmartly Context is finalized.` after it has been finalized. Wait for the context first (`await context.waitUntilReady()`). A context whose data failed to load still counts as ready and returns control/default values.
-- **Goal properties.** `track(name)` without properties now publishes `properties: null` instead of `{}`.
-- **`ContextEventHandler` is now `ContextPublisher`.**
-- **`EventType.close` is now `EventType.finalize`.**
-- **Import the package library.** Deep imports such as `package:absmartly_sdk/context.dart` no longer resolve; import `package:absmartly_sdk/absmartly_sdk.dart` or `package:absmartly_dart/absmartly_dart.dart`.
-- **Emoji in unit UIDs.** UIDs with characters outside the Basic Multilingual Plane (emoji and other astral characters) are now hashed from their correct UTF-8 bytes, matching the other SDKs and the collector. Units with such UIDs can move to a different variant once and are exposed again.
-- **Audiences are re-evaluated after `setAttribute`.** If a new attribute flips an experiment's audience match, the next read re-assigns and exposes the unit again: a strict-audience experiment moves it between control and its randomised variant, a non-strict one keeps the variant and only updates `audienceMismatch`.
-- **`ruleOverride` in exposures.** Every published exposure now includes `ruleOverride` (`false` unless an assignment rule picked the variant), as in the JavaScript SDK.
+2.2.0 is a drop-in upgrade: code written for `absmartly_sdk` 2.1 compiles unchanged, including deep imports such as `package:absmartly_sdk/context.dart`. A few observable behaviours follow the cross-SDK contract now; see the [CHANGELOG](CHANGELOG.md) under **Changed** for who is affected (the versioned `X-Agent`, `ruleOverride` in exposures, `application`/`environment` in audiences, headers on the context fetch, audience re-evaluation after `setAttribute`).
 
 ## Getting Started
 
@@ -360,7 +346,7 @@ class CustomEventLogger implements ContextEventLogger {
       case EventType.publish:
       case EventType.ready:
       case EventType.refresh:
-      case EventType.finalize:
+      case EventType.close:
         break;
     }
   }

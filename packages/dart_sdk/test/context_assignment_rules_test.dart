@@ -10,6 +10,7 @@ import 'package:absmartly_dart/src/default_variable_parser.dart';
 import 'package:absmartly_dart/src/internal/context_counters.dart';
 import 'package:absmartly_dart/src/java/time/clock.dart';
 import 'package:absmartly_dart/src/json/context_data.dart';
+import 'package:absmartly_dart/src/json/experiment.dart';
 import 'package:absmartly_dart/src/json/exposure.dart';
 import 'package:absmartly_dart/src/jsonexpr/json_expr.dart';
 import 'package:mockito/mockito.dart';

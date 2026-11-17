@@ -1,6 +1,6 @@
 name: Publish to pub.dev
 
-# Pushing a tag v<version> (e.g. v3.0.0) publishes absmartly_dart, waits for it
+# Pushing a tag v<version> (e.g. v2.2.0) publishes absmartly_dart, waits for it
 # to be available on pub.dev, then publishes absmartly_sdk, which depends on it.
 # Both packages must carry the tag's version. Both are tested and dry-run
 # before either is published; if a publish still fails afterwards, re-run the

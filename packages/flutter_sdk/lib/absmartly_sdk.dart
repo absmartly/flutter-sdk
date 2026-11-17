@@ -1,6 +1,9 @@
 library absmartly_sdk;
 
-export 'package:absmartly_dart/absmartly_dart.dart';
+// Response stays out of this barrel, as in 2.1: package:http exports a class
+// of the same name, so exporting it would make apps that import both fail to
+// compile. Import it from package:absmartly_sdk/http_client.dart.
+export 'package:absmartly_dart/absmartly_dart.dart' hide Response;
 
 export 'src/loading_behavior.dart';
 export 'src/inherited_absmartly.dart';

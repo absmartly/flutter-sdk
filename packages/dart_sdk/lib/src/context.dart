@@ -75,7 +75,7 @@ class Context {
       _environmentName = environment;
     }
 
-    setUnits(config.getUnits());
+    setUnits(Map<String, Object>.from(config.getUnits()));
     setAttributes(config.getAttributes());
     setOverrides(config.getOverrides());
     setCustomAssignments(config.getCustomAssignments());
@@ -107,28 +107,12 @@ class Context {
     return failed_;
   }
 
-  dynamic readyError() {
-    return failedError_;
-  }
-
   bool isClosed() {
     return closed_;
   }
 
   bool isClosing() {
     return !closed_ && closing_;
-  }
-
-  bool isFinalized() {
-    return isClosed();
-  }
-
-  bool isFinalizing() {
-    return isClosing();
-  }
-
-  Future<void> finalize() {
-    return close();
   }
 
   Future<Context> waitUntilReady() async {
@@ -142,14 +126,14 @@ class Context {
   }
 
   List<String> getExperiments() {
-    checkReady(false);
+    checkReady(true);
 
     return List.generate(
         data_!.experiments.length, (index) => data_!.experiments[index].name);
   }
 
   ContextData getData() {
-    checkReady(false);
+    checkReady(true);
 
     return data_!;
   }
@@ -184,34 +168,33 @@ class Context {
     }
   }
 
-  /// Returns the UID as it was set: a [String] or a [num].
-  Object? getUnit(final String unitType) {
-    return units_[unitType];
+  /// Returns the UID as it was set: a [String], or a [num] for a numeric UID.
+  /// Typed `dynamic` so code written for 2.1 (`String? uid = getUnit(...)`)
+  /// keeps compiling.
+  dynamic getUnit(final String unitType) {
+    return _units[unitType];
   }
 
-  /// Sets the UID of [unitType]. [uid] must be a [String] or a [num]; a
-  /// number keeps its type (JS context.ts unit()).
-  void setUnit(final String unitType, final Object uid) {
+  /// Sets the UID of [unitType]. [uid] is a [String] or a [num]; a number
+  /// keeps its type (JS context.ts unit()).
+  void setUnit(final String unitType, covariant final Object uid) {
     checkNotClosed();
 
-    Object value;
-    if (uid is String) {
-      value = uid.trim();
-      if ((value as String).isEmpty) {
-        throw Exception("Unit '$unitType' UID must not be blank.");
-      }
-    } else if (uid is num) {
-      value = uid;
-    } else {
+    if (uid is! String && uid is! num) {
       throw Exception("Unit '$unitType' must be a string or a number.");
     }
+    final Object value = uid is String ? uid.trim() : uid;
 
-    final Object? previous = units_[unitType];
+    final Object? previous = _units[unitType];
     if ((previous != null) && !(previous == value)) {
-      throw Exception("Unit '$unitType' UID already set.");
+      throw Exception("Unit '$unitType' already set.");
     }
 
-    units_[unitType] = value;
+    if (value is String && value.isEmpty) {
+      throw Exception("Unit $unitType UID must not be blank.");
+    }
+
+    _units[unitType] = value;
 
     _invalidateAssignmentsPinnedWithMissingUnit(unitType);
   }
@@ -226,11 +209,17 @@ class Context {
         assignment._isRuleMissingUnit);
   }
 
-  Map<String, Object> getUnits() {
-    return Map.unmodifiable(units_);
+  /// A copy of the units: a `Map<String, String>` when every UID is a
+  /// [String] (as in 2.1), otherwise a `Map<String, Object>`.
+  dynamic getUnits() {
+    return _unitsCopy(_units);
   }
 
-  void setUnits(Map<String, Object> units) {
+  /// The units map itself, typed `Map<String, String>` while every UID is a
+  /// [String] (as in 2.1), otherwise `Map<String, Object>`.
+  dynamic get units_ => _unitsView(_units);
+
+  void setUnits(covariant Map<String, Object> units) {
     for (final entry in units.entries) {
       setUnit(entry.key, entry.value);
     }
@@ -252,7 +241,7 @@ class Context {
 
     attributes_
         .add(Attribute(name: name, value: value, setAt: clock_.millis()));
-    attrsSeq_++;
+    _attrsSeq++;
   }
 
   Map<String, dynamic> getAttributes() {
@@ -328,85 +317,6 @@ class Context {
     return variableKeys;
   }
 
-  Set<String> getCustomFieldKeys() {
-    checkReady(true);
-
-    final keys = <String>{};
-    for (final experiment in data_!.experiments) {
-      final fields = experiment.customFieldValues;
-      if (fields != null) {
-        for (final field in fields) {
-          keys.add(field.name);
-        }
-      }
-    }
-    return keys;
-  }
-
-  dynamic getCustomFieldValue(final String experimentName, final String key) {
-    checkReady(true);
-
-    final experiment = index_[experimentName];
-    if (experiment != null) {
-      final fields = experiment.data.customFieldValues;
-      if (fields != null) {
-        for (final field in fields) {
-          if (field.name == key) {
-            switch (field.type) {
-              case 'text':
-              case 'string':
-                return field.value;
-              case 'number':
-                return num.tryParse(field.value);
-              case 'json':
-                try {
-                  if (field.value == 'null') return null;
-                  if (field.value == '') return '';
-                  return jsonDecode(field.value);
-                } catch (e) {
-                  logError(e);
-                  return null;
-                }
-              case 'boolean':
-                return field.value == 'true';
-              default:
-                logError(Exception(
-                    "Unknown custom field type '${field.type}' for experiment '$experimentName' and key '$key' - you may need to upgrade to the latest SDK version"));
-                return null;
-            }
-          }
-        }
-      }
-    }
-    return null;
-  }
-
-  String? getCustomFieldValueType(
-      final String experimentName, final String key) {
-    checkReady(true);
-
-    final experiment = index_[experimentName];
-    if (experiment != null) {
-      final fields = experiment.data.customFieldValues;
-      if (fields != null) {
-        for (final field in fields) {
-          if (field.name == key) {
-            return field.type;
-          }
-        }
-      }
-    }
-    return null;
-  }
-
-  Set<String> customFieldKeys() => getCustomFieldKeys();
-
-  dynamic customFieldValue(final String experimentName, final String key) =>
-      getCustomFieldValue(experimentName, key);
-
-  String? customFieldValueType(final String experimentName, final String key) =>
-      getCustomFieldValueType(experimentName, key);
-
   dynamic getVariableValue(final String key, final dynamic defaultValue) {
     checkReady(true);
 
@@ -455,7 +365,7 @@ class Context {
   }
 
   Future<void> publish() {
-    checkReady(true);
+    checkNotClosed();
 
     return flush();
   }
@@ -465,7 +375,7 @@ class Context {
   }
 
   Future<void> refresh() async {
-    checkReady(true);
+    checkNotClosed();
 
     // A failed context is not recovered by a refresh (JS context.ts _refresh).
     if (failed_) {
@@ -521,9 +431,9 @@ class Context {
 
     // A flush may be in flight with the queue already drained, so only take
     // the fast path when nothing is pending and nothing is being published.
-    if (pendingCount_ == 0 && flushFuture_ == null) {
+    if (pendingCount_ == 0 && _flushFuture == null) {
       closed_ = true;
-      logEvent(EventType.finalize, null);
+      logEvent(EventType.close, null);
       return Future.value();
     }
 
@@ -536,7 +446,7 @@ class Context {
       closingFuture_ = null;
       closed_ = true;
       closing.complete();
-      logEvent(EventType.finalize, null);
+      logEvent(EventType.close, null);
     }).catchError((exception) {
       // A failed final publish leaves the context open with its events
       // queued, so close() can be retried (JS context.ts _finalize).
@@ -554,7 +464,7 @@ class Context {
 
     // One publish at a time: a second caller waits for the in-flight one and
     // then flushes whatever was queued meanwhile (JS context.ts _flushPromise).
-    final Future<void>? inFlight = flushFuture_;
+    final Future<void>? inFlight = _flushFuture;
     if (inFlight != null) {
       return inFlight.then((_) => flush(), onError: (_) => flush());
     }
@@ -563,9 +473,9 @@ class Context {
       return Future.value();
     }
 
+    // A context whose data failed to load has nothing to publish the events
+    // against, so they are dropped (as in 2.1).
     if (failed_) {
-      logError(Exception(
-          "Discarding ${exposures_.length} exposures and ${achievements_.length} goals because context failed to initialize"));
       exposures_.clear();
       achievements_.clear();
       pendingCount_ = 0;
@@ -594,7 +504,7 @@ class Context {
 
     try {
       final List<Unit> units = [];
-      for (var entry in units_.entries) {
+      for (var entry in _units.entries) {
         units.add(Unit(
             type: entry.key,
             uid: utf8.decode(getUnitHash(entry.key, entry.value))));
@@ -618,10 +528,10 @@ class Context {
     }
 
     final Future<void> future = result.future;
-    flushFuture_ = future;
+    _flushFuture = future;
     future.then((_) {}, onError: (_) {}).whenComplete(() {
-      if (identical(flushFuture_, future)) {
-        flushFuture_ = null;
+      if (identical(_flushFuture, future)) {
+        _flushFuture = null;
       }
     });
     return future;
@@ -629,15 +539,15 @@ class Context {
 
   void checkNotClosed() {
     if (closed_) {
-      throw Exception("ABsmartly Context is finalized.");
+      throw Exception("ABSmartly Context is closed");
     } else if (closing_) {
-      throw Exception("ABsmartly Context is finalizing.");
+      throw Exception("ABSmartly Context is closing");
     }
   }
 
   void checkReady(final bool expectNotClosed) {
     if (!isReady()) {
-      throw Exception("ABsmartly Context is not yet ready.");
+      throw Exception("ABSmartly Context is not yet ready");
     } else if (expectNotClosed) {
       checkNotClosed();
     }
@@ -661,7 +571,7 @@ class Context {
   // must not modify it.
   Map<String, dynamic> _getAttributesMap() {
     final Map<String, dynamic>? cached = _attrsMapCache;
-    if (cached != null && _attrsMapCacheSeq == attrsSeq_) {
+    if (cached != null && _attrsMapCacheSeq == _attrsSeq) {
       return cached;
     }
     ContextCounters.attributesMapBuilds++;
@@ -671,7 +581,7 @@ class Context {
       attrs[attr.name] = attr.value;
     }
     _attrsMapCache = attrs;
-    _attrsMapCacheSeq = attrsSeq_;
+    _attrsMapCacheSeq = _attrsSeq;
     return attrs;
   }
 
@@ -721,7 +631,7 @@ class Context {
     }
 
     final String unitType = experiment.unitType;
-    final Object? uid = unitPinnedMissing ? null : units_[unitType];
+    final Object? uid = unitPinnedMissing ? null : _units[unitType];
     if (uid == null) {
       return _RuleResult(experiment.fullOnVariant, true);
     }
@@ -730,18 +640,6 @@ class Context {
         getVariantAssigner(unitType, getUnitHash(unitType, uid));
     return _RuleResult(
         assigner.assign(split, experiment.seedHi, experiment.seedLo), false);
-  }
-
-  bool audienceMatches(
-      final Experiment experiment, final Assignment assignment) {
-    final ExperimentVariables? entry = index_[experiment.name];
-    return _audienceMatches(
-        entry != null && identical(entry.data, experiment)
-            ? entry
-            : (ExperimentVariables()
-              ..data = experiment
-              .._ruleKey = _ruleKey(experiment)),
-        assignment);
   }
 
   bool _audienceMatches(
@@ -765,7 +663,7 @@ class Context {
       return false;
     }
 
-    if (attrsSeq_ > assignment.attrsSeq || ruleKeyChanged) {
+    if (_attrsSeq > assignment._attrsSeq || ruleKeyChanged) {
       final bool hasAudience = !assignment._ruleOverride &&
           experiment.audience != null &&
           experiment.audience!.isNotEmpty;
@@ -795,7 +693,7 @@ class Context {
         }
       }
       assignment._ruleKey = key;
-      assignment.attrsSeq = attrsSeq_;
+      assignment._attrsSeq = _attrsSeq;
     }
     return true;
   }
@@ -875,7 +773,7 @@ class Context {
             assignment.audienceMismatch) {
           assignment.variant = 0;
         } else if (experiment.data.fullOnVariant == 0) {
-          final Object? uid = units_[experiment.data.unitType];
+          final Object? uid = _units[experiment.data.unitType];
           if (uid != null) {
             final Uint8List unitHash = getUnitHash(unitType, uid);
 
@@ -921,7 +819,7 @@ class Context {
       assignment.variables = experiment.variables[assignment.variant] ?? {};
     }
 
-    assignment.attrsSeq = attrsSeq_;
+    assignment._attrsSeq = _attrsSeq;
     assignmentCache_[experimentName] = assignment;
 
     return assignment;
@@ -953,7 +851,7 @@ class Context {
     return indexVariables_[key];
   }
 
-  Uint8List getUnitHash(final String unitType, final Object unitUID) {
+  Uint8List getUnitHash(final String unitType, covariant final Object unitUID) {
     return hashedUnits_[unitType] ??
         (hashedUnits_[unitType] = Hashing.hashUnitValue(unitUID));
   }
@@ -1076,7 +974,7 @@ class Context {
     indexVariables_ = {};
     data_ = ContextData();
     failed_ = true;
-    failedError_ = exception;
+    _failedErrors[this] = exception;
   }
 
   // A throwing event logger must not change control flow (JS context.ts
@@ -1100,9 +998,8 @@ class Context {
   late AudienceMatcher audienceMatcher_;
   late ContextEventLogger? eventLogger_;
   String? _environmentName;
-  final Map<String, Object> units_ = {};
+  final Map<String, Object> _units = {};
   bool failed_ = false;
-  dynamic failedError_;
   ContextData? data_;
   Map<String, ExperimentVariables> index_ = {};
   Map<String, List<ExperimentVariables>> indexVariables_ = {};
@@ -1120,16 +1017,139 @@ class Context {
   final Map<String, int> overrides_ = {};
   final Map<String, int> cassignments_ = {};
   int pendingCount_ = 0;
-  int attrsSeq_ = 0;
+  int _attrsSeq = 0;
   bool closing_ = false;
   bool closed_ = false;
   bool refreshing_ = false;
   Completer<void>? readyFuture_;
   Completer<void>? closingFuture_;
   Completer<void>? refreshFuture_;
-  Future<void>? flushFuture_;
+  Future<void>? _flushFuture;
   Timer? timeout_;
   Timer? refreshTimer_;
+}
+
+dynamic _unitsView(Map<String, Object> units) {
+  if (units.values.every((uid) => uid is String)) {
+    return units.cast<String, String>();
+  }
+  return units;
+}
+
+dynamic _unitsCopy(Map<String, Object> units) {
+  if (units.values.every((uid) => uid is String)) {
+    return Map<String, String>.from(units);
+  }
+  return Map<String, Object>.of(units);
+}
+
+// Context is a public class that customers may implement or mock, so the
+// error a failed load completed with is kept outside it: a new member would
+// break `implements Context`.
+final Expando<Object> _failedErrors = Expando<Object>();
+
+/// Lifecycle aliases with the JavaScript SDK's names, and custom field values.
+/// Extension methods rather than members of [Context], so classes that
+/// implement [Context] keep compiling.
+extension ContextExtensions on Context {
+  /// The error the context data failed to load with, or null.
+  dynamic readyError() {
+    return _failedErrors[this];
+  }
+
+  /// Same as [Context.isClosed].
+  bool isFinalized() {
+    return isClosed();
+  }
+
+  /// Same as [Context.isClosing].
+  bool isFinalizing() {
+    return isClosing();
+  }
+
+  /// Same as [Context.close].
+  Future<void> finalize() {
+    return close();
+  }
+
+  Set<String> getCustomFieldKeys() {
+    checkReady(true);
+
+    final keys = <String>{};
+    for (final experiment in data_!.experiments) {
+      final fields = experiment.customFieldValues;
+      if (fields != null) {
+        for (final field in fields) {
+          keys.add(field.name);
+        }
+      }
+    }
+    return keys;
+  }
+
+  dynamic getCustomFieldValue(final String experimentName, final String key) {
+    checkReady(true);
+
+    final experiment = index_[experimentName];
+    if (experiment != null) {
+      final fields = experiment.data.customFieldValues;
+      if (fields != null) {
+        for (final field in fields) {
+          if (field.name == key) {
+            switch (field.type) {
+              case 'text':
+              case 'string':
+                return field.value;
+              case 'number':
+                return num.tryParse(field.value);
+              case 'json':
+                try {
+                  if (field.value == 'null') return null;
+                  if (field.value == '') return '';
+                  return jsonDecode(field.value);
+                } catch (e) {
+                  logError(e);
+                  return null;
+                }
+              case 'boolean':
+                return field.value == 'true';
+              default:
+                logError(Exception(
+                    "Unknown custom field type '${field.type}' for experiment '$experimentName' and key '$key' - you may need to upgrade to the latest SDK version"));
+                return null;
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  String? getCustomFieldValueType(
+      final String experimentName, final String key) {
+    checkReady(true);
+
+    final experiment = index_[experimentName];
+    if (experiment != null) {
+      final fields = experiment.data.customFieldValues;
+      if (fields != null) {
+        for (final field in fields) {
+          if (field.name == key) {
+            return field.type;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  Set<String> customFieldKeys() => getCustomFieldKeys();
+
+  dynamic customFieldValue(final String experimentName, final String key) =>
+      getCustomFieldValue(experimentName, key);
+
+  String? customFieldValueType(final String experimentName, final String key) =>
+      getCustomFieldValueType(experimentName, key);
 }
 
 class ExperimentVariables {
@@ -1161,7 +1181,7 @@ class Assignment {
   bool _isRuleMissingUnit = false;
   Map<String, dynamic> variables = {};
   bool exposed = false;
-  int attrsSeq = 0;
+  int _attrsSeq = 0;
 }
 
 class _RuleResult {

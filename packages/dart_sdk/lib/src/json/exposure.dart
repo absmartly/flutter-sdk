@@ -10,7 +10,6 @@ class Exposure {
   late bool fullOn;
   late bool custom;
   late bool audienceMismatch;
-  late bool ruleOverride;
 
   Exposure({
     required this.id,
@@ -24,8 +23,10 @@ class Exposure {
     required this.fullOn,
     required this.custom,
     required this.audienceMismatch,
-    this.ruleOverride = false,
-  });
+    bool ruleOverride = false,
+  }) {
+    this.ruleOverride = ruleOverride;
+  }
 
   @override
   bool operator ==(Object other) {
@@ -85,4 +86,17 @@ class Exposure {
       "ruleOverride": ruleOverride,
     };
   }
+}
+
+// Exposure is implementable by customers, so ruleOverride is kept outside the
+// class: a new field would break `implements Exposure`.
+final Expando<bool> _ruleOverrides = Expando<bool>();
+
+/// Whether an assignment rule chose the variant. An extension rather than a
+/// field of [Exposure], so existing `implements Exposure` classes keep
+/// compiling.
+extension ExposureRuleOverride on Exposure {
+  bool get ruleOverride => _ruleOverrides[this] ?? false;
+
+  set ruleOverride(bool value) => _ruleOverrides[this] = value;
 }

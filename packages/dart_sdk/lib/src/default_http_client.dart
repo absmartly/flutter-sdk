@@ -126,7 +126,7 @@ class DefaultHTTPClient implements HTTPClient {
   }
 
   @override
-  void close() {
+  close() {
     client.close();
   }
 
