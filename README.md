@@ -298,6 +298,17 @@ context.setAttributes({
 });
 ```
 
+### Holdouts
+
+A holdout keeps a share of units out of a group of experiments. The context payload lists the holdouts, and each experiment names the ones that cover it. The SDK resolves them for you; there is no API to call.
+
+- A covered unit is hashed into one of the holdout's arms, using the covered experiment's unit type.
+- In a 2-arm holdout, arm 0 holds the unit out. In a 3-arm holdout, arm 0 holds the unit out of every covered experiment, and arm 1 holds it out of covered experiments that are not full-on. The arm count comes from the holdout's split.
+- A held-out unit gets variant 0 (control values, including variable values) for the experiment, and the experiment publishes no exposure of its own. When a unit is covered by several holdouts, any one of them holding it out is enough.
+- Each holdout publishes its own exposure, once per unit type, the first time a covered experiment is read with `getTreatment` or `getVariableValue`. Peek methods publish nothing.
+- `setOverride` and a matching assignment rule win over a holdout. The holdout's exposure is still published.
+- A unit's arm is kept until the holdout's iteration changes.
+
 ### Custom Assignments
 
 Sometimes it may be necessary to override the automatic selection of a variant. For example, if you wish to have your variant chosen based on data from an API call. This can be accomplished using the `setCustomAssignment()` method.
