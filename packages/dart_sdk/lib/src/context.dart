@@ -938,10 +938,7 @@ class Context {
             assignment.variant == override &&
             (experiment == null ||
                 identical(experiment._holdouts, assignment._holdouts) ||
-                // The holdout arms were hashed with the experiment's unit
-                // type, so a changed unit type re-resolves them.
-                (assignment.unitType == experiment.data.unitType &&
-                    _holdoutSetMatches(experiment, assignment)))) {
+                _holdoutSetMatches(experiment, assignment))) {
           // override up-to-date
           return assignment;
         }

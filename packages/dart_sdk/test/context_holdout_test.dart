@@ -2238,8 +2238,10 @@ void main() {
       await expectPublished(context, [holdoutExposure(11, 'holdout_a', 0)]);
     });
 
-    test(
-        'an override whose experiment changes unit type re-resolves its holdouts',
+    // JS keeps a cached override across a refresh that only changes the
+    // experiment's unit type (holdoutSetMatches compares id and iteration),
+    // so the holdout exposure already published is not repeated.
+    test('an override keeps its holdouts when only the unit type changes',
         () async {
       final context = await readyWith(
           ContextConfig.create()
@@ -2268,9 +2270,6 @@ void main() {
       expect(event.exposures, [
         exposure(1, 'exp_override_unit', 1, assigned: false, overridden: true),
         holdoutExposure(11, 'holdout_a', 0),
-        exposure(1, 'exp_override_unit', 1,
-            unit: 'user_id', assigned: false, overridden: true),
-        holdoutExposure(11, 'holdout_a', 1, unit: 'user_id'),
       ]);
     });
 
