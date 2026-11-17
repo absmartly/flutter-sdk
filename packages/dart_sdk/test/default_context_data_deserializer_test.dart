@@ -343,6 +343,13 @@ void main() {
           copy.experiments.single.hashCode, data.experiments.single.hashCode);
       expect(copy.holdouts.first.hashCode, data.holdouts.first.hashCode);
 
+      final holdoutEntry = Experiment.fromMap(
+          (jsonDecode(jsonEncode(data.experiments.single.toMap()))
+              as Map<String, dynamic>)
+            ..['holdoutType'] = 'full');
+      expect(Experiment.fromMap(holdoutEntry.toMap()).holdoutType, 'full');
+      expect(holdoutEntry.toMap()['holdoutType'], 'full');
+
       copy.experiments.single.holdoutIds = [12];
       expect(copy.experiments.single, isNot(data.experiments.single));
       copy.experiments.single.holdoutIds = [11];
