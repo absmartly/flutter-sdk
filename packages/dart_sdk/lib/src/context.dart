@@ -792,17 +792,19 @@ class Context {
 
   // Only the (id, iteration) of each holdout, in order: a same-iteration seed
   // or split edit must not force a duplicate exposure (JS context.ts
-  // holdoutSetMatches).
+  // holdoutSetMatches). Compared against the values recorded when the
+  // assignment was resolved, so a holdout instance edited and installed again
+  // is still seen as changed.
   static bool _holdoutSetMatches(
       final ExperimentVariables experiment, final Assignment assignment) {
     final List<ContextHoldout>? fresh = experiment._holdouts;
-    final List<ContextHoldout>? pinned = assignment._holdouts;
-    if (fresh == null || pinned == null || fresh.length != pinned.length) {
+    final List<int>? pinned = assignment._holdoutIdentity;
+    if (fresh == null || pinned == null || fresh.length * 2 != pinned.length) {
       return false;
     }
     for (int i = 0; i < fresh.length; i++) {
-      if (fresh[i].id != pinned[i].id ||
-          fresh[i].iteration != pinned[i].iteration) {
+      if (fresh[i].id != pinned[2 * i] ||
+          fresh[i].iteration != pinned[2 * i + 1]) {
         return false;
       }
     }
@@ -936,7 +938,10 @@ class Context {
             assignment.variant == override &&
             (experiment == null ||
                 identical(experiment._holdouts, assignment._holdouts) ||
-                _holdoutSetMatches(experiment, assignment))) {
+                // The holdout arms were hashed with the experiment's unit
+                // type, so a changed unit type re-resolves them.
+                (assignment.unitType == experiment.data.unitType &&
+                    _holdoutSetMatches(experiment, assignment)))) {
           // override up-to-date
           return assignment;
         }
@@ -978,6 +983,12 @@ class Context {
               (index) => _getHoldoutAssignment(holdouts[index], unitType),
               growable: false);
       assignment._holdouts = holdouts;
+      assignment._holdoutIdentity = [
+        for (final ContextHoldout holdout in holdouts) ...[
+          holdout.id,
+          holdout.iteration
+        ]
+      ];
       assignment._holdoutAssignments = holdoutAssignments;
       for (final _HoldoutAssignment? holdoutAssignment in holdoutAssignments) {
         if (holdoutAssignment != null &&
@@ -1393,6 +1404,8 @@ class Assignment {
   // The covering holdouts and their arms when this was resolved; an arm is
   // null when the unit was not set.
   List<ContextHoldout>? _holdouts;
+  // The (id, iteration) pairs of [_holdouts] when this was resolved.
+  List<int>? _holdoutIdentity;
   List<_HoldoutAssignment?>? _holdoutAssignments;
   Map<String, dynamic> variables = {};
   bool exposed = false;

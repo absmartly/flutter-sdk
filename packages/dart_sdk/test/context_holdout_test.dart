@@ -2212,6 +2212,68 @@ void main() {
       ]);
     });
 
+    test('a reused holdout instance with a new iteration re-resolves',
+        () async {
+      final holdout =
+          newHoldout(11, 'holdout_a', holdoutBSeedHi, holdoutBSeedLo);
+      final context = await ready(contextDataOf([
+        holdout
+      ], [
+        newExperiment(1, 'exp_reused', holdoutIds: [11])
+      ]));
+
+      expect(context.peekTreatment('exp_reused'), normalVariant);
+
+      holdout
+        ..iteration = 2
+        ..seedHi = holdoutASeedHi
+        ..seedLo = holdoutASeedLo;
+      context.setData(contextDataOf([
+        holdout
+      ], [
+        newExperiment(1, 'exp_reused', holdoutIds: [11])
+      ]));
+
+      expect(context.getTreatment('exp_reused'), 0);
+      await expectPublished(context, [holdoutExposure(11, 'holdout_a', 0)]);
+    });
+
+    test(
+        'an override whose experiment changes unit type re-resolves its holdouts',
+        () async {
+      final context = await readyWith(
+          ContextConfig.create()
+            ..setUnit('session_id', uid)
+            ..setUnit('user_id', uidNotHeldOut)
+            ..setOverride('exp_override_unit', 1),
+          contextDataOf([
+            newHoldout(11, 'holdout_a', holdoutASeedHi, holdoutASeedLo)
+          ], [
+            newExperiment(1, 'exp_override_unit', holdoutIds: [11])
+          ]));
+
+      expect(context.getTreatment('exp_override_unit'), 1);
+
+      await refreshWith(
+          context,
+          contextDataOf([
+            newHoldout(11, 'holdout_a', holdoutASeedHi, holdoutASeedLo)
+          ], [
+            newExperiment(1, 'exp_override_unit',
+                unit: 'user_id', holdoutIds: [11])
+          ]));
+
+      expect(context.getTreatment('exp_override_unit'), 1);
+      final event = await publish(context);
+      expect(event.exposures, [
+        exposure(1, 'exp_override_unit', 1, assigned: false, overridden: true),
+        holdoutExposure(11, 'holdout_a', 0),
+        exposure(1, 'exp_override_unit', 1,
+            unit: 'user_id', assigned: false, overridden: true),
+        holdoutExposure(11, 'holdout_a', 1, unit: 'user_id'),
+      ]);
+    });
+
     test('a suppressed key with no other candidate reads the control value',
         () async {
       final context = await ready(contextDataOf([
