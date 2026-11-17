@@ -144,8 +144,9 @@ void main() {
       expect(put.headers['x-application'], equals('website'));
       expect(put.headers['x-environment'], equals('test'));
       expect(put.headers['x-application-version'], equals('0'));
-      expect(put.headers['x-agent'], isNotNull);
-      expect(put.headers['x-agent'], isNotEmpty); // value varies per SDK
+      expect(put.headers['x-agent'], equals(SdkVersion.agent));
+      expect(put.headers['x-agent'],
+          matches(r'^absmartly-dart-sdk/\d+\.\d+\.\d+'));
       expect(put.headers['content-type'], contains('application/json'));
 
       // Body must carry the required publish fields.

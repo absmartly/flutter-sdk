@@ -12,6 +12,7 @@ class ClientConfig {
     String? apiKey,
     String? environment,
     String? application,
+    String? applicationVersion,
     ContextDataDeserializer? contextDataDeserializer,
     ContextEventSerializer? contextEventSerializer,
   }) {
@@ -20,6 +21,9 @@ class ClientConfig {
     if (apiKey != null) config.setAPIKey(apiKey);
     if (environment != null) config.setEnvironment(environment);
     if (application != null) config.setApplication(application);
+    if (applicationVersion != null) {
+      config.setApplicationVersion(applicationVersion);
+    }
     if (contextDataDeserializer != null) {
       config.setContextDataDeserializer(contextDataDeserializer);
     }
@@ -38,6 +42,7 @@ class ClientConfig {
         endpoint: properties["${prefix}endpoint"],
         environment: properties["${prefix}environment"],
         application: properties["${prefix}application"],
+        applicationVersion: properties["${prefix}applicationVersion"],
         apiKey: properties["${prefix}apikey"],
         contextDataDeserializer: DefaultContextDataDeserializer(),
       );
@@ -108,4 +113,23 @@ class ClientConfig {
 
   ContextDataDeserializer? deserializer_;
   ContextEventSerializer? serializer_;
+}
+
+// ClientConfig is implementable by customers, so the application version is
+// kept outside the class: a new member would break `implements ClientConfig`.
+final Expando<String> _applicationVersions = Expando<String>();
+
+/// The application version setting of [ClientConfig]. An extension rather than
+/// members of [ClientConfig], so existing `implements ClientConfig` classes
+/// keep compiling.
+extension ClientConfigApplicationVersion on ClientConfig {
+  String? getApplicationVersion() => _applicationVersions[this];
+
+  /// The application's version, e.g. "2.4.1" or "1042". The
+  /// X-Application-Version header carries it only when it is a whole number of
+  /// at most 18 digits (after trimming), otherwise "0".
+  ClientConfig setApplicationVersion(String applicationVersion) {
+    _applicationVersions[this] = applicationVersion;
+    return this;
+  }
 }

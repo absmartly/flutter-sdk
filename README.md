@@ -19,8 +19,8 @@ A/B Smartly SDK for Flutter and Dart. This repository contains two packages: a p
 
 The A/B Smartly Flutter SDK is compatible with:
 
-- **Dart**: Version 2.18.6 and later (up to Dart 3.x)
-- **Flutter**: Version 1.17.0 and later
+- **Dart**: Version 3.4.0 and later
+- **Flutter**: Version 3.22.0 and later
 
 ## Installation
 
@@ -60,6 +60,11 @@ dart pub get
 - **Reads before ready throw.** `getTreatment`, `peekTreatment`, `getVariableValue`, `peekVariableValue`, `getVariableKeys` and the custom-field reads throw `ABsmartly Context is not yet ready.` until the context is ready, and `ABsmartly Context is finalized.` after it has been finalized. Wait for the context first (`await context.waitUntilReady()`). A context whose data failed to load still counts as ready and returns control/default values.
 - **Goal properties.** `track(name)` without properties now publishes `properties: null` instead of `{}`.
 - **`ContextEventHandler` is now `ContextPublisher`.**
+- **`EventType.close` is now `EventType.finalize`.**
+- **Import the package library.** Deep imports such as `package:absmartly_sdk/context.dart` no longer resolve; import `package:absmartly_sdk/absmartly_sdk.dart` or `package:absmartly_dart/absmartly_dart.dart`.
+- **Emoji in unit UIDs.** UIDs with characters outside the Basic Multilingual Plane (emoji and other astral characters) are now hashed from their correct UTF-8 bytes, matching the other SDKs and the collector. Units with such UIDs can move to a different variant once and are exposed again.
+- **Audiences are re-evaluated after `setAttribute`.** If a new attribute flips an experiment's audience match, the next read re-assigns and exposes the unit again: a strict-audience experiment moves it between control and its randomised variant, a non-strict one keeps the variant and only updates `audienceMismatch`.
+- **`ruleOverride` in exposures.** Every published exposure now includes `ruleOverride` (`false` unless an assignment rule picked the variant), as in the JavaScript SDK.
 
 ## Getting Started
 

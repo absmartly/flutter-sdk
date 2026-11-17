@@ -70,6 +70,10 @@ jobs:
         run: dart test
         working-directory: packages/dart_sdk
 
+      - name: Validate dart_sdk package
+        run: dart pub publish --dry-run
+        working-directory: packages/dart_sdk
+
       - name: Install dependencies (flutter_sdk)
         run: flutter pub get
         working-directory: packages/flutter_sdk
@@ -77,6 +81,65 @@ jobs:
       - name: Test flutter_sdk
         run: flutter test --coverage
         working-directory: packages/flutter_sdk
+
+      - name: Validate flutter_sdk package
+        run: flutter pub publish --dry-run
+        working-directory: packages/flutter_sdk
+
+  test_min_sdk:
+    name: Test dart_sdk on the minimum Dart SDK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Keep in sync with the lower bound of environment.sdk in
+      # packages/dart_sdk/pubspec.yaml.
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: '3.4.0'
+
+      # A fresh solve, as a consumer on this SDK would get, instead of the
+      # lockfile written by a newer SDK.
+      - name: Install dependencies (dart_sdk)
+        run: rm -f pubspec.lock && dart pub get
+        working-directory: packages/dart_sdk
+
+      - name: Generate mocks (dart_sdk)
+        run: dart run build_runner build --delete-conflicting-outputs
+        working-directory: packages/dart_sdk
+
+      - name: Test dart_sdk
+        run: dart test
+        working-directory: packages/dart_sdk
+
+  test_min_flutter:
+    name: Test flutter_sdk on the minimum Flutter SDK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Keep in sync with environment.flutter in packages/flutter_sdk/pubspec.yaml.
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+
+      # Fresh solves, as a consumer on this SDK would get.
+      - name: Install dependencies (flutter_sdk)
+        run: rm -f pubspec.lock ../dart_sdk/pubspec.lock && flutter pub get
+        working-directory: packages/flutter_sdk
+
+      - name: Test flutter_sdk
+        run: flutter test
+        working-directory: packages/flutter_sdk
+
+      - name: Build example app
+        run: rm -f pubspec.lock && flutter pub get && flutter build web --release
+        working-directory: packages/flutter_sdk/example
 
   build_example:
     name: Build Example App

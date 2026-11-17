@@ -10,6 +10,7 @@ class Exposure {
   late bool fullOn;
   late bool custom;
   late bool audienceMismatch;
+  late bool ruleOverride;
 
   Exposure({
     required this.id,
@@ -23,6 +24,7 @@ class Exposure {
     required this.fullOn,
     required this.custom,
     required this.audienceMismatch,
+    this.ruleOverride = false,
   });
 
   @override
@@ -38,17 +40,18 @@ class Exposure {
             fullOn == other.fullOn &&
             custom == other.custom &&
             audienceMismatch == other.audienceMismatch &&
+            ruleOverride == other.ruleOverride &&
             name == other.name &&
             unit == other.unit;
   }
 
   @override
   int get hashCode => Object.hash(id, name, unit, variant, exposedAt, assigned,
-      eligible, overridden, fullOn, custom, audienceMismatch);
+      eligible, overridden, fullOn, custom, audienceMismatch, ruleOverride);
 
   @override
   String toString() {
-    return 'Exposure{id: $id, name: $name, unit: $unit, variant: $variant, exposedAt: $exposedAt, assigned: $assigned, eligible: $eligible, overridden: $overridden, fullOn: $fullOn, custom: $custom, audienceMismatch: $audienceMismatch}';
+    return 'Exposure{id: $id, name: $name, unit: $unit, variant: $variant, exposedAt: $exposedAt, assigned: $assigned, eligible: $eligible, overridden: $overridden, fullOn: $fullOn, custom: $custom, audienceMismatch: $audienceMismatch, ruleOverride: $ruleOverride}';
   }
 
   Exposure.fromMap(Map<String, dynamic> data) {
@@ -63,6 +66,7 @@ class Exposure {
     fullOn = data["fullOn"];
     custom = data["custom"];
     audienceMismatch = data["audienceMismatch"];
+    ruleOverride = data["ruleOverride"] ?? false;
   }
 
   Map<String, dynamic> toMap() {
@@ -78,6 +82,7 @@ class Exposure {
       "fullOn": fullOn,
       "custom": custom,
       "audienceMismatch": audienceMismatch,
+      "ruleOverride": ruleOverride,
     };
   }
 }

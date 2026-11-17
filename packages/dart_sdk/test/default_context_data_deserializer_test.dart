@@ -230,5 +230,69 @@ void main() {
 
       expect(data, isNull);
     });
+
+    Map<String, dynamic> withRules(Object? rules) => {
+          'experiments': [
+            {
+              ...experimentJson(split: [0.5, 0.5], trafficSplit: [0, 1]),
+              'assignmentRules': rules,
+            }
+          ]
+        };
+
+    test('deserializeAssignmentRulesString', () {
+      const rules = '{"rules":[{"type":"assign","variant":1}]}';
+      final data = deserializeJson(withRules(rules));
+
+      expect(data, isNotNull);
+      expect(data!.experiments.single.assignmentRules, rules);
+    });
+
+    test('deserializeMissingOrNullAssignmentRules', () {
+      final missing = deserializeJson({
+        'experiments': [
+          experimentJson(split: [0.5, 0.5], trafficSplit: [0, 1])
+        ]
+      });
+      final nulled = deserializeJson(withRules(null));
+
+      expect(missing!.experiments.single.assignmentRules, isNull);
+      expect(nulled!.experiments.single.assignmentRules, isNull);
+    });
+
+    test('deserializeIgnoresObjectOrArrayAssignmentRules', () {
+      final fromObject = deserializeJson(withRules({'rules': []}));
+      final fromArray = deserializeJson(withRules([1, 2]));
+
+      expect(fromObject, isNotNull);
+      expect(fromObject!.experiments.single.assignmentRules, isNull);
+      expect(fromArray, isNotNull);
+      expect(fromArray!.experiments.single.assignmentRules, isNull);
+    });
+
+    test('deserializeScalarAssignmentRulesAsString', () {
+      expect(deserializeJson(withRules(5))!.experiments.single.assignmentRules,
+          '5');
+      expect(
+          deserializeJson(withRules(true))!.experiments.single.assignmentRules,
+          'true');
+    });
+
+    test('assignmentRulesRoundTripAndEquality', () {
+      const rules = '{"rules":[]}';
+      final data = deserializeJson(withRules(rules))!;
+      final experiment = data.experiments.single;
+      final copy = Experiment.fromMap(
+          jsonDecode(jsonEncode(experiment.toMap())) as Map<String, dynamic>);
+
+      expect(experiment.toMap()['assignmentRules'], rules);
+      expect(copy, experiment);
+      expect(copy.hashCode, experiment.hashCode);
+
+      final other = Experiment.fromMap(
+          jsonDecode(jsonEncode(experiment.toMap())) as Map<String, dynamic>)
+        ..assignmentRules = '{"rules":[{"type":"assign","variant":0}]}';
+      expect(other, isNot(experiment));
+    });
   });
 }
