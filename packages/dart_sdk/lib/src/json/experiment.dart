@@ -74,14 +74,8 @@ class Experiment {
     this.customFieldValues,
     List<int>? holdoutIds,
     String? holdoutType,
-  }) {
-    if (holdoutIds != null) {
-      this.holdoutIds = holdoutIds;
-    }
-    if (holdoutType != null) {
-      this.holdoutType = holdoutType;
-    }
-  }
+  })  : _holdoutIdList = holdoutIds,
+        _holdoutTypeValue = holdoutType;
 
   @override
   bool operator ==(Object other) {

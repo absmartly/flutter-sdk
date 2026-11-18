@@ -833,8 +833,6 @@ class Context {
   _HoldoutAssignment? _getHoldoutAssignment(
       final ContextHoldout live, final String unitType) {
     ContextCounters.holdoutAssignmentLookups++;
-    // `live` is always the installed definition: setData rebuilds every
-    // experiment's holdout list, so no stale reference reaches here.
     final (int, String) cacheKey = (live.id, unitType);
     final _HoldoutAssignment? cached = _holdoutAssignmentCache[cacheKey];
     if (cached != null && cached.iteration == live.iteration) {
@@ -1115,7 +1113,6 @@ class Context {
         if (assignment.assigned ||
             assignment.overridden ||
             assignment._ruleOverride) {
-          // The caller exposes the winner and then its holdouts.
           return assignment;
         }
         // A covered candidate passed over is exposed like JS does it: its
@@ -1273,36 +1270,16 @@ class Context {
     setRefreshTimer();
   }
 
-  // The holdouts covering an experiment, sorted by id without duplicates;
-  // unknown ids are ignored. Null when none applies.
   static List<ContextHoldout>? _resolveHoldouts(final List<int>? holdoutIds,
       final Map<int, ContextHoldout> holdoutsById) {
     if (holdoutIds == null || holdoutIds.isEmpty) {
       return null;
     }
-    final List<ContextHoldout> resolved = [];
-    for (final int holdoutId in holdoutIds) {
-      final ContextHoldout? holdout = holdoutsById[holdoutId];
-      if (holdout == null) {
-        continue;
-      }
-      int insertAt = resolved.length;
-      bool duplicate = false;
-      for (int i = 0; i < resolved.length; i++) {
-        if (resolved[i].id == holdoutId) {
-          duplicate = true;
-          break;
-        }
-        if (resolved[i].id > holdoutId) {
-          insertAt = i;
-          break;
-        }
-      }
-      if (!duplicate) {
-        resolved.insert(insertAt, holdout);
-      }
-    }
-    return resolved.isEmpty ? null : List.unmodifiable(resolved);
+    final List<int> ids =
+        holdoutIds.where(holdoutsById.containsKey).toSet().toList()..sort();
+    return ids.isEmpty
+        ? null
+        : List.unmodifiable(ids.map((id) => holdoutsById[id]!));
   }
 
   void setDataFailed(exception) {
@@ -1374,7 +1351,6 @@ class ExperimentVariables {
   // use. setData installs new entries, so neither outlives its rules.
   String _ruleKey = "";
   List? _rules;
-  // The holdouts covering [data], sorted by id; null when none applies.
   List<ContextHoldout>? _holdouts;
 }
 
@@ -1401,7 +1377,6 @@ class Assignment {
   // The covering holdouts and their arms when this was resolved; an arm is
   // null when the unit was not set.
   List<ContextHoldout>? _holdouts;
-  // The (id, iteration) pairs of [_holdouts] when this was resolved.
   List<int>? _holdoutIdentity;
   List<_HoldoutAssignment?>? _holdoutAssignments;
   Map<String, dynamic> variables = {};

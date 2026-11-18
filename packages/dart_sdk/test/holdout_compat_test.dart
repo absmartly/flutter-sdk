@@ -151,8 +151,6 @@ void main() {
 
         expect(await publishProbe(payload), golden);
 
-        // An empty holdouts array, or holdoutIds that name no served holdout,
-        // publish the same bytes.
         final json = jsonDecode(utf8.decode(payload)) as Map<String, dynamic>;
         json['holdouts'] = [];
         for (final experiment in json['experiments'] as List) {
@@ -178,7 +176,6 @@ void main() {
       for (final experiment in json['experiments'] as List) {
         experiment['holdoutIds'] = [404, 405];
       }
-      // A servable holdout that no experiment references.
       final unreferenced =
           jsonDecode(utf8.decode(payload)) as Map<String, dynamic>;
       unreferenced['holdouts'] = [
@@ -189,7 +186,6 @@ void main() {
         }
       ];
       final unreferencedBytes = utf8.encode(jsonEncode(unreferenced));
-      // ... referenced by no id at all, and only through dangling ids.
       for (final experiment in unreferenced['experiments'] as List) {
         experiment['holdoutIds'] = [404];
       }

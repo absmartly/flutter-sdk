@@ -1,6 +1,3 @@
-// Port of java-sdk ContextHoldoutTest (core-api, PR #12), checked against the
-// javascript-sdk reference (src/context.ts, PR #65). Java test names are kept
-// in snake-free camel case so each case can be traced back.
 import 'dart:async';
 
 import 'package:absmartly_dart/src/audience_matcher.dart';
@@ -892,9 +889,6 @@ void main() {
         newExperiment(1, 'exp_epoch_race', holdoutIds: [11])
       ]));
 
-      // The logger runs synchronously after the experiment's own exposure is
-      // queued and installs data that bumps the holdout to an iteration whose
-      // arm would hold the unit out, before the holdout trigger runs.
       logger.onExposure = (exposure) {
         if (exposure.id == 1) {
           context.setData(contextDataOf([
@@ -937,9 +931,6 @@ void main() {
       expect(context.getTreatment('exp_g'), normalVariant);
       expect(context.getPendingCount(), 3);
 
-      // exp_f's cached assignment still pins the iteration-1 holdout: it is
-      // re-resolved against the live iteration-2 entry, which is already
-      // exposed, so nothing new is published for the holdout.
       expect(context.getTreatment('exp_f'), normalVariant);
       expect(context.getPendingCount(), 4);
 
@@ -1200,7 +1191,6 @@ void main() {
       ]));
       final retained = context.getAssignment('exp_settled');
 
-      // Two refreshes that each replace the cached assignment.
       for (final iteration in [2, 3]) {
         await refreshWith(
             context,
@@ -1953,8 +1943,6 @@ void main() {
     });
   });
 
-  // Beyond the Java suite: JS (the reference) behaviour that the Java tests
-  // do not pin, and cross-sdk-tests H1-H8.
   group('javascript parity', () {
     test('a duplicate holdout id exposes and decides once (H1)', () async {
       final context = await ready(contextDataOf([
