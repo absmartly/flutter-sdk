@@ -1227,7 +1227,7 @@ void main() {
 
     test('negativeZeroUnitHashesLikeZero', () {
       expect(Hashing.hashUnitValue(-0.0), equals(Hashing.hashUnit('0')));
-      expect(Hashing.hashUnitValue(-0.4), equals(Hashing.hashUnit('0')));
+      expect(Hashing.hashUnitValue(-0.4), equals(Hashing.hashUnit('-0')));
       expect(Hashing.hashUnitValue(0), equals(Hashing.hashUnit('0')));
     });
 

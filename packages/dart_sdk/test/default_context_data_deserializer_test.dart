@@ -262,6 +262,8 @@ void main() {
         {'name': 'country', 'value': 'US', 'type': 'string'},
         {'name': 'noValue', 'value': null, 'type': 'string'},
         {'name': 'noType', 'value': 'x'},
+        {'name': null, 'value': 'x', 'type': 'string'},
+        {'value': 'x', 'type': 'string'},
         'not an object',
       ]));
       expect(mixed, isNotNull);

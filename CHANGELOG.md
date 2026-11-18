@@ -9,10 +9,10 @@ Applies to `absmartly_sdk` and to the new `absmartly_dart` package. Code written
 - `semver_eq`, `semver_gt`, `semver_gte`, `semver_lt` and `semver_lte` JSON expression operators, and `contains` as another name for `in`. A number operand is compared in the JavaScript SDK's string form, independent of the locale.
 - `ClientConfig.setApplicationVersion`/`getApplicationVersion` and the `applicationVersion` key of `createFromProperties`. `X-Application-Version` carries it, trimmed, only when it is a whole number of at most 18 digits, otherwise `0`, since the collector reads the header as a 64-bit integer.
 - `Client.getApplication()`, `getEnvironment()`, `getApplicationVersion()`, `getAgent()`, `getAgentName()` and `getAgentVersion()`; `SdkVersion`. For a custom class that implements `Client`, `getApplication()`/`getEnvironment()` return null, so audiences see no system `application`/`environment` for its contexts.
-- Numeric unit UIDs: `setUnit`/`setUnits` on `Context` and `ContextConfig` also accept a number, hashed after rounding to a whole number like JavaScript's `toFixed(0)` (so `125.75` assigns like `"126"`). `getUnit`/`getUnits` keep returning strings (`String?`, `Map<String, String>`), a number in its `toString()` form; the new `getUnitValue`/`getUnitValues` return the UIDs as set.
+- Numeric unit UIDs: `setUnit`/`setUnits` on `Context` and `ContextConfig` also accept a number, hashed after rounding to a whole number like JavaScript's `toFixed(0)` (so `125.75` assigns like `"126"`, and `-0` like `"0"`). `getUnit`/`getUnits` keep returning strings (`String?`, `Map<String, String>`), a number in its `toString()` form; the new `getUnitValue`/`getUnitValues` return the UIDs as set.
 - `ContextPublisher`, `DefaultContextPublisher` and `ABSmartlyConfig.setContextPublisher`: the JavaScript SDK's names for `ContextEventHandler`, `DefaultContextEventHandler` and `setContextEventHandler`, which keep working unchanged.
 - `EventType.finalize` (the same value as `EventType.close`), and `Context.finalize()`, `isFinalized()`, `isFinalizing()`.
-- `Context.readyError()`, custom field values (`getCustomFieldKeys`, `getCustomFieldValue`, `getCustomFieldValueType` and the `customField…` aliases), and `Experiment.customFieldValues`.
+- `Context.readyError()`, custom field values (`getCustomFieldKeys`, `getCustomFieldValue`, `getCustomFieldValueType` and the `customField…` aliases), and `Experiment.customFieldValues`. A malformed custom field entry is skipped; it does not fail the context.
 - `Experiment.assignmentRules` and `Exposure.ruleOverride`, as optional constructor parameters.
 - Named-parameter factories on `ClientConfig.create`, `ContextConfig.create`, `ABSmartlyConfig.create` and `DefaultHTTPClientConfig.create`; `DefaultHTTPClient(config, httpClient:)`.
 
@@ -33,8 +33,6 @@ These follow the cross-SDK contract all ABsmartly SDKs implement in this release
 
 ### Fixed
 - JSON expression `eq`/`in` compare nested lists and maps by value, as the other SDKs do.
-- A numeric unit UID of `-0` (or one that rounds to it) hashes as `"0"`, as JavaScript's `toFixed(0)` writes it.
-- A malformed `customFieldValues` entry is skipped instead of failing the context.
 - Integer split weights (`1` instead of `1.0`) are accepted when deserializing context data, and a response that cannot be deserialized fails the context instead of completing with null.
 - `getUnits()` returns the units; it returned an empty map.
 - Publishing no longer sends each unit twice.
