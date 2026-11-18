@@ -2273,6 +2273,50 @@ void main() {
       ]);
     });
 
+    // JS publishes the name from the covered assignment's pinned holdout
+    // list (context.ts _triggerApplicableHoldoutExposures), so a rename that
+    // keeps the iteration shows up on the next resolution.
+    test('a holdout exposure carries the name of the pinned holdout', () async {
+      final holdout =
+          newHoldout(11, 'holdout_a', holdoutBSeedHi, holdoutBSeedLo);
+      final context = await ready(contextDataOf([
+        holdout
+      ], [
+        newExperiment(1, 'exp_rename', holdoutIds: [11])
+      ]));
+      logger.onExposure = (exposure) {
+        if (exposure.id == 1) {
+          holdout.name = 'renamed';
+        }
+      };
+
+      expect(context.getTreatment('exp_rename'), normalVariant);
+      await expectPublished(context, [
+        exposure(1, 'exp_rename', normalVariant),
+        holdoutExposure(11, 'renamed', 1),
+      ]);
+    });
+
+    test('a same-iteration rename reaches experiments resolved after it',
+        () async {
+      ContextData data(String name) => contextDataOf([
+            newHoldout(11, name, holdoutBSeedHi, holdoutBSeedLo)
+          ], [
+            newExperiment(1, 'exp_a', holdoutIds: [11]),
+            newExperiment(2, 'exp_b', holdoutIds: [11]),
+          ]);
+      final context = await ready(data('h_old'));
+
+      expect(context.peekTreatment('exp_a'), normalVariant);
+      await refreshWith(context, data('h_new'));
+      expect(context.getTreatment('exp_b'), normalVariant);
+
+      await expectPublished(context, [
+        exposure(2, 'exp_b', normalVariant),
+        holdoutExposure(11, 'h_new', 1),
+      ]);
+    });
+
     test('a suppressed key with no other candidate reads the control value',
         () async {
       final context = await ready(contextDataOf([
