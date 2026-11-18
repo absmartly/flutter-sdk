@@ -84,7 +84,6 @@ extension ContextDataHoldouts on ContextData {
     try {
       return _holdoutList ?? const [];
     } on NoSuchMethodError {
-      // A customer class that implements ContextData has no private field.
       return _foreignHoldouts[this] ?? const [];
     }
   }

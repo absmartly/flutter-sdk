@@ -331,13 +331,17 @@ class Context {
           audienceMismatch: false,
           ruleOverride: false);
 
-      pendingCount_++;
-      exposures_.add(exposure);
-
-      logEvent(EventType.exposure, exposure);
-
-      setTimeout();
+      _queue(exposure);
     }
+  }
+
+  void _queue(final Exposure exposure) {
+    pendingCount_++;
+    exposures_.add(exposure);
+
+    logEvent(EventType.exposure, exposure);
+
+    setTimeout();
   }
 
   void queueExposure(final Assignment assignment) {
@@ -357,12 +361,7 @@ class Context {
           audienceMismatch: assignment.audienceMismatch,
           ruleOverride: assignment._ruleOverride);
 
-      pendingCount_++;
-      exposures_.add(exposure);
-
-      logEvent(EventType.exposure, exposure);
-
-      setTimeout();
+      _queue(exposure);
     }
   }
 
@@ -652,6 +651,15 @@ class Context {
     pendingCount_ = 0;
 
     final Completer<void> result = Completer<void>();
+    // In flight before the publisher runs, so a close() it makes waits for
+    // this publish and then drains what is queued after it.
+    final Future<void> future = result.future;
+    flushFuture_ = future;
+    future.then((_) {}, onError: (_) {}).whenComplete(() {
+      if (identical(flushFuture_, future)) {
+        flushFuture_ = null;
+      }
+    });
 
     void restore(dynamic error) {
       exposures_.insertAll(0, exposures);
@@ -686,13 +694,6 @@ class Context {
       restore(error);
     }
 
-    final Future<void> future = result.future;
-    flushFuture_ = future;
-    future.then((_) {}, onError: (_) {}).whenComplete(() {
-      if (identical(flushFuture_, future)) {
-        flushFuture_ = null;
-      }
-    });
     return future;
   }
 
@@ -822,9 +823,7 @@ class Context {
     return true;
   }
 
-  // Arm 0 always holds the experiment out; in a 3-arm holdout, arm 1 holds out
-  // experiments that are not full-on. The arm count is the holdout's split
-  // length (JS context.ts isHeldOutBy).
+  // JS context.ts isHeldOutBy.
   static bool _isHeldOutBy(
       final int holdoutVariant, final int armCount, final int fullOnVariant) {
     if (holdoutVariant == 0) {
@@ -1045,8 +1044,6 @@ class Context {
           assignment.variant = rule.variant;
           assignment._ruleOverride = true;
         } else if (assignment._suppressed) {
-          // A holdout wins over audience, traffic, full-on and custom
-          // assignments; only an override or a matching rule beats it.
           assignment.variant = 0;
         } else if (experiment.data.audienceStrict &&
             assignment.audienceMismatch) {
@@ -1234,7 +1231,7 @@ class Context {
     final Map<String, List<ExperimentVariables>> indexVariables = {};
     final Set<String> holdoutKeys = {};
 
-    // Only holdouts with a split can be served (JS context.ts _init).
+    // JS context.ts _init.
     final Map<int, ContextHoldout> holdoutsById = {};
     for (final ContextHoldout holdout in data.holdouts) {
       if (holdout.split.isNotEmpty) {
@@ -1419,7 +1416,6 @@ class Assignment {
   int? _ruleVariant;
   String? _ruleKey;
   bool _isRuleMissingUnit = false;
-  // Held out by a covering holdout: variant 0, no exposure of its own.
   bool _suppressed = false;
   // The covering holdouts and their arms when this was resolved; an arm is
   // null when the unit was not set.
@@ -1427,7 +1423,6 @@ class Assignment {
   List<int>? _holdoutIdentity;
   List<_HoldoutAssignment?>? _holdoutAssignments;
   Map<String, dynamic> variables = {};
-  // Whether [variables] was resolved from the experiment's variant.
   bool _hasVariables = false;
   bool exposed = false;
   int attrsSeq = 0;

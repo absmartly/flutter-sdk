@@ -61,6 +61,24 @@ class RecordingPublisher implements ContextPublisher {
   }
 }
 
+// Holds the first publish open until [release]; later ones complete at once.
+class HeldPublisher extends RecordingPublisher {
+  final Completer<void> held = Completer<void>();
+  void Function()? onFirstPublish;
+
+  void release() => held.complete();
+
+  @override
+  Completer<void> publish(Context context, PublishEvent event) {
+    events.add(event);
+    if (events.length == 1) {
+      onFirstPublish?.call();
+      return held;
+    }
+    return Completer<void>()..complete();
+  }
+}
+
 class QueuedDataProvider implements ContextDataProvider {
   ContextData? next;
 
@@ -2157,6 +2175,38 @@ void main() {
         exposure(1, 'exp_sparse', normalVariant),
         holdoutExposure(11, 'holdout_b', 1),
         exposure(2, 'exp_dense', normalVariant),
+      ]);
+      expect(context.getPendingCount(), 0);
+      expect(context.isClosed(), isTrue);
+    });
+
+    test('close from inside a publish still drains the read in progress',
+        () async {
+      final held = HeldPublisher();
+      publisher = held;
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+      ], [
+        withVariables(newExperiment(1, 'exp_winner', holdoutIds: [11]), 'k'),
+      ]));
+      Future<void>? closing;
+      held.onFirstPublish = () => closing = context.close();
+      logger.onExposure = (exposure) {
+        if (exposure.id == 1) {
+          context.publish();
+        }
+      };
+
+      expect(context.getVariableValue('k', 'default'), 'treatment');
+      await Future<void>.delayed(Duration.zero);
+      expect(context.isClosed(), isFalse);
+
+      held.release();
+      await closing;
+
+      expect(held.events.map((event) => event.exposures), [
+        [exposure(1, 'exp_winner', normalVariant)],
+        [holdoutExposure(11, 'holdout_b', 1)],
       ]);
       expect(context.getPendingCount(), 0);
       expect(context.isClosed(), isTrue);

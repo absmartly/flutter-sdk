@@ -172,8 +172,6 @@ class Experiment {
     }
   }
 
-  // Whole numbers up to 2^53 - 1 only; any other entry can't name a holdout
-  // and is dropped.
   static List<int> _parseHoldoutIds(List value) {
     final List<int> ids = [];
     for (final element in value) {
