@@ -4,6 +4,8 @@ import 'dart:collection';
 /// string form, plus the value each was set as (a number keeps its type for
 /// hashing). A write or removal through the map itself drops that key's
 /// stored value, so the string written is what is used from then on.
+// LinkedHashMap, as the released units_ maps were. It is final from Dart 3's
+// language version on, so the 3.0 line must drop it and document the change.
 class UnitsMap extends MapBase<String, String>
     implements LinkedHashMap<String, String> {
   final Map<String, String> _strings = {};
@@ -47,4 +49,33 @@ class UnitsMap extends MapBase<String, String>
     _values.remove(key);
     return _strings.remove(key);
   }
+}
+
+// For a units map that is not a UnitsMap (a subclass override or an assigned
+// map), the values as set, keyed by that map. Used only while the map still
+// holds the same string form, so a write through the map wins.
+final Expando<Map<String, Object>> _plainValues =
+    Expando<Map<String, Object>>();
+
+/// Stores [uid] for [unitType] in [units], keeping a number as set.
+void setUnitValue(Map<String, String> units, String unitType, Object uid) {
+  if (units is UnitsMap) {
+    units.setValue(unitType, uid);
+    return;
+  }
+  units[unitType] = uid is String ? uid : uid.toString();
+  (_plainValues[units] ??= <String, Object>{})[unitType] = uid;
+}
+
+/// The UID of [unitType] in [units] as set, or its string form.
+Object? unitValue(Map<String, String> units, String unitType) {
+  if (units is UnitsMap) {
+    return units.value(unitType);
+  }
+  final String? uid = units[unitType];
+  if (uid == null) {
+    return null;
+  }
+  final Object? value = _plainValues[units]?[unitType];
+  return (value != null && value.toString() == uid) ? value : uid;
 }

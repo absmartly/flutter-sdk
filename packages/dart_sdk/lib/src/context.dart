@@ -235,19 +235,10 @@ class Context {
     return Map<String, String>.of(units_);
   }
 
-  Object? _unitValue(final String unitType) {
-    final Map<String, String> units = units_;
-    return units is UnitsMap ? units.value(unitType) : units[unitType];
-  }
+  Object? _unitValue(final String unitType) => unitValue(units_, unitType);
 
-  void _setUnitValue(final String unitType, final Object uid) {
-    final Map<String, String> units = units_;
-    if (units is UnitsMap) {
-      units.setValue(unitType, uid);
-    } else {
-      units[unitType] = uid is String ? uid : uid.toString();
-    }
-  }
+  void _setUnitValue(final String unitType, final Object uid) =>
+      setUnitValue(units_, unitType, uid);
 
   void setUnits(covariant Map<String, Object> units) {
     for (final entry in units.entries) {
@@ -1114,14 +1105,15 @@ extension ContextExtensions on Context {
   /// The UID of [unitType] as set: a [String] or a [num].
   Object? getUnitValue(final String unitType) {
     final Context self = this;
-    final Map<String, String> units = self.units_;
-    return units is UnitsMap ? units.value(unitType) : getUnit(unitType);
+    return unitValue(self.units_, unitType);
   }
 
   /// Every unit as set, numbers included.
   Map<String, Object> getUnitValues() {
-    return getUnits().map(
-        (unitType, uid) => MapEntry(unitType, getUnitValue(unitType) ?? uid));
+    final Context self = this;
+    final Map<String, String> units = self.units_;
+    return units.map(
+        (unitType, uid) => MapEntry(unitType, unitValue(units, unitType)!));
   }
 
   Set<String> getCustomFieldKeys() {

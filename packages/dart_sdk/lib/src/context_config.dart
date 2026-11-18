@@ -34,12 +34,7 @@ class ContextConfig {
     if (uid is! String && uid is! num) {
       throw Exception("Unit '$unitType' must be a string or a number.");
     }
-    final Map<String, String> units = units_;
-    if (units is UnitsMap) {
-      units.setValue(unitType, uid);
-    } else {
-      units[unitType] = uid is String ? uid : uid.toString();
-    }
+    setUnitValue(units_, unitType, uid);
     return this;
   }
 
@@ -138,15 +133,14 @@ class ContextConfig {
 /// `implements ContextConfig` classes keep compiling.
 extension ContextConfigUnitValues on ContextConfig {
   /// The UID of [unitType] as set: a [String] or a [num].
-  Object? getUnitValue(final String unitType) {
-    final Map<String, String> units = getUnits();
-    return units is UnitsMap ? units.value(unitType) : units[unitType];
-  }
+  Object? getUnitValue(final String unitType) =>
+      unitValue(getUnits(), unitType);
 
   /// Every unit as set. A UID written through [ContextConfig.units_] is
   /// returned as that string.
   Map<String, Object> getUnitValues() {
-    return getUnits().map(
-        (unitType, uid) => MapEntry(unitType, getUnitValue(unitType) ?? uid));
+    final Map<String, String> units = getUnits();
+    return units.map(
+        (unitType, uid) => MapEntry(unitType, unitValue(units, unitType)!));
   }
 }

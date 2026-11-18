@@ -1335,7 +1335,9 @@ void main() {
       expect(identical(config.units_, assigned), isTrue);
       config.setUnit('o', 9);
       expect(assigned['o'], equals('9'));
-      expect(config.getUnitValue('o'), equals('9'));
+      expect(config.getUnitValue('o'), equals(9));
+      assigned['o'] = '10';
+      expect(config.getUnitValue('o'), equals('10'));
       assigned['p'] = 'x';
       expect(config.getUnit('p'), equals('x'));
     });
@@ -1364,6 +1366,23 @@ void main() {
           event.units.single.uid,
           equals(utf8.decode(
               Hashing.hashUnit('e791e240fcd3df7d238cfc285f475e8152fcc0ec'))));
+    });
+
+    test('numericUidsKeepTheirHashWithPlainUnitsMaps', () async {
+      final config = _SortedUnitsConfig()
+        ..setUnit('session_id', 5.0)
+        ..setUnit('user_id', 125.75);
+      expect(config.getUnit('session_id'), equals('5.0'));
+      expect(config.getUnitValue('session_id'), equals(5.0));
+
+      final context = _SortedUnitsContext(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher);
+      await context.waitUntilReady();
+      expect(context.getUnitValue('session_id'), equals(5.0));
+      expect(context.getUnitValues(),
+          equals({'session_id': 5.0, 'user_id': 125.75}));
+      expect(context.getUnitHash('session_id', 5.0),
+          equals(Hashing.hashUnit('5')));
     });
 
     test('aRefreshOfAReadyContextDoesNotRetryAFailedPublish', () async {
