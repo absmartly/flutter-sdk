@@ -584,7 +584,7 @@ class Context {
 
     // A flush may be in flight with the queue already drained, so only take
     // the fast path when nothing is pending and nothing is being published.
-    if (pendingCount_ == 0 && flushFuture_ == null) {
+    if (pendingCount_ == 0 && flushFuture_ == null && !_publisherRunning) {
       closed_ = true;
       logEvent(EventType.finalize, null);
       return Future.value();
@@ -595,9 +595,12 @@ class Context {
     closing_ = true;
 
     // Events queued while the final publish runs (by an exposure logger, or a
-    // read still in progress) are published before close completes.
-    Future<void> drain() =>
-        flush().then((_) => pendingCount_ > 0 ? drain() : null);
+    // read still in progress) are published before close completes. Called
+    // from inside the publisher, close() does not wait for that publish,
+    // which may itself wait for close() (JS context.ts _flush).
+    final bool fromPublisher = _publisherRunning;
+    Future<void> drain() => (fromPublisher ? _flushBatch() : flush())
+        .then((_) => pendingCount_ > 0 ? drain() : null);
 
     drain().then((_) {
       closing_ = false;
@@ -626,7 +629,10 @@ class Context {
     if (inFlight != null) {
       return inFlight.then((_) => flush(), onError: (_) => flush());
     }
+    return _flushBatch();
+  }
 
+  Future<void> _flushBatch() {
     if (pendingCount_ == 0) {
       return Future.value();
     }
@@ -651,15 +657,6 @@ class Context {
     pendingCount_ = 0;
 
     final Completer<void> result = Completer<void>();
-    // In flight before the publisher runs, so a close() it makes waits for
-    // this publish and then drains what is queued after it.
-    final Future<void> future = result.future;
-    flushFuture_ = future;
-    future.then((_) {}, onError: (_) {}).whenComplete(() {
-      if (identical(flushFuture_, future)) {
-        flushFuture_ = null;
-      }
-    });
 
     void restore(dynamic error) {
       exposures_.insertAll(0, exposures);
@@ -686,14 +683,28 @@ class Context {
         attributes: attributes_.toList(),
       );
 
-      eventHandler_.publish(this, event).future.then((_) {
-        result.complete();
-        logEvent(EventType.publish, event);
-      }, onError: restore);
+      _publisherRunning = true;
+      try {
+        eventHandler_.publish(this, event).future.then((_) {
+          result.complete();
+          logEvent(EventType.publish, event);
+        }, onError: restore);
+      } finally {
+        _publisherRunning = false;
+      }
     } catch (error) {
       restore(error);
     }
 
+    // Marked in flight only once the publisher returns, as JS does, so a
+    // publisher awaiting its own re-entrant publish() or close() completes.
+    final Future<void> future = result.future;
+    flushFuture_ = future;
+    future.then((_) {}, onError: (_) {}).whenComplete(() {
+      if (identical(flushFuture_, future)) {
+        flushFuture_ = null;
+      }
+    });
     return future;
   }
 
@@ -1125,7 +1136,7 @@ class Context {
   }
 
   bool _isHoldoutKey(final String key) {
-    if (_holdoutKeys.isEmpty) {
+    if (!_hasHoldoutKeys) {
       return false;
     }
     ContextCounters.holdoutKeyLookups++;
@@ -1297,6 +1308,7 @@ class Context {
     index_ = index;
     indexVariables_ = indexVariables;
     _holdoutKeys = holdoutKeys;
+    _hasHoldoutKeys = holdoutKeys.isNotEmpty;
     data_ = data;
 
     assignmentCache_.removeWhere((experimentName, assignment) {
@@ -1329,6 +1341,7 @@ class Context {
     index_ = {};
     indexVariables_ = {};
     _holdoutKeys = {};
+    _hasHoldoutKeys = false;
     data_ = ContextData();
     failed_ = true;
     failedError_ = exception;
@@ -1362,6 +1375,7 @@ class Context {
   Map<String, ExperimentVariables> index_ = {};
   Map<String, List<ExperimentVariables>> indexVariables_ = {};
   Set<String> _holdoutKeys = {};
+  bool _hasHoldoutKeys = false;
 
   final Map<String, Uint8List> hashedUnits_ = {};
   final Map<String, VariantAssigner> assigners_ = {};
@@ -1381,6 +1395,7 @@ class Context {
   bool closing_ = false;
   bool closed_ = false;
   bool refreshing_ = false;
+  bool _publisherRunning = false;
   Completer<void>? readyFuture_;
   Completer<void>? closingFuture_;
   Completer<void>? refreshFuture_;

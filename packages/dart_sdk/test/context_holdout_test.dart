@@ -81,6 +81,26 @@ class HeldPublisher extends RecordingPublisher {
   }
 }
 
+// Completes its first publish only once [reenter], called from inside it,
+// completes.
+class AwaitingPublisher extends RecordingPublisher {
+  AwaitingPublisher(this.reenter);
+
+  final Future<void> Function() reenter;
+
+  @override
+  Completer<void> publish(Context context, PublishEvent event) {
+    events.add(event);
+    final Completer<void> done = Completer<void>();
+    if (events.length == 1) {
+      reenter().then((_) => done.complete());
+    } else {
+      done.complete();
+    }
+    return done;
+  }
+}
+
 class QueuedDataProvider implements ContextDataProvider {
   ContextData? next;
 
@@ -2233,11 +2253,8 @@ void main() {
       };
 
       expect(context.getVariableValue('k', 'default'), 'treatment');
-      await Future<void>.delayed(Duration.zero);
-      expect(context.isClosed(), isFalse);
-
-      held.release();
-      await closing;
+      // Like JS, it does not wait for the publish that called it.
+      await closing!.timeout(const Duration(seconds: 2));
 
       expect(held.events.map((event) => event.exposures), [
         [exposure(1, 'exp_winner', normalVariant)],
@@ -2245,7 +2262,27 @@ void main() {
       ]);
       expect(context.getPendingCount(), 0);
       expect(context.isClosed(), isTrue);
+      held.release();
     });
+
+    for (final reentrant in ['publish', 'close']) {
+      test('a publisher awaiting a re-entrant $reentrant completes', () async {
+        final context = await ready(contextDataOf([], [
+          newExperiment(1, 'exp_one'),
+        ]));
+        final awaiting = AwaitingPublisher(
+            () => reentrant == 'publish' ? context.publish() : context.close());
+        publisher = awaiting;
+        context.eventHandler_ = awaiting;
+        context.getTreatment('exp_one');
+
+        await context.publish().timeout(const Duration(seconds: 2));
+        await context.close().timeout(const Duration(seconds: 2));
+
+        expect(awaiting.events, hasLength(1));
+        expect(context.isClosed(), isTrue);
+      });
+    }
 
     test('a candidate removed during a variable read is not exposed', () async {
       final context = await ready(contextDataOf([

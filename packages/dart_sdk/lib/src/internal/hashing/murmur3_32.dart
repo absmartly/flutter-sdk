@@ -4,6 +4,8 @@ import '../buffers.dart';
 
 // ignore: camel_case_types
 abstract class Murmur3_32 {
+  static const bool _isWeb = identical(0, 0.0);
+
   static int digest(
     Uint8List key,
     int seed, {
@@ -54,10 +56,11 @@ abstract class Murmur3_32 {
     return h;
   }
 
-  // The low 32 bits of a * b. Split into 16-bit halves so every partial
-  // product stays below 2^53 and is exact on the web, where ints are doubles.
+  // The low 32 bits of a * b. On the VM, 64-bit ints make one multiply exact
+  // and about a third cheaper. On the web, where ints are doubles, it splits
+  // into 16-bit halves so every partial product stays below 2^53.
   static int imul32(int a, int b) {
-    if (!identical(0, 0.0)) {
+    if (!_isWeb) {
       return (a * b) & 0xffffffff;
     }
     a &= 0xffffffff;
