@@ -547,7 +547,8 @@ class Context {
       for (var entry in units_.entries) {
         units.add(Unit(
             type: entry.key,
-            uid: utf8.decode(getUnitHash(entry.key, _unitValue(entry.key)!))));
+            uid: utf8.decode(getUnitHash(
+                entry.key, Hashing.hashInput(_unitValue(entry.key)!)))));
       }
 
       final PublishEvent event = PublishEvent(
@@ -676,8 +677,8 @@ class Context {
       return _RuleResult(experiment.fullOnVariant, true);
     }
 
-    final VariantAssigner assigner =
-        getVariantAssigner(unitType, getUnitHash(unitType, uid));
+    final VariantAssigner assigner = getVariantAssigner(
+        unitType, getUnitHash(unitType, Hashing.hashInput(uid)));
     return _RuleResult(
         assigner.assign(split, experiment.seedHi, experiment.seedLo), false);
   }
@@ -815,7 +816,9 @@ class Context {
         } else if (experiment.data.fullOnVariant == 0) {
           final Object? uid = _unitValue(experiment.data.unitType);
           if (uid != null) {
-            final Uint8List unitHash = getUnitHash(unitType, uid);
+            // A String, so a 2.1 getUnitHash(String, String) override works.
+            final Uint8List unitHash =
+                getUnitHash(unitType, Hashing.hashInput(uid));
 
             final VariantAssigner assigner =
                 getVariantAssigner(unitType, unitHash);
@@ -1106,18 +1109,28 @@ extension ContextExtensions on Context {
     return close();
   }
 
-  /// The UID of [unitType] as set: a [String] or a [num].
+  /// The UID of [unitType] as set: a [String] or a [num]. The unit comes
+  /// from [Context.getUnit], so a subclass that overrides it is honoured; a
+  /// number is restored only while it matches that UID.
   Object? getUnitValue(final String unitType) {
+    final String? uid = getUnit(unitType);
+    if (uid == null) {
+      return null;
+    }
     final Context self = this;
-    return unitValue(self.units_, unitType);
+    final Object? value = unitValue(self.units_, unitType);
+    return (value is num && value.toString() == uid) ? value : uid;
   }
 
-  /// Every unit as set, numbers included.
+  /// Every unit from [Context.getUnits], numbers included.
   Map<String, Object> getUnitValues() {
     final Context self = this;
     final Map<String, String> units = self.units_;
-    return units.map(
-        (unitType, uid) => MapEntry(unitType, unitValue(units, unitType)!));
+    return getUnits().map((unitType, uid) {
+      final Object? value = unitValue(units, unitType);
+      return MapEntry(
+          unitType, (value is num && value.toString() == uid) ? value : uid);
+    });
   }
 
   Set<String> getCustomFieldKeys() {

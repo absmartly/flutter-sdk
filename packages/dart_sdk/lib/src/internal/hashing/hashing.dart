@@ -11,11 +11,17 @@ abstract class Hashing {
   /// like JavaScript's toFixed(0) (JS utils.ts hashUnit), so 125.75 hashes
   /// as "126".
   static Uint8List hashUnitValue(Object unit) {
+    return hashUnit(hashInput(unit));
+  }
+
+  /// The string a unit UID is hashed as: a number written with no decimals,
+  /// like JavaScript's toFixed(0), otherwise the string itself.
+  static String hashInput(Object unit) {
     if (unit is num) {
       // JS (-0).toFixed(0) is "0", but (-0.4).toFixed(0) is "-0", as here.
-      return hashUnit(unit == 0 ? '0' : unit.toStringAsFixed(0));
+      return unit == 0 ? '0' : unit.toStringAsFixed(0);
     }
-    return hashUnit(unit as String);
+    return unit as String;
   }
 
   static Uint8List hashUnit(String unit) {

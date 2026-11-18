@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:absmartly_dart/src/internal/hashing/hashing.dart';
 import 'package:absmartly_dart/src/internal/variant_assigner.dart';
@@ -359,7 +360,6 @@ void main() {
       dataFuture.completeError(error);
       expect(await ready, same(context));
       expect(context.isFailed(), isTrue);
-      // A read while failed queues a control exposure against empty data.
       expect(context.getTreatment('exp_test_ab'), equals(0));
       context.track('goal1', null);
 
@@ -1250,7 +1250,6 @@ void main() {
       context.setUnit('float_id', 125.75);
       context.setUnit('text_id', ' 007 ');
 
-      // The 2.1 getters return strings; the extension returns the value as set.
       expect(context.getUnit('int_id'), equals('125'));
       expect(context.getUnitValue('int_id'), isA<int>());
       expect(context.getUnitValue('int_id'), equals(125));
@@ -1336,14 +1335,11 @@ void main() {
       config.setUnit('o', 9);
       expect(assigned['o'], equals('9'));
       expect(config.getUnitValue('o'), equals(9));
-      // Looking up an unset unit drops nothing else.
       expect(config.getUnitValue('absent'), isNull);
       expect(config.getUnitValue('o'), equals(9));
       assigned['o'] = '10';
       expect(config.getUnitValue('o'), equals('10'));
 
-      // Once a lookup finds the unit missing, its stored number is dropped,
-      // so re-inserting the same text gives a string UID.
       config.setUnit('q', 125.75);
       assigned.clear();
       expect(config.getUnitValue('q'), isNull);
@@ -1375,6 +1371,61 @@ void main() {
               as PublishEvent;
       expect(event.units.map((u) => u.uid),
           equals([utf8.decode(Hashing.hashUnit('p-125'))]));
+    });
+
+    test('aLegacyStringGetUnitHashOverrideWorksWithNumericUids', () async {
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      final config = ContextConfig.create()..setUnit('session_id', 125.75);
+      final context = _StringHashContext(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher);
+      await context.waitUntilReady();
+
+      final int treatment = context.getTreatment('exp_test_ab');
+      context.track('goal1', null);
+      await context.publish();
+      expect(context.getPendingCount(), equals(0));
+      expect(context.hashedUids, everyElement('126'));
+      final PublishEvent event =
+          verify(eventHandler.publish(context, captureAny)).captured.single
+              as PublishEvent;
+      expect(
+          event.units.single.uid, equals(utf8.decode(Hashing.hashUnit('126'))));
+      final ExperimentVariables ab = context.getExperiment('exp_test_ab')!;
+      expect(
+          treatment,
+          equals(VariantAssigner(Hashing.hashUnit('126'))
+              .assign(ab.data.split, ab.data.seedHi, ab.data.seedLo)));
+    });
+
+    test('aCaseInsensitiveUnitsMapKeepsOneValuePerEntry', () {
+      final config = ContextConfig.create();
+      config.units_ = SplayTreeMap<String, String>(
+          (a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      config.setUnit('User', 125.75);
+      expect(config.getUnitValue('user'), equals(125.75));
+      config.setUnit('user', '125.75');
+      expect(config.getUnitValue('User'), equals('125.75'));
+      expect(config.getUnitValue('user'), equals('125.75'));
+      expect(config.getUnitValues().values.single, equals('125.75'));
+      final context = Context.create(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher, null);
+      final String key = context.getUnits().keys.single;
+      expect(context.getUnitHash(key, context.getUnitValue(key)!),
+          equals(Hashing.hashUnit('125.75')));
+    });
+
+    test('unitValuesHonourAContextThatOverridesTheUnitGetters', () async {
+      final context = _GetterUnitsContext(
+          clock,
+          ContextConfig.create(),
+          dataFutureReady,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher);
+      expect(context.getUnitValue('session_id'), equals('abc'));
+      expect(context.getUnitValues(), equals({'session_id': 'abc'}));
     });
 
     test('creatingAContextReadsTheConfigUnitsOnce', () {
@@ -1500,7 +1551,6 @@ void main() {
       final int abc = context.getTreatment('exp_test_abc');
       await context.publish();
 
-      // Every assignment and publish uses the hash of the UID first hashed.
       final assigner = VariantAssigner(Hashing.hashUnit('A'));
       final ExperimentVariables abData = context.getExperiment('exp_test_ab')!;
       final ExperimentVariables abcData =
@@ -1612,11 +1662,16 @@ void main() {
 
       // One context per experiment: the unit hash is cached per unit type,
       // so each assignment path must hash the UID itself.
-      Future<int> treatment(Object uid, String experiment) async {
+      // [legacy] uses a 2.1 subclass with a String-typed getUnitHash.
+      Future<int> treatment(Object uid, String experiment,
+          {bool legacy = false}) async {
         final config = ContextConfig.create()..setUnit('u', uid);
         final completer = Completer<ContextData>()..complete(splitRule);
-        final context = Context.create(clock, config, completer, dataProvider,
-            eventHandler, variableParser, audienceMatcher, null);
+        final context = legacy
+            ? _StringHashContext(clock, config, completer, dataProvider,
+                eventHandler, variableParser, audienceMatcher)
+            : Context.create(clock, config, completer, dataProvider,
+                eventHandler, variableParser, audienceMatcher, null);
         await context.waitUntilReady();
         return context.peekTreatment(experiment);
       }
@@ -1627,6 +1682,9 @@ void main() {
           final int expected = await treatment('${i + 1}', name);
           expect(await treatment(i + 0.75, name), equals(expected),
               reason: '$name uid ${i + 0.75}');
+          expect(
+              await treatment(i + 0.75, name, legacy: true), equals(expected),
+              reason: 'legacy $name uid ${i + 0.75}');
           if (await treatment('${i + 0.75}', name) != expected) {
             discriminating++;
           }
@@ -3060,7 +3118,6 @@ void main() {
       final Context context = createReadyContext();
       await context.waitUntilReady();
 
-      // 2.1 code: `Map<String, String> units = context.getUnits();`
       final Map<String, String> released = context.getUnits();
       expect(released, equals(units));
       final String? uid = context.getUnit('session_id');
@@ -3564,7 +3621,6 @@ class _SortedUnitsContext extends Context {
   final Map<String, String> units_ = SplayTreeMap<String, String>();
 }
 
-// A 2.1-style implementation that never backs units_.
 class _GetUnitsOnlyConfig implements ContextConfig {
   @override
   Map<String, String> getUnits() => {'session_id': 'abc'};
@@ -3616,4 +3672,47 @@ class _RewritingUnitsContext extends Context {
   void setUnits(Map<String, String> units) {
     super.setUnits({'session_id': 'p-${units['session_id']}'});
   }
+}
+
+// A 2.1-style subclass with the released String-typed hash override.
+class _StringHashContext extends Context {
+  _StringHashContext(
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, null);
+
+  final List<String> hashedUids = [];
+
+  @override
+  Uint8List getUnitHash(final String unitType, final String unitUID) {
+    hashedUids.add(unitUID);
+    return super.getUnitHash(unitType, unitUID);
+  }
+}
+
+// A 2.1-style subclass exposing its units through the getters only.
+class _GetterUnitsContext extends Context {
+  _GetterUnitsContext(
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, null);
+
+  @override
+  String? getUnit(final String unitType) =>
+      unitType == 'session_id' ? 'abc' : null;
+
+  @override
+  Map<String, String> getUnits() => {'session_id': 'abc'};
 }

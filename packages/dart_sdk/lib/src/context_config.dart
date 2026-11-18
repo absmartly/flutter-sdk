@@ -140,7 +140,9 @@ extension ContextConfigUnitValues on ContextConfig {
       unitValue(getUnits(), unitType);
 
   /// Every unit as set. A UID written through [ContextConfig.units_] is
-  /// returned as that string.
+  /// returned as that string; on a map the SDK does not own (an assigned map
+  /// or a subclass override), a rewrite to the same text that the SDK never
+  /// saw missing keeps the number.
   Map<String, Object> getUnitValues() {
     final Map<String, String> units = getUnits();
     return units.map(

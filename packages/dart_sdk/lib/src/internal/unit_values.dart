@@ -52,12 +52,14 @@ class UnitsMap extends MapBase<String, String>
 }
 
 // For a units map that is not a UnitsMap (a subclass override or an assigned
-// map), the values as set, keyed by that map. Such a map cannot see its own
-// writes, so a stored value is used while the map holds its string form: a
-// write of a different string wins, and a lookup that finds the unit missing
-// drops it. Only a same-string rewrite that is never seen missing keeps it.
-final Expando<Map<String, Object>> _plainValues =
-    Expando<Map<String, Object>>();
+// map), the numeric UIDs set through setUnit, keyed by that map. Such a map
+// cannot see its own writes, so a number is used only while the map's entry
+// still holds its string form: a write of a different string wins, and a
+// lookup that finds the unit missing drops it. Only a same-string rewrite
+// that is never seen missing keeps it. Lookups go through the map, so its own
+// key equality (e.g. a case-insensitive SplayTreeMap) decides which entry a
+// key reads.
+final Expando<Map<String, num>> _plainValues = Expando<Map<String, num>>();
 
 /// Stores [uid] for [unitType] in [units], keeping a number as set.
 void setUnitValue(Map<String, String> units, String unitType, Object uid) {
@@ -66,7 +68,16 @@ void setUnitValue(Map<String, String> units, String unitType, Object uid) {
     return;
   }
   units[unitType] = uid is String ? uid : uid.toString();
-  (_plainValues[units] ??= <String, Object>{})[unitType] = uid;
+  final Map<String, num>? values = _plainValues[units];
+  // The map decides which entry a key writes (its own key equality), so
+  // forget the numbers of every key that maps to the entry just written.
+  // Then a string write through an equal key is not shadowed by an older
+  // number.
+  values?.removeWhere(
+      (key, _) => units.containsKey(key) && _sameEntry(units, key, unitType));
+  if (uid is num) {
+    (_plainValues[units] ??= <String, num>{})[unitType] = uid;
+  }
 }
 
 /// The UID of [unitType] in [units] as set, or its string form.
@@ -75,11 +86,41 @@ Object? unitValue(Map<String, String> units, String unitType) {
     return units.value(unitType);
   }
   final String? uid = units[unitType];
-  final Map<String, Object>? values = _plainValues[units];
+  final Map<String, num>? values = _plainValues[units];
   if (uid == null) {
     values?.remove(unitType);
     return null;
   }
-  final Object? value = values?[unitType];
+  if (values == null || values.isEmpty) {
+    return uid;
+  }
+  // The key the number was stored under may differ from [unitType] when the
+  // map treats them as equal.
+  num? value = values[unitType];
+  if (value == null) {
+    for (final MapEntry<String, num> entry in values.entries) {
+      if (_sameEntry(units, entry.key, unitType)) {
+        value = entry.value;
+        break;
+      }
+    }
+  }
   return (value != null && value.toString() == uid) ? value : uid;
+}
+
+// Whether [a] and [b] address the same entry of [units]: equal keys, or keys
+// the map itself treats as equal (e.g. a case-insensitive SplayTreeMap).
+bool _sameEntry(Map<String, String> units, String a, String b) {
+  if (a == b) {
+    return true;
+  }
+  if (units is SplayTreeMap<String, String>) {
+    // A SplayTreeMap finds a key through its comparator: a and b address the
+    // same entry when looking either up lands on the other's position.
+    return units.lastKeyBefore(a) == units.lastKeyBefore(b) &&
+        units.firstKeyAfter(a) == units.firstKeyAfter(b) &&
+        units.containsKey(a) &&
+        units.containsKey(b);
+  }
+  return false;
 }
