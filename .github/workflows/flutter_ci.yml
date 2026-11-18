@@ -29,6 +29,10 @@ jobs:
         run: flutter pub get
         working-directory: packages/flutter_sdk
 
+      - name: Install dependencies (compat_2_1)
+        run: flutter pub get
+        working-directory: packages/compat_2_1
+
       - name: Generate mocks (dart_sdk)
         run: dart run build_runner build --delete-conflicting-outputs
         working-directory: packages/dart_sdk
