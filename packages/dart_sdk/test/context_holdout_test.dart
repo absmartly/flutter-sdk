@@ -1933,6 +1933,24 @@ void main() {
       expect(context.timeout_, isNotNull);
       context.clearTimeout();
     });
+
+    test('a holdout exposure is queued before the logger sees it', () async {
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+      ], [
+        newExperiment(1, 'exp_logged', holdoutIds: [11])
+      ]));
+      final List<int> pendingAtHoldout = [];
+      logger.onExposure = (exposure) {
+        if (exposure.id == 11) {
+          pendingAtHoldout.add(context.getPendingCount());
+        }
+      };
+
+      context.getTreatment('exp_logged');
+
+      expect(pendingAtHoldout, [2]);
+    });
   });
 
   group('malformed holdouts', () {
