@@ -2317,6 +2317,27 @@ void main() {
       ]);
     });
 
+    // JS keeps cached assignments across a refresh (_init(data, assignments))
+    // and reuses an unassigned one for an experiment that is gone, so a
+    // suppressed decision made while the experiment was live still publishes
+    // its holdout exposure on the first exposing read.
+    test(
+        'a suppressed experiment removed by refresh keeps its holdout decision',
+        () async {
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_a', holdoutASeedHi, holdoutASeedLo)
+      ], [
+        newExperiment(1, 'exp_removed', holdoutIds: [11])
+      ]));
+
+      expect(context.peekTreatment('exp_removed'), 0);
+      await refreshWith(context, ContextData());
+
+      expect(context.getTreatment('exp_removed'), 0);
+      expect(context.getTreatment('exp_removed'), 0);
+      await expectPublished(context, [holdoutExposure(11, 'holdout_a', 0)]);
+    });
+
     test('a suppressed key with no other candidate reads the control value',
         () async {
       final context = await ready(contextDataOf([
