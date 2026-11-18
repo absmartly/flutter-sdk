@@ -1510,6 +1510,8 @@ class Context {
   }
 
   // The pre-switchback cache-hit check, for a unit experiment's slot.
+  // Inlined so the cached read costs what it did before switchbacks.
+  @pragma('vm:prefer-inline')
   bool _isUnitAssignmentCurrent(final Assignment assignment, final int? custom,
       final int? override, final ExperimentVariables? experiment) {
     if (override != null) {
