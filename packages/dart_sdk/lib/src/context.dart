@@ -468,7 +468,7 @@ class Context {
   dynamic getVariableValue(final String key, final dynamic defaultValue) {
     checkReady(true);
 
-    if (holdoutKeys_.contains(key)) {
+    if (_isHoldoutKey(key)) {
       return _resolveVariableValue(key, defaultValue, false);
     }
     final Assignment? assignment = getVariableAssignment(key);
@@ -489,7 +489,7 @@ class Context {
   dynamic peekVariableValue(final String key, final dynamic defaultValue) {
     checkReady(true);
 
-    if (holdoutKeys_.contains(key)) {
+    if (_isHoldoutKey(key)) {
       return _resolveVariableValue(key, defaultValue, true);
     }
     final Assignment? assignment = getVariableAssignment(key);
@@ -1117,6 +1117,15 @@ class Context {
       }
     }
     return null;
+  }
+
+  // Holdout-free data never hashes the key.
+  bool _isHoldoutKey(final String key) {
+    if (holdoutKeys_.isEmpty) {
+      return false;
+    }
+    ContextCounters.holdoutKeyLookups++;
+    return holdoutKeys_.contains(key);
   }
 
   // JS context.ts _resolveVariableValue, for keys in [holdoutKeys_]. Unless

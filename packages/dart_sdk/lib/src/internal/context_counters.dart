@@ -13,11 +13,14 @@ class ContextCounters {
 
   static int coveredAssignmentResolutions = 0;
 
+  static int holdoutKeyLookups = 0;
+
   static void reset() {
     attributesMapBuilds = 0;
     ruleKeyBuilds = 0;
     ruleKeyComparisons = 0;
     holdoutAssignmentLookups = 0;
     coveredAssignmentResolutions = 0;
+    holdoutKeyLookups = 0;
   }
 }

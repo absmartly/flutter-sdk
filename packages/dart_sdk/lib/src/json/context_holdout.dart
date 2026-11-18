@@ -62,12 +62,15 @@ class ContextHoldout {
     this.holdoutType = holdoutType is String ? holdoutType : null;
   }
 
+  // Larger doubles no longer name one integer (JS Number.MAX_SAFE_INTEGER).
+  static const double _maxSafeInteger = 9007199254740991;
+
   static int? _int(dynamic value) {
     if (value is int) {
       return value;
     }
     if (value is double &&
-        value.isFinite &&
+        value.abs() <= _maxSafeInteger &&
         value == value.truncateToDouble()) {
       return value.toInt();
     }

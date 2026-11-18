@@ -2015,6 +2015,41 @@ void main() {
               experiments)));
     });
 
+    test('ids beyond 2^53 - 1 are dropped', () {
+      final Map<String, dynamic> holdout =
+          newHoldout(11, 'holdout_huge', holdoutASeedHi, holdoutASeedLo).toMap()
+            ..['id'] = 9007199254740992.0;
+      expect(() => ContextHoldout.fromMap(holdout), throwsFormatException);
+      holdout['id'] = 9007199254740991.0;
+      expect(ContextHoldout.fromMap(holdout).id, 9007199254740991);
+
+      final experiment = Experiment.fromMap(newExperiment(1, 'exp_huge').toMap()
+        ..['holdoutIds'] = [1e20, 9007199254740992.0, 11.0]);
+      expect(experiment.holdoutIds, [11]);
+    });
+
+    test('variable reads on holdout-free data never look up holdout keys',
+        () async {
+      ContextCounters.reset();
+      final experiments = [
+        withVariables(newExperiment(1, 'exp_free'), 'color')
+      ];
+      final free = await ready(contextDataOf(null, experiments));
+
+      expect(free.peekVariableValue('color', 'default'), 'treatment');
+      expect(free.getVariableValue('color', 'default'), 'treatment');
+      expect(ContextCounters.holdoutKeyLookups, 0);
+
+      final covered = await ready(contextDataOf([
+        newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+      ], [
+        withVariables(
+            newExperiment(1, 'exp_covered', holdoutIds: [11]), 'color')
+      ]));
+      expect(covered.getVariableValue('color', 'default'), 'treatment');
+      expect(ContextCounters.holdoutKeyLookups, 1);
+    });
+
     test('holdoutIds with no servable holdout skip the holdout path', () async {
       ContextCounters.reset();
       final context = await ready(contextDataOf([], [
@@ -2506,6 +2541,25 @@ void main() {
       await expectPublished(context, [
         exposure(1, 'exp_rename', normalVariant),
         holdoutExposure(11, 'renamed', 1),
+      ]);
+    });
+
+    test('a same-iteration rename keeps the name the arm was resolved with',
+        () async {
+      ContextData data(String name) => contextDataOf([
+            newHoldout(11, name, holdoutBSeedHi, holdoutBSeedLo)
+          ], [
+            newExperiment(1, 'exp_a', holdoutIds: [11]),
+          ]);
+      final context = await ready(data('h_old'));
+
+      expect(context.peekTreatment('exp_a'), normalVariant);
+      await refreshWith(context, data('h_new'));
+      expect(context.getTreatment('exp_a'), normalVariant);
+
+      await expectPublished(context, [
+        exposure(1, 'exp_a', normalVariant),
+        holdoutExposure(11, 'h_old', 1),
       ]);
     });
 

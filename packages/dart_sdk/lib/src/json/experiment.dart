@@ -170,14 +170,15 @@ class Experiment {
     }
   }
 
-  // Whole numbers only; any other entry can't name a holdout and is dropped.
+  // Whole numbers up to 2^53 - 1 only; any other entry can't name a holdout
+  // and is dropped.
   static List<int> _parseHoldoutIds(List value) {
     final List<int> ids = [];
     for (final element in value) {
       if (element is int) {
         ids.add(element);
       } else if (element is double &&
-          element.isFinite &&
+          element.abs() <= 9007199254740991 &&
           element == element.truncateToDouble()) {
         ids.add(element.toInt());
       }
