@@ -133,15 +133,17 @@ class ContextConfig {
 /// `implements ContextConfig` classes keep compiling.
 extension ContextConfigUnitValues on ContextConfig {
   /// The UID of [unitType] as set: a [String] or a [num].
+  ///
+  /// The values come from the map [ContextConfig.getUnits] returns, so an
+  /// override that returns a copy reports each UID in its string form.
   Object? getUnitValue(final String unitType) =>
-      unitValue(getUnits(), unitType, units_);
+      unitValue(getUnits(), unitType);
 
   /// Every unit as set. A UID written through [ContextConfig.units_] is
   /// returned as that string.
   Map<String, Object> getUnitValues() {
     final Map<String, String> units = getUnits();
-    final Map<String, String> setFrom = units_;
-    return units.map((unitType, uid) =>
-        MapEntry(unitType, unitValue(units, unitType, setFrom)!));
+    return units.map(
+        (unitType, uid) => MapEntry(unitType, unitValue(units, unitType)!));
   }
 }

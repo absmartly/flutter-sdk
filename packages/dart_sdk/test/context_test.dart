@@ -470,7 +470,6 @@ void main() {
       expect(context.isFailed(), isFalse);
       expect(context.readyError(), isNull);
       expect(context.getData(), same(refreshData));
-      // The ready event carries the data the context serves.
       verifyInOrder([
         eventLogger.handleEvent(context, EventType.refresh, refreshData),
         eventLogger.handleEvent(context, EventType.ready, refreshData),
@@ -513,9 +512,9 @@ void main() {
       final refreshing = context.refresh();
       refreshDataFuture.complete(refreshData);
       await refreshing;
-      // Reads work as soon as the refresh is installed; a waiter registered
-      // after it returns at once.
+      await Future<void>.delayed(Duration.zero);
       expect(context.isReady(), isTrue);
+      expect(waiterDone, isFalse);
       expect(await context.waitUntilReady(), same(context));
       dataFuture.complete(data);
       await waiter;
@@ -1385,15 +1384,42 @@ void main() {
           equals(Hashing.hashUnit('5')));
     });
 
-    test('numericUidsSurviveAConfigWhoseGetUnitsReturnsACopy', () async {
-      final config = _CopyingUnitsConfig()..setUnit('session_id', 5.0);
-      expect(config.getUnitValue('session_id'), equals(5.0));
+    test('aConfigThatImplementsGetUnitsOnlyStillCreatesAContext', () async {
+      final config = _GetUnitsOnlyConfig();
       final context = Context.create(clock, config, dataFutureReady,
           dataProvider, eventHandler, variableParser, audienceMatcher, null);
       await context.waitUntilReady();
-      expect(context.getUnitValue('session_id'), equals(5.0));
-      expect(context.getUnitHash('session_id', 5.0),
-          equals(Hashing.hashUnit('5')));
+      expect(context.getUnit('session_id'), equals('abc'));
+      expect(config.getUnitValue('session_id'), equals('abc'));
+    });
+
+    test('aSecondOverlappingRefreshDoesNotRetryAFailedPublish', () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setPublishDelay(10);
+      final context = Context.create(clock, config, dataFuture, dataProvider,
+          eventHandler, variableParser, audienceMatcher, null);
+      when(eventHandler.publish(any, any)).thenAnswer(
+          (_) => Completer<void>()..completeError(Exception('publish failed')));
+      context.track('goal1', null);
+
+      var refreshFuture = Completer<ContextData>();
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshFuture);
+      final first = context.refresh();
+      refreshFuture.complete(refreshData);
+      await first;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      verify(eventHandler.publish(any, any)).called(1);
+
+      refreshFuture = Completer<ContextData>();
+      final second = context.refresh();
+      refreshFuture.complete(refreshData);
+      await second;
+      dataFuture.complete(data);
+      await context.waitUntilReady();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      verifyNever(eventHandler.publish(any, any));
+      expect(context.getPendingCount(), equals(1));
     });
 
     test('aRefreshOfAReadyContextDoesNotRetryAFailedPublish', () async {
@@ -1416,6 +1442,29 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 50));
       verifyNever(eventHandler.publish(any, any));
       expect(context.getPendingCount(), equals(1));
+    });
+
+    test('aRewrittenNumericUidIsPublishedWithTheNewHash', () async {
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      final config = ContextConfig.create()..setUnit('u', 125.75);
+      final context = Context.create(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher, null);
+      await context.waitUntilReady();
+
+      context.track('goal1', null);
+      await context.publish();
+      context.units_['u'] = '125.75';
+      context.track('goal2', null);
+      await context.publish();
+
+      final events = verify(eventHandler.publish(context, captureAny))
+          .captured
+          .cast<PublishEvent>();
+      expect(events.map((e) => e.units.single.uid), [
+        utf8.decode(Hashing.hashUnit('126')),
+        utf8.decode(Hashing.hashUnit('125.75')),
+      ]);
     });
 
     test('paddedUidSetAgainThrowsAsIn21', () async {
@@ -3458,7 +3507,27 @@ class _SortedUnitsContext extends Context {
   final Map<String, String> units_ = SplayTreeMap<String, String>();
 }
 
-class _CopyingUnitsConfig extends ContextConfig {
+// A 2.1-style implementation that never backs units_.
+class _GetUnitsOnlyConfig implements ContextConfig {
   @override
-  Map<String, String> getUnits() => Map<String, String>.of(units_);
+  Map<String, String> getUnits() => {'session_id': 'abc'};
+
+  @override
+  Map<String, dynamic> getAttributes() => {};
+
+  @override
+  Map<String, int> getOverrides() => {};
+
+  @override
+  Map<String, int> getCustomAssignments() => {};
+
+  @override
+  int getPublishDelay() => -1;
+
+  @override
+  int getRefreshInterval() => 0;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnsupportedError('${invocation.memberName}');
 }

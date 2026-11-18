@@ -68,22 +68,14 @@ void setUnitValue(Map<String, String> units, String unitType, Object uid) {
   (_plainValues[units] ??= <String, Object>{})[unitType] = uid;
 }
 
-/// The UID of [unitType] in [units] as set, or its string form. [setFrom] is
-/// the map setUnit wrote to, when [units] may be a copy of it.
-Object? unitValue(Map<String, String> units, String unitType,
-    [Map<String, String>? setFrom]) {
+/// The UID of [unitType] in [units] as set, or its string form.
+Object? unitValue(Map<String, String> units, String unitType) {
   if (units is UnitsMap) {
     return units.value(unitType);
   }
   final String? uid = units[unitType];
   if (uid == null) {
     return null;
-  }
-  if (setFrom != null && !identical(setFrom, units)) {
-    final Object? value = unitValue(setFrom, unitType);
-    if (value != null && value.toString() == uid) {
-      return value;
-    }
   }
   final Object? value = _plainValues[units]?[unitType];
   return (value != null && value.toString() == uid) ? value : uid;

@@ -96,10 +96,10 @@ class Context {
       }
       _completeReady();
 
-      // The ready event carries the data the context serves.
       logEvent(EventType.ready, data_);
 
-      if (getPendingCount() > 0) {
+      // A refresh that made the context ready already scheduled them.
+      if (!_refreshInstalled && getPendingCount() > 0) {
         setTimeout();
       }
     }).catchError((exception) {
@@ -424,6 +424,7 @@ class Context {
             refreshing.complete();
             return;
           }
+          final bool wasReady = isReady();
           try {
             setData(data);
             _refreshInstalled = true;
@@ -438,7 +439,7 @@ class Context {
           // settled: events queued before ready are due now. The ready future
           // still completes when the initial fetch settles, so the ready and
           // error events keep their 2.1 order.
-          if (readyFuture_ != null && getPendingCount() > 0) {
+          if (!wasReady && getPendingCount() > 0) {
             setTimeout();
           }
         }, onError: fail);
@@ -889,8 +890,17 @@ class Context {
   }
 
   Uint8List getUnitHash(final String unitType, covariant final Object unitUID) {
-    return hashedUnits_[unitType] ??
-        (hashedUnits_[unitType] = Hashing.hashUnitValue(unitUID));
+    // A UID rewritten through units_ after it was hashed is hashed again;
+    // otherwise the hash is kept per unit type, as in 2.1.
+    final Uint8List? cached = hashedUnits_[unitType];
+    if (cached != null && _hashedUids[unitType] == unitUID) {
+      return cached;
+    }
+    if (cached != null) {
+      assigners_.remove(unitType);
+    }
+    _hashedUids[unitType] = unitUID;
+    return hashedUnits_[unitType] = Hashing.hashUnitValue(unitUID);
   }
 
   VariantAssigner getVariantAssigner(
@@ -1039,14 +1049,13 @@ class Context {
   /// The units, numeric UIDs in their `toString()` form. A UID written
   /// directly to this map replaces the value it was set as.
   final Map<String, String> units_ = UnitsMap();
-  // The UIDs as set, numbers included. Kept outside the instance so the
-  // ContextExtensions methods can read them for any Context.
   bool failed_ = false;
   ContextData? data_;
   Map<String, ExperimentVariables> index_ = {};
   Map<String, List<ExperimentVariables>> indexVariables_ = {};
 
   final Map<String, Uint8List> hashedUnits_ = {};
+  final Map<String, Object> _hashedUids = {};
   final Map<String, VariantAssigner> assigners_ = {};
   final Map<String, Assignment> assignmentCache_ = {};
 
