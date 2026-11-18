@@ -2025,14 +2025,21 @@ void main() {
       for (final id in [
         9007199254740992,
         9007199254740992.0,
-        -9007199254740992
+        -9007199254740992,
+        // The VM's minimum int, whose abs() overflows to itself.
+        int.parse('-9223372036854775808'),
       ]) {
         holdout['id'] = id;
         expect(() => ContextHoldout.fromMap(holdout), throwsFormatException);
       }
-      for (final id in [9007199254740991, 9007199254740991.0]) {
+      for (final id in [
+        9007199254740991,
+        9007199254740991.0,
+        -9007199254740991,
+        -9007199254740991.0,
+      ]) {
         holdout['id'] = id;
-        expect(ContextHoldout.fromMap(holdout).id, 9007199254740991);
+        expect(ContextHoldout.fromMap(holdout).id, id.toInt());
       }
 
       final experiment = Experiment.fromMap(newExperiment(1, 'exp_huge').toMap()

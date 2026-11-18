@@ -8,7 +8,8 @@ int? wholeNumber(dynamic value) {
   if (value is! num || !value.isFinite || value != value.truncate()) {
     return null;
   }
-  if (value.abs() > _maxSafeInteger) {
+  // Not abs(): on the VM the minimum int's abs() overflows to itself.
+  if (value < -_maxSafeInteger || value > _maxSafeInteger) {
     return null;
   }
   return value.toInt();
