@@ -1723,7 +1723,7 @@ void main() {
           unitId: uidNotHeldOut);
     });
 
-    test('an assigned candidate lacking the key passes to the next one',
+    test('an assigned candidate lacking a covered key passes to the next one',
         () async {
       final context = await ready(
           contextDataOf([
@@ -1731,7 +1731,9 @@ void main() {
           ], [
             newExperiment(1, 'exp_sparse_first')
               ..variants[1].config = '{"banner":"first"}',
-            withVariables(newExperiment(2, 'exp_dense_second'), 'banner'),
+            withVariables(
+                newExperiment(2, 'exp_dense_second', holdoutIds: [11]),
+                'banner'),
           ]),
           unitId: uidNotHeldOut);
 
@@ -1742,8 +1744,81 @@ void main() {
           [
             exposure(1, 'exp_sparse_first', 0),
             exposure(2, 'exp_dense_second', 0),
+            holdoutExposure(11, 'holdout_b', 1),
           ],
           unitId: uidNotHeldOut);
+    });
+
+    test('a key no holdout covers reads as without holdouts', () async {
+      final experiments = [
+        newExperiment(1, 'exp_sparse_first')
+          ..variants[1].config = '{"banner":"first"}',
+        withVariables(newExperiment(2, 'exp_dense_second'), 'banner'),
+        newExperiment(3, 'exp_covered', holdoutIds: [11]),
+      ];
+      final withHoldout = await ready(
+          contextDataOf(
+              [newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)],
+              experiments),
+          unitId: uidNotHeldOut);
+      final withoutHoldout =
+          await ready(contextDataOf(null, experiments), unitId: uidNotHeldOut);
+
+      for (final context in [withHoldout, withoutHoldout]) {
+        expect(context.peekVariableValue('banner', 'default'), 'default');
+        expect(context.getVariableValue('banner', 'default'), 'default');
+        expect(context.getPendingCount(), 1);
+      }
+    });
+
+    test('an out-of-range override on a covered key is skipped', () async {
+      for (final variant in [5, -1]) {
+        publisher.events.clear();
+        final context = await ready(contextDataOf([
+          newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+        ], [
+          withVariables(
+              newExperiment(1, 'exp_out_of_range', holdoutIds: [11]), 'color'),
+          withVariables(newExperiment(2, 'exp_in_range'), 'color'),
+        ]));
+        context.setOverride('exp_out_of_range', variant);
+
+        expect(context.peekVariableValue('color', 'default'), 'treatment');
+        expect(context.getVariableValue('color', 'default'), 'treatment');
+
+        await expectPublished(
+            context, [exposure(2, 'exp_in_range', normalVariant)]);
+      }
+    });
+
+    test('an override on a held-out covered candidate wins', () async {
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_a', holdoutASeedHi, holdoutASeedLo)
+      ], [
+        withVariables(
+            newExperiment(1, 'exp_held_overridden', holdoutIds: [11]), 'color'),
+      ]));
+      context.setOverride('exp_held_overridden', 1);
+
+      expect(context.peekVariableValue('color', 'default'), 'treatment');
+      expect(context.getVariableValue('color', 'default'), 'treatment');
+    });
+
+    test('a rule-won held-out candidate lacking the key is no fallback',
+        () async {
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_a', holdoutASeedHi, holdoutASeedLo)
+      ], [
+        newExperiment(1, 'exp_held_rule', holdoutIds: [11])
+          ..assignmentRules = usRule
+          ..variants[0].config = '{"shared":"rule_control"}',
+        newExperiment(2, 'exp_held_plain', holdoutIds: [11])
+          ..variants[0].config = '{"shared":"plain_control"}',
+      ]));
+      context.setAttribute('country', 'US');
+
+      expect(context.peekVariableValue('shared', 'default'), 'plain_control');
+      expect(context.getVariableValue('shared', 'default'), 'plain_control');
     });
 
     test('the first held-out candidate is the fallback', () async {

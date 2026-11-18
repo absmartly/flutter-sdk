@@ -468,7 +468,7 @@ class Context {
   dynamic getVariableValue(final String key, final dynamic defaultValue) {
     checkReady(true);
 
-    if (_holdoutsServable) {
+    if (_isHoldoutKey(key)) {
       return _resolveVariableValue(key, defaultValue, false);
     }
     final Assignment? assignment = getVariableAssignment(key);
@@ -489,7 +489,7 @@ class Context {
   dynamic peekVariableValue(final String key, final dynamic defaultValue) {
     checkReady(true);
 
-    if (_holdoutsServable) {
+    if (_isHoldoutKey(key)) {
       return _resolveVariableValue(key, defaultValue, true);
     }
     final Assignment? assignment = getVariableAssignment(key);
@@ -1098,6 +1098,9 @@ class Context {
     return assignment;
   }
 
+  // The first candidate the unit is assigned to, overridden into or given by a
+  // rule. Variable reads on a key a holdout covers select through
+  // _resolveVariableValue instead.
   Assignment? getVariableAssignment(final String key) {
     final List<ExperimentVariables>? keyExperimentVariables =
         getVariableExperiments(key);
@@ -1116,8 +1119,15 @@ class Context {
     return null;
   }
 
-  // JS context.ts _resolveVariableValue, used once the data has a servable
-  // holdout; payloads without one keep the loop above. Unless peeking, every
+  // Whether a holdout covers a candidate for [key]. Keys no holdout covers
+  // keep the loop above.
+  bool _isHoldoutKey(final String key) {
+    return getVariableExperiments(key)?.any(
+            (experimentVariables) => experimentVariables._holdouts != null) ??
+        false;
+  }
+
+  // JS context.ts _resolveVariableValue. Unless peeking, every
   // candidate checked is exposed. Only a candidate defining the key wins, and
   // the first held-out candidate (not overridden or rule-won) is the fallback
   // even when it lacks the key.
@@ -1222,8 +1232,6 @@ class Context {
       }
     }
 
-    _holdoutsServable = holdoutsById.isNotEmpty;
-
     for (Experiment experiment in data.experiments) {
       final ExperimentVariables experimentVariables = ExperimentVariables();
       experimentVariables.data = experiment;
@@ -1308,7 +1316,6 @@ class Context {
   void setDataFailed(exception) {
     index_ = {};
     indexVariables_ = {};
-    _holdoutsServable = false;
     data_ = ContextData();
     failed_ = true;
     failedError_ = exception;
@@ -1346,7 +1353,6 @@ class Context {
   final Map<String, VariantAssigner> assigners_ = {};
   final Map<String, Assignment> assignmentCache_ = {};
   final Map<(int, String), _HoldoutAssignment> _holdoutAssignmentCache = {};
-  bool _holdoutsServable = false;
 
   final List<Exposure> exposures_ = [];
   final List<GoalAchievement> achievements_ = [];
