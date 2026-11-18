@@ -4,6 +4,10 @@
 // (git blob b314abeb9e97), via java-sdk core-api/src/test/resources.
 // Runs on the VM and compiled to JavaScript (dart test -p node), where 64-bit
 // values only survive as BigInt.
+import 'dart:typed_data';
+
+import 'package:absmartly_dart/src/internal/buffers.dart';
+import 'package:absmartly_dart/src/internal/hashing/murmur3_32.dart';
 import 'package:absmartly_dart/src/internal/switchback_assigner.dart';
 import 'package:test/test.dart';
 
@@ -117,5 +121,16 @@ void main() {
     // Math.floorDiv(Long.MIN_VALUE, 3L) and Math.floorDiv(Long.MAX_VALUE, 10L).
     expect(f(longMin, 3), BigInt.parse('-3074457345618258603'));
     expect(f(longMax, 10), BigInt.parse('922337203685477580'));
+  });
+
+  // A step hash of 0xffffffff gives prob == 1.0, which would map to i + 1
+  // without the clamp. Base hash 0x67ab735b makes the only step of a 2-arm
+  // permutation (i = 1) hash to 0xffffffff (found by exhaustive search).
+  test('aStepHashOfAllOnesStaysInRange', () {
+    final Uint8List step = Uint8List(8);
+    Buffers.putUInt32(step, 0, 0x67ab735b);
+    Buffers.putUInt32(step, 4, 1);
+    expect(Murmur3_32.digest(step, 0), 0xffffffff);
+    expect(SwitchbackAssigner.fisherYatesPermutation(2, 0x67ab735b), [0, 1]);
   });
 }

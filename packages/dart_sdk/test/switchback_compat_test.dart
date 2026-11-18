@@ -1,3 +1,7 @@
+import 'holdout_compat_test.dart' show NullPublisher;
+import 'package:absmartly_dart/src/java/time/clock.dart';
+import 'package:absmartly_dart/src/audience_matcher.dart';
+import 'dart:async';
 // Switchback model fields: deserialization (java-sdk
 // DefaultContextDataDeserializerTest and ExperimentSwitchbackFieldsTest),
 // forward compatibility, customer `implements` compatibility and the publish
@@ -143,6 +147,46 @@ void main() {
           expect(ContextCounters.switchbackServingResolutions, 0);
         }
       });
+    }
+  });
+
+  // A cached read of a unit experiment takes the pre-switchback cache-hit
+  // check and never the switchback-aware path.
+  test('cached unit reads never take the slow assignment path', () async {
+    for (final fixture in const ['context', 'audience_context']) {
+      final bytes = await getResourceBytes('$fixture.json');
+      final data =
+          DefaultContextDataDeserializer().deserialize(bytes, 0, bytes.length)!;
+      final context = Context.create(
+          Clock.fixed(1620000000000),
+          ContextConfig.create()
+            ..setUnit('session_id', 'e791e240fcd3df7d238cfc285f475e8152fcc0ec')
+            ..setPublishDelay(-1),
+          Completer<ContextData>()..complete(data),
+          NoDataProvider(),
+          NullPublisher(),
+          DefaultVariableParser(),
+          AudienceMatcher(DefaultAudienceDeserializer()),
+          null);
+      await context.waitUntilReady();
+      for (final name in context.getExperiments()) {
+        context.getTreatment(name);
+      }
+      for (final key in context.getVariableKeys().keys) {
+        context.getVariableValue(key, null);
+      }
+      ContextCounters.reset();
+      for (int i = 0; i < 5; ++i) {
+        for (final name in context.getExperiments()) {
+          context.getTreatment(name);
+          context.peekTreatment(name);
+        }
+        for (final key in context.getVariableKeys().keys) {
+          context.getVariableValue(key, null);
+          context.peekVariableValue(key, null);
+        }
+      }
+      expect(ContextCounters.slowAssignmentLookups, 0, reason: fixture);
     }
   });
 }

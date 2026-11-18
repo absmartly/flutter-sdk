@@ -1587,4 +1587,30 @@ void main() {
     expect(context.getTreatment('exp_sb'), 1);
     expect(context.getPendingCount(), 2);
   });
+
+  // A matching assignment rule wins over a custom assignment on a
+  // switchback too.
+  test('anAssignmentRuleWinsOverACustomAssignment', () async {
+    final context =
+        await h.create(dataOf([sb(3, hour)..assignmentRules = assignVariant1]));
+    context.setCustomAssignment('exp_sb', 2);
+    h.clock.now = anchor + 2 * hour;
+    expect(context.getTreatment('exp_sb'), 1);
+    expect(await h.publishExposures(context),
+        [ruleExposure('exp_sb', 1, anchor + 2 * hour)]);
+  });
+
+  // The period length is switchback identity: 1h -> 2h -> 1h is three
+  // epochs. The 1h period-1 slot from the first epoch is dropped, so the third
+  // epoch exposes it again rather than resurrecting it.
+  test('aPeriodLengthChangeAndBackIsANewEpochEachTime', () async {
+    final context = await h.create(dataOf([sb(2, hour)]));
+    h.clock.now = anchor + hour + 10;
+    context.getTreatment('exp_sb');
+    await h.refreshTo(context, [sb(2, 2 * hour)]);
+    context.getTreatment('exp_sb');
+    await h.refreshTo(context, [sb(2, hour)]);
+    context.getTreatment('exp_sb');
+    expect(context.getPendingCount(), 3);
+  });
 }

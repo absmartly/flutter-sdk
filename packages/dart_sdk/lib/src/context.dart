@@ -1329,6 +1329,7 @@ class Context {
   // variable-key lookup resolves; read here when null.
   Assignment _getAssignment(final String experimentName, int? now,
       {Assignment? rejected}) {
+    ContextCounters.slowAssignmentLookups++;
     final int? custom = cassignments_[experimentName];
     final int? override = overrides_[experimentName];
     final ExperimentVariables? experiment = getExperiment(experimentName);
