@@ -469,10 +469,56 @@ void main() {
       expect(context.isFailed(), isFalse);
       expect(context.readyError(), isNull);
       expect(context.getData(), same(refreshData));
+      // The ready event carries the data the context serves.
       verifyInOrder([
         eventLogger.handleEvent(context, EventType.refresh, refreshData),
-        eventLogger.handleEvent(context, EventType.ready, data),
+        eventLogger.handleEvent(context, EventType.ready, refreshData),
       ]);
+    });
+
+    test('eventsQueuedBeforeReadyPublishAfterAnOverlappingRefreshWins',
+        () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setPublishDelay(10);
+      final context = Context.create(clock, config, dataFuture, dataProvider,
+          eventHandler, variableParser, audienceMatcher, eventLogger);
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      context.track('goal1', null);
+      final refreshing = context.refresh();
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+      dataFuture.completeError(Exception('initial load failed'));
+      await context.waitUntilReady();
+      expect(context.isFailed(), isFalse);
+
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(context.getPendingCount(), equals(0));
+      final published = verify(eventHandler.publish(any, captureAny)).captured;
+      expect((published.single as PublishEvent).goals.single.name,
+          equals('goal1'));
+    });
+
+    test('waitUntilReadyCompletesWhenTheInitialFetchSettlesAfterRefresh',
+        () async {
+      final context = createContextWithDefaultConfig(dataFuture);
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+      var waiterDone = false;
+      final waiter = context.waitUntilReady().then((_) => waiterDone = true);
+
+      final refreshing = context.refresh();
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+      // Reads work as soon as the refresh is installed; a waiter registered
+      // after it returns at once.
+      expect(context.isReady(), isTrue);
+      expect(await context.waitUntilReady(), same(context));
+      dataFuture.complete(data);
+      await waiter;
+      expect(waiterDone, isTrue);
     });
 
     test('initialSuccessBeforeOverlappingRefreshInstallsBoth', () async {
@@ -1259,6 +1305,33 @@ void main() {
       expect(context.getUnitValue('u'), equals('8'));
       expect(context.getUnitValues()['u'], equals('8'));
       expect(() => context.setUnit('u', '8'), returnsNormally);
+    });
+
+    test('aUidRewrittenThroughUnitsFieldDropsTheNumberItWasSetAs', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.setUnit('u', 125.75);
+      context.units_.remove('u');
+      context.units_['u'] = '125.75';
+      expect(context.getUnitValue('u'), equals('125.75'));
+      expect(context.getUnitHash('u', context.getUnitValue('u')!),
+          equals(Hashing.hashUnit('125.75')));
+
+      final config = ContextConfig.create()..setUnit('c', 125.75);
+      config.units_['c'] = '125.75';
+      expect(config.getUnitValue('c'), equals('125.75'));
+      config.setUnit('n', 7);
+      config.units_ = {'n': '7'};
+      expect(config.getUnitValue('n'), equals('7'));
+      config.setUnit('m', 8);
+      expect(config.getUnitValue('m'), equals(8));
+
+      // A removal through the map clears the stored number too, so a later
+      // putIfAbsent of the same text does not bring it back.
+      config.units_.remove('m');
+      config.units_.putIfAbsent('m', () => '8');
+      expect(config.getUnitValue('m'), equals('8'));
     });
 
     test('paddedUidSetAgainThrowsAsIn21', () async {
@@ -3265,7 +3338,6 @@ class _StringUnitsContext extends Context {
   }
 }
 
-// Throws on its first parse, so the first data install fails.
 class _FailOnceVariableParser extends DefaultVariableParser {
   bool _failed = false;
 

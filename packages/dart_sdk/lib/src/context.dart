@@ -12,6 +12,7 @@ import 'context_data_provider.dart';
 import 'context_publisher.dart';
 import 'context_event_logger.dart';
 import 'internal/context_counters.dart';
+import 'internal/unit_values.dart';
 import 'internal/hashing/hashing.dart';
 import 'internal/variant_assigner.dart';
 import 'java/time/clock.dart';
@@ -81,7 +82,7 @@ class Context {
     // numbers they were set as for hashing.
     config.getUnitValues().forEach((unitType, uid) {
       if (uid is num && units_[unitType] == uid.toString()) {
-        _unitValues[unitType] = uid;
+        _setUnitValue(unitType, uid);
       }
     });
     setAttributes(config.getAttributes());
@@ -93,10 +94,10 @@ class Context {
       if (!_refreshInstalled) {
         setData(data);
       }
-      readyFuture_!.complete();
-      readyFuture_ = null;
+      _completeReady();
 
-      logEvent(EventType.ready, data);
+      // The ready event carries the data the context serves.
+      logEvent(EventType.ready, data_);
 
       if (getPendingCount() > 0) {
         setTimeout();
@@ -105,10 +106,17 @@ class Context {
       if (!_refreshInstalled) {
         setDataFailed(exception);
       }
-      readyFuture_!.complete();
-      readyFuture_ = null;
+      _completeReady();
       logError(exception);
     });
+  }
+
+  void _completeReady() {
+    final Completer<void>? ready = readyFuture_;
+    readyFuture_ = null;
+    if (ready != null && !ready.isCompleted) {
+      ready.complete();
+    }
   }
 
   bool isReady() {
@@ -128,11 +136,12 @@ class Context {
   }
 
   Future<Context> waitUntilReady() async {
-    if (isReady()) {
+    final Completer<void>? ready = readyFuture_;
+    if (isReady() || ready == null) {
       return Future.value(this);
     }
 
-    return readyFuture_!.future.then((_) {
+    return ready.future.then((_) {
       return this;
     });
   }
@@ -206,8 +215,7 @@ class Context {
       throw Exception("Unit $unitType UID must not be blank.");
     }
 
-    units_[unitType] = value is String ? value : value.toString();
-    _unitValues[unitType] = value;
+    _setUnitValue(unitType, value);
 
     _invalidateAssignmentsPinnedWithMissingUnit(unitType);
   }
@@ -228,7 +236,17 @@ class Context {
   }
 
   Object? _unitValue(final String unitType) {
-    return _unitValueOf(units_[unitType], _unitValues[unitType]);
+    final Map<String, String> units = units_;
+    return units is UnitsMap ? units.value(unitType) : units[unitType];
+  }
+
+  void _setUnitValue(final String unitType, final Object uid) {
+    final Map<String, String> units = units_;
+    if (units is UnitsMap) {
+      units.setValue(unitType, uid);
+    } else {
+      units[unitType] = uid is String ? uid : uid.toString();
+    }
   }
 
   void setUnits(covariant Map<String, Object> units) {
@@ -425,6 +443,13 @@ class Context {
           refreshing_ = false;
           refreshing.complete();
           logEvent(EventType.refresh, data);
+          // The context may have become ready through this refresh, before
+          // the initial fetch settled: queued events are due now. The ready
+          // future still completes when the initial fetch settles, so the
+          // ready and error events keep their 2.1 order.
+          if (getPendingCount() > 0) {
+            setTimeout();
+          }
         }, onError: fail);
       } catch (error) {
         fail(error);
@@ -1019,10 +1044,12 @@ class Context {
   late AudienceMatcher audienceMatcher_;
   late ContextEventLogger? eventLogger_;
   String? _environmentName;
-  final Map<String, String> units_ = {};
+
+  /// The units, numeric UIDs in their `toString()` form. A UID written
+  /// directly to this map replaces the value it was set as.
+  final Map<String, String> units_ = UnitsMap();
   // The UIDs as set, numbers included. Kept outside the instance so the
   // ContextExtensions methods can read them for any Context.
-  Map<String, Object> get _unitValues => _contextUnitValues[this] ??= {};
   bool failed_ = false;
   ContextData? data_;
   Map<String, ExperimentVariables> index_ = {};
@@ -1053,19 +1080,6 @@ class Context {
   Future<void>? _flushFuture;
   Timer? timeout_;
   Timer? refreshTimer_;
-}
-
-final Expando<Map<String, Object>> _contextUnitValues =
-    Expando<Map<String, Object>>();
-
-// A UID written straight into Context.units_ wins over the stored value.
-Object? _unitValueOf(final String? uid, final Object? value) {
-  if (uid == null) {
-    return null;
-  }
-  return (value != null && (value is String ? value : value.toString()) == uid)
-      ? value
-      : uid;
 }
 
 // Context is a public class that customers may implement or mock, so the
@@ -1099,14 +1113,15 @@ extension ContextExtensions on Context {
 
   /// The UID of [unitType] as set: a [String] or a [num].
   Object? getUnitValue(final String unitType) {
-    return _unitValueOf(getUnit(unitType), _contextUnitValues[this]?[unitType]);
+    final Context self = this;
+    final Map<String, String> units = self.units_;
+    return units is UnitsMap ? units.value(unitType) : getUnit(unitType);
   }
 
   /// Every unit as set, numbers included.
   Map<String, Object> getUnitValues() {
-    final Map<String, Object>? values = _contextUnitValues[this];
-    return getUnits().map((unitType, uid) =>
-        MapEntry(unitType, _unitValueOf(uid, values?[unitType])!));
+    return getUnits().map(
+        (unitType, uid) => MapEntry(unitType, getUnitValue(unitType) ?? uid));
   }
 
   Set<String> getCustomFieldKeys() {
