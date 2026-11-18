@@ -468,13 +468,16 @@ class Context {
   dynamic getVariableValue(final String key, final dynamic defaultValue) {
     checkReady(true);
 
-    final Assignment? assignment = _getVariableAssignment(key, false);
+    if (_holdoutsServable) {
+      return _resolveVariableValue(key, defaultValue, false);
+    }
+    final Assignment? assignment = getVariableAssignment(key);
     if (assignment != null) {
       // Queue exposure when assignment exists, regardless of whether key is in variables
       // This matches JavaScript SDK behavior - exposure is logged even when user
       // is not in traffic (eligible=false) to record that the variable was accessed
       if (!assignment.exposed) {
-        _triggerExposures(assignment);
+        queueExposure(assignment);
       }
       if (assignment.variables.containsKey(key)) {
         return assignment.variables[key];
@@ -486,6 +489,9 @@ class Context {
   dynamic peekVariableValue(final String key, final dynamic defaultValue) {
     checkReady(true);
 
+    if (_holdoutsServable) {
+      return _resolveVariableValue(key, defaultValue, true);
+    }
     final Assignment? assignment = getVariableAssignment(key);
     if (assignment != null) {
       if (assignment.variables.containsKey(key)) {
@@ -1093,20 +1099,10 @@ class Context {
   }
 
   Assignment? getVariableAssignment(final String key) {
-    return _getVariableAssignment(key, true);
-  }
-
-  // The first candidate the unit is assigned to, overridden into or given by a
-  // rule. A suppressed candidate never wins over one of those, but the first
-  // one is the fallback (its control values) when nothing else wins. Unless
-  // peeking, every holdout-covered candidate passed over is exposed (JS
-  // context.ts _resolveVariableValue).
-  Assignment? _getVariableAssignment(final String key, final bool peek) {
     final List<ExperimentVariables>? keyExperimentVariables =
         getVariableExperiments(key);
 
     if (keyExperimentVariables != null) {
-      Assignment? suppressedFallback;
       for (ExperimentVariables experimentVariables in keyExperimentVariables) {
         final Assignment assignment =
             getAssignment(experimentVariables.data.name);
@@ -1115,21 +1111,46 @@ class Context {
             assignment._ruleOverride) {
           return assignment;
         }
-        // A covered candidate passed over is exposed like JS does it: its
-        // own exposure (unless suppressed) and its holdouts'. Marking it
-        // exposed also keeps a later setUnit from re-randomizing it.
-        if (!peek &&
-            assignment._holdoutAssignments != null &&
-            !assignment.exposed) {
-          _triggerExposures(assignment);
-        }
-        if (assignment._suppressed) {
-          suppressedFallback ??= assignment;
-        }
       }
-      return suppressedFallback;
     }
     return null;
+  }
+
+  // JS context.ts _resolveVariableValue, used once the data has a servable
+  // holdout; payloads without one keep the loop above. Unless peeking, every
+  // candidate checked is exposed. Only a candidate defining the key wins, and
+  // the first held-out candidate (not overridden or rule-won) is the fallback
+  // even when it lacks the key.
+  dynamic _resolveVariableValue(
+      final String key, final dynamic defaultValue, final bool peek) {
+    Map<String, dynamic>? suppressedFallback;
+    for (ExperimentVariables experimentVariables
+        in getVariableExperiments(key) ?? const []) {
+      final Assignment assignment =
+          getAssignment(experimentVariables.data.name);
+      if (assignment.variant < 0 ||
+          assignment.variant >= experimentVariables.data.variants.length) {
+        continue;
+      }
+      if (!peek && !assignment.exposed) {
+        _triggerExposures(assignment);
+      }
+      if (assignment.variables.containsKey(key) &&
+          (assignment.assigned ||
+              assignment.overridden ||
+              assignment._ruleOverride)) {
+        return assignment.variables[key];
+      }
+      if (assignment._suppressed &&
+          !assignment.overridden &&
+          !assignment._ruleOverride) {
+        suppressedFallback ??= assignment.variables;
+      }
+    }
+    if (suppressedFallback != null && suppressedFallback.containsKey(key)) {
+      return suppressedFallback[key];
+    }
+    return defaultValue;
   }
 
   ExperimentVariables? getExperiment(final String experimentName) {
@@ -1200,6 +1221,8 @@ class Context {
         holdoutsById[holdout.id] = holdout;
       }
     }
+
+    _holdoutsServable = holdoutsById.isNotEmpty;
 
     for (Experiment experiment in data.experiments) {
       final ExperimentVariables experimentVariables = ExperimentVariables();
@@ -1285,6 +1308,7 @@ class Context {
   void setDataFailed(exception) {
     index_ = {};
     indexVariables_ = {};
+    _holdoutsServable = false;
     data_ = ContextData();
     failed_ = true;
     failedError_ = exception;
@@ -1322,6 +1346,7 @@ class Context {
   final Map<String, VariantAssigner> assigners_ = {};
   final Map<String, Assignment> assignmentCache_ = {};
   final Map<(int, String), _HoldoutAssignment> _holdoutAssignmentCache = {};
+  bool _holdoutsServable = false;
 
   final List<Exposure> exposures_ = [];
   final List<GoalAchievement> achievements_ = [];
