@@ -451,15 +451,17 @@ class _SwitchbackFields {
       ..estimand = estimand is String ? estimand : null;
   }
 
-  // Kept in the payload's key order, which is semantic. A path that is not a
-  // string reads as null, which makes the map unreadable (the legacy path).
+  // Kept in the payload's key order, which is semantic. A number or boolean
+  // path is read as its text, as Java's decoder does; any other non-string
+  // path reads as null, which makes the map unreadable (the legacy path).
   static Map<String, String?>? _parseClusters(final dynamic value) {
     if (value is! Map) {
       return null;
     }
     final Map<String, String?> clusters = <String, String?>{};
     value.forEach((key, path) {
-      clusters[key.toString()] = path is String ? path : null;
+      clusters[key.toString()] =
+          (path is String || path is num || path is bool) ? '$path' : null;
     });
     return Map.unmodifiable(clusters);
   }

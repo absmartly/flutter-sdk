@@ -735,11 +735,14 @@ class Context {
   // compared by _switchbackConfigMatches. On the legacy path a unitType change
   // is part of the switchback identity, so it starts a new generation and the
   // stale epoch's slots are dropped before they get here.
-  static bool _experimentMatches(
+  bool _experimentMatches(
       final ExperimentVariables entry, final Assignment assignment) {
+    if (!entry._switchback) {
+      return experimentMatches(entry.data, assignment) &&
+          !assignment._switchback;
+    }
     final Experiment experiment = entry.data;
     return experiment.id == assignment.id &&
-        (entry._switchback || experiment.unitType == assignment.unitType) &&
         experiment.iteration == assignment.iteration &&
         experiment.fullOnVariant == assignment.fullOnVariant &&
         const ListEquality()
