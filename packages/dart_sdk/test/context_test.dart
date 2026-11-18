@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'package:absmartly_dart/src/internal/hashing/hashing.dart';
+import 'package:absmartly_dart/src/internal/variant_assigner.dart';
 import 'package:absmartly_dart/src/audience_matcher.dart';
 import 'package:absmartly_dart/src/context.dart';
 import 'package:absmartly_dart/src/context_config.dart';
@@ -1444,27 +1445,41 @@ void main() {
       expect(context.getPendingCount(), equals(1));
     });
 
-    test('aRewrittenNumericUidIsPublishedWithTheNewHash', () async {
+    test('aUidRewrittenAfterHashingKeepsTheFirstHashAsIn21', () async {
       when(eventHandler.publish(any, any))
           .thenAnswer((_) => createCompleteVoidCompleter());
-      final config = ContextConfig.create()..setUnit('u', 125.75);
+      final config = ContextConfig.create()..setUnit('session_id', 'A');
       final context = Context.create(clock, config, dataFutureReady,
           dataProvider, eventHandler, variableParser, audienceMatcher, null);
       await context.waitUntilReady();
 
-      context.track('goal1', null);
-      await context.publish();
-      context.units_['u'] = '125.75';
-      context.track('goal2', null);
+      final int ab = context.getTreatment('exp_test_ab');
+      context.units_['session_id'] = 'B';
+      final int abc = context.getTreatment('exp_test_abc');
       await context.publish();
 
-      final events = verify(eventHandler.publish(context, captureAny))
-          .captured
-          .cast<PublishEvent>();
-      expect(events.map((e) => e.units.single.uid), [
-        utf8.decode(Hashing.hashUnit('126')),
-        utf8.decode(Hashing.hashUnit('125.75')),
-      ]);
+      // Every assignment and publish uses the hash of the UID first hashed.
+      final assigner = VariantAssigner(Hashing.hashUnit('A'));
+      final ExperimentVariables abData = context.getExperiment('exp_test_ab')!;
+      final ExperimentVariables abcData =
+          context.getExperiment('exp_test_abc')!;
+      expect(
+          ab,
+          equals(assigner.assign(
+              abData.data.split, abData.data.seedHi, abData.data.seedLo)));
+      expect(
+          abc,
+          equals(assigner.assign(
+              abcData.data.split, abcData.data.seedHi, abcData.data.seedLo)));
+      final PublishEvent event =
+          verify(eventHandler.publish(context, captureAny)).captured.single
+              as PublishEvent;
+      expect(
+          event.units.single.uid, equals(utf8.decode(Hashing.hashUnit('A'))));
+      expect(
+          identical(context.getUnitHash('session_id', 'B'),
+              context.getUnitHash('session_id', 'A')),
+          isTrue);
     });
 
     test('paddedUidSetAgainThrowsAsIn21', () async {

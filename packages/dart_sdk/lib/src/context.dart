@@ -889,18 +889,12 @@ class Context {
     return indexVariables_[key];
   }
 
+  // The hash is computed once per unit type and kept, as in 2.1: every
+  // assignment and every publish of a context uses the same unit identity,
+  // even if the UID is later rewritten through units_.
   Uint8List getUnitHash(final String unitType, covariant final Object unitUID) {
-    // A UID rewritten through units_ after it was hashed is hashed again;
-    // otherwise the hash is kept per unit type, as in 2.1.
-    final Uint8List? cached = hashedUnits_[unitType];
-    if (cached != null && _hashedUids[unitType] == unitUID) {
-      return cached;
-    }
-    if (cached != null) {
-      assigners_.remove(unitType);
-    }
-    _hashedUids[unitType] = unitUID;
-    return hashedUnits_[unitType] = Hashing.hashUnitValue(unitUID);
+    return hashedUnits_[unitType] ??
+        (hashedUnits_[unitType] = Hashing.hashUnitValue(unitUID));
   }
 
   VariantAssigner getVariantAssigner(
@@ -1055,7 +1049,6 @@ class Context {
   Map<String, List<ExperimentVariables>> indexVariables_ = {};
 
   final Map<String, Uint8List> hashedUnits_ = {};
-  final Map<String, Object> _hashedUids = {};
   final Map<String, VariantAssigner> assigners_ = {};
   final Map<String, Assignment> assignmentCache_ = {};
 
