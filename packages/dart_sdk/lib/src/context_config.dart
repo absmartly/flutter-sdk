@@ -134,13 +134,14 @@ class ContextConfig {
 extension ContextConfigUnitValues on ContextConfig {
   /// The UID of [unitType] as set: a [String] or a [num].
   Object? getUnitValue(final String unitType) =>
-      unitValue(getUnits(), unitType);
+      unitValue(getUnits(), unitType, units_);
 
   /// Every unit as set. A UID written through [ContextConfig.units_] is
   /// returned as that string.
   Map<String, Object> getUnitValues() {
     final Map<String, String> units = getUnits();
-    return units.map(
-        (unitType, uid) => MapEntry(unitType, unitValue(units, unitType)!));
+    final Map<String, String> setFrom = units_;
+    return units.map((unitType, uid) =>
+        MapEntry(unitType, unitValue(units, unitType, setFrom)!));
   }
 }

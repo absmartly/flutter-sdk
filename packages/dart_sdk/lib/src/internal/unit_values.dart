@@ -52,8 +52,9 @@ class UnitsMap extends MapBase<String, String>
 }
 
 // For a units map that is not a UnitsMap (a subclass override or an assigned
-// map), the values as set, keyed by that map. Used only while the map still
-// holds the same string form, so a write through the map wins.
+// map), the values as set, keyed by that map. Such a map cannot see its own
+// writes, so a stored value is used while the map holds its string form: a
+// write of a different string wins, a write of the same string keeps it.
 final Expando<Map<String, Object>> _plainValues =
     Expando<Map<String, Object>>();
 
@@ -67,14 +68,22 @@ void setUnitValue(Map<String, String> units, String unitType, Object uid) {
   (_plainValues[units] ??= <String, Object>{})[unitType] = uid;
 }
 
-/// The UID of [unitType] in [units] as set, or its string form.
-Object? unitValue(Map<String, String> units, String unitType) {
+/// The UID of [unitType] in [units] as set, or its string form. [setFrom] is
+/// the map setUnit wrote to, when [units] may be a copy of it.
+Object? unitValue(Map<String, String> units, String unitType,
+    [Map<String, String>? setFrom]) {
   if (units is UnitsMap) {
     return units.value(unitType);
   }
   final String? uid = units[unitType];
   if (uid == null) {
     return null;
+  }
+  if (setFrom != null && !identical(setFrom, units)) {
+    final Object? value = unitValue(setFrom, unitType);
+    if (value != null && value.toString() == uid) {
+      return value;
+    }
   }
   final Object? value = _plainValues[units]?[unitType];
   return (value != null && value.toString() == uid) ? value : uid;

@@ -1385,6 +1385,17 @@ void main() {
           equals(Hashing.hashUnit('5')));
     });
 
+    test('numericUidsSurviveAConfigWhoseGetUnitsReturnsACopy', () async {
+      final config = _CopyingUnitsConfig()..setUnit('session_id', 5.0);
+      expect(config.getUnitValue('session_id'), equals(5.0));
+      final context = Context.create(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher, null);
+      await context.waitUntilReady();
+      expect(context.getUnitValue('session_id'), equals(5.0));
+      expect(context.getUnitHash('session_id', 5.0),
+          equals(Hashing.hashUnit('5')));
+    });
+
     test('aRefreshOfAReadyContextDoesNotRetryAFailedPublish', () async {
       final config = ContextConfig.create()
         ..setUnits(units)
@@ -3445,4 +3456,9 @@ class _SortedUnitsContext extends Context {
 
   @override
   final Map<String, String> units_ = SplayTreeMap<String, String>();
+}
+
+class _CopyingUnitsConfig extends ContextConfig {
+  @override
+  Map<String, String> getUnits() => Map<String, String>.of(units_);
 }
