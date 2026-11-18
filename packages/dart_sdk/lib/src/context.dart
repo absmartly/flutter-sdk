@@ -1113,12 +1113,13 @@ extension ContextExtensions on Context {
   /// from [Context.getUnit], so a subclass that overrides it is honoured; a
   /// number is restored only while it matches that UID.
   Object? getUnitValue(final String unitType) {
+    final Context self = this;
+    // Looked up first, so a unit seen missing drops its stored number.
+    final Object? value = unitValue(self.units_, unitType);
     final String? uid = getUnit(unitType);
     if (uid == null) {
       return null;
     }
-    final Context self = this;
-    final Object? value = unitValue(self.units_, unitType);
     return (value is num && value.toString() == uid) ? value : uid;
   }
 

@@ -1428,6 +1428,39 @@ void main() {
       expect(context.getUnitValues(), equals({'session_id': 'abc'}));
     });
 
+    test('aContextUnitSeenMissingDropsItsNumber', () async {
+      final config = ContextConfig.create();
+      final context = _SortedUnitsContext(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher);
+      context.setUnit('k', 5.0);
+      expect(context.getUnitValue('k'), equals(5.0));
+      context.units_.remove('k');
+      expect(context.getUnitValue('k'), isNull);
+      context.units_['k'] = '5.0';
+      expect(context.getUnitValue('k'), equals('5.0'));
+      expect(context.getUnitValues(), equals({'k': '5.0'}));
+    });
+
+    test('unitValuesFollowTheGettersWhenTheyDisagreeWithUnits', () async {
+      final config = ContextConfig.create();
+      final context = _OtherUnitContext(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher);
+      context.setUnit('k', 5.0);
+      expect(context.getUnitValue('k'), equals('other'));
+      expect(context.getUnitValues(), equals({'k': 'other'}));
+    });
+
+    test('aCaseInsensitiveMissDropsTheNumberOfAnEqualKey', () {
+      final config = ContextConfig.create();
+      config.units_ = SplayTreeMap<String, String>(
+          (a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      config.setUnit('User', 5.0);
+      config.units_.remove('user');
+      expect(config.getUnitValue('user'), isNull);
+      config.units_['user'] = '5.0';
+      expect(config.getUnitValue('user'), equals('5.0'));
+    });
+
     test('creatingAContextReadsTheConfigUnitsOnce', () {
       final config = _CountingUnitsConfig()..setUnit('session_id', 'abc');
       Context.create(clock, config, dataFutureReady, dataProvider, eventHandler,
@@ -3715,4 +3748,26 @@ class _GetterUnitsContext extends Context {
 
   @override
   Map<String, String> getUnits() => {'session_id': 'abc'};
+}
+
+// A 2.1-style subclass whose getters report another UID than units_ holds.
+class _OtherUnitContext extends Context {
+  _OtherUnitContext(
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, null);
+
+  @override
+  String? getUnit(final String unitType) =>
+      super.getUnit(unitType) == null ? null : 'other';
+
+  @override
+  Map<String, String> getUnits() =>
+      super.getUnits().map((key, _) => MapEntry(key, 'other'));
 }
