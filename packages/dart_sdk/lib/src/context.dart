@@ -809,6 +809,7 @@ class Context {
   // is still seen as changed.
   static bool _holdoutSetMatches(
       final ExperimentVariables experiment, final Assignment assignment) {
+    ContextCounters.holdoutSetComparisons++;
     final List<ContextHoldout>? fresh = experiment._holdouts;
     final List<int>? pinned = assignment._holdoutIdentity;
     if (fresh == null || pinned == null || fresh.length * 2 != pinned.length) {

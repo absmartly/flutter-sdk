@@ -53,10 +53,12 @@ const int now = 1620000000000;
 
 class RecordingPublisher implements ContextPublisher {
   final List<PublishEvent> events = [];
+  void Function()? onPublish;
 
   @override
   Completer<void> publish(Context context, PublishEvent event) {
     events.add(event);
+    onPublish?.call();
     return Completer<void>()..complete();
   }
 }
@@ -1969,6 +1971,39 @@ void main() {
 
       expect(pendingAtHoldout, [2]);
     });
+  });
+
+  test('cached covered reads use the holdout identity fast path', () async {
+    final context = await ready(contextDataOf([
+      newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+    ], [
+      newExperiment(1, 'exp_cached', holdoutIds: [11])
+    ]));
+    context.peekTreatment('exp_cached');
+    ContextCounters.reset();
+    for (int i = 0; i < 10; i++) {
+      expect(context.peekTreatment('exp_cached'), normalVariant);
+    }
+    expect(ContextCounters.holdoutSetComparisons, 0);
+  });
+
+  test('close drains more than two batches queued by publish callbacks',
+      () async {
+    final context = await ready(contextDataOf([], [
+      newExperiment(1, 'exp_one'),
+      newExperiment(2, 'exp_two'),
+      newExperiment(3, 'exp_three'),
+    ]));
+    context.getTreatment('exp_one');
+    publisher.onPublish = () {
+      if (publisher.events.length < 3) {
+        context.queueExposure(context.getAssignment(
+            publisher.events.length == 1 ? 'exp_two' : 'exp_three'));
+      }
+    };
+    await context.close();
+    expect(publisher.events, hasLength(3));
+    expect(context.getPendingCount(), 0);
   });
 
   group('malformed holdouts', () {

@@ -57,6 +57,9 @@ abstract class Murmur3_32 {
   // The low 32 bits of a * b. Split into 16-bit halves so every partial
   // product stays below 2^53 and is exact on the web, where ints are doubles.
   static int imul32(int a, int b) {
+    if (!identical(0, 0.0)) {
+      return (a * b) & 0xffffffff;
+    }
     a &= 0xffffffff;
     b &= 0xffffffff;
     final int low = (a & 0xffff) * b;
