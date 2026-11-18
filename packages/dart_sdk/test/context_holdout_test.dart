@@ -1771,6 +1771,29 @@ void main() {
       }
     });
 
+    test('a key whose holdouts are not servable reads as without holdouts',
+        () async {
+      List<Experiment> experiments() => [
+            newExperiment(1, 'exp_sparse_first', holdoutIds: [11])
+              ..variants[1].config = '{"banner":"first"}',
+            withVariables(newExperiment(2, 'exp_dense_second'), 'banner'),
+          ];
+      for (final holdouts in [
+        [newHoldout(12, 'holdout_other', holdoutBSeedHi, holdoutBSeedLo)],
+        [
+          newHoldout(11, 'holdout_empty', holdoutBSeedHi, holdoutBSeedLo,
+              split: const [])
+        ],
+      ]) {
+        final context = await ready(contextDataOf(holdouts, experiments()),
+            unitId: uidNotHeldOut);
+
+        expect(context.peekVariableValue('banner', 'default'), 'default');
+        expect(context.getVariableValue('banner', 'default'), 'default');
+        expect(context.getPendingCount(), 1);
+      }
+    });
+
     test('an out-of-range override on a covered key is skipped', () async {
       for (final variant in [5, -1]) {
         publisher.events.clear();

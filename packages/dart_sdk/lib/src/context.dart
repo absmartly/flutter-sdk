@@ -468,7 +468,7 @@ class Context {
   dynamic getVariableValue(final String key, final dynamic defaultValue) {
     checkReady(true);
 
-    if (_isHoldoutKey(key)) {
+    if (holdoutKeys_.contains(key)) {
       return _resolveVariableValue(key, defaultValue, false);
     }
     final Assignment? assignment = getVariableAssignment(key);
@@ -489,7 +489,7 @@ class Context {
   dynamic peekVariableValue(final String key, final dynamic defaultValue) {
     checkReady(true);
 
-    if (_isHoldoutKey(key)) {
+    if (holdoutKeys_.contains(key)) {
       return _resolveVariableValue(key, defaultValue, true);
     }
     final Assignment? assignment = getVariableAssignment(key);
@@ -1119,15 +1119,8 @@ class Context {
     return null;
   }
 
-  // Whether a holdout covers a candidate for [key]. Keys no holdout covers
-  // keep the loop above.
-  bool _isHoldoutKey(final String key) {
-    return getVariableExperiments(key)?.any(
-            (experimentVariables) => experimentVariables._holdouts != null) ??
-        false;
-  }
-
-  // JS context.ts _resolveVariableValue. Unless peeking, every
+  // JS context.ts _resolveVariableValue, for keys in [holdoutKeys_]. Unless
+  // peeking, every
   // candidate checked is exposed. Only a candidate defining the key wins, and
   // the first held-out candidate (not overridden or rule-won) is the fallback
   // even when it lacks the key.
@@ -1223,6 +1216,7 @@ class Context {
   void setData(final ContextData data) {
     final Map<String, ExperimentVariables> index = {};
     final Map<String, List<ExperimentVariables>> indexVariables = {};
+    final Set<String> holdoutKeys = {};
 
     // Only holdouts with a split can be served (JS context.ts _init).
     final Map<int, ContextHoldout> holdoutsById = {};
@@ -1253,6 +1247,9 @@ class Context {
               this, experiment.name, variant.name, variant.config!);
 
           variables?.forEach((key, value) {
+            if (experimentVariables._holdouts != null) {
+              holdoutKeys.add(key);
+            }
             List<ExperimentVariables>? keyExperimentVariables =
                 indexVariables[key];
             if (keyExperimentVariables == null) {
@@ -1285,6 +1282,7 @@ class Context {
 
     index_ = index;
     indexVariables_ = indexVariables;
+    holdoutKeys_ = holdoutKeys;
     data_ = data;
 
     assignmentCache_.removeWhere((experimentName, assignment) {
@@ -1316,6 +1314,7 @@ class Context {
   void setDataFailed(exception) {
     index_ = {};
     indexVariables_ = {};
+    holdoutKeys_ = {};
     data_ = ContextData();
     failed_ = true;
     failedError_ = exception;
@@ -1348,6 +1347,8 @@ class Context {
   ContextData? data_;
   Map<String, ExperimentVariables> index_ = {};
   Map<String, List<ExperimentVariables>> indexVariables_ = {};
+  // Variable keys a holdout covers through one of their experiments.
+  Set<String> holdoutKeys_ = {};
 
   final Map<String, Uint8List> hashedUnits_ = {};
   final Map<String, VariantAssigner> assigners_ = {};
