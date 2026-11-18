@@ -1338,6 +1338,18 @@ void main() {
       expect(config.getUnitValue('o'), equals(9));
       assigned['o'] = '10';
       expect(config.getUnitValue('o'), equals('10'));
+
+      // Once a lookup finds the unit missing, its stored number is dropped,
+      // so re-inserting the same text gives a string UID.
+      config.setUnit('q', 125.75);
+      assigned.clear();
+      expect(config.getUnitValue('q'), isNull);
+      assigned['q'] = '125.75';
+      expect(config.getUnitValue('q'), equals('125.75'));
+      final fresh = Context.create(clock, config, dataFutureReady, dataProvider,
+          eventHandler, variableParser, audienceMatcher, null);
+      expect(fresh.getUnitHash('q', fresh.getUnitValue('q')!),
+          equals(Hashing.hashUnit('125.75')));
       assigned['p'] = 'x';
       expect(config.getUnit('p'), equals('x'));
     });

@@ -54,7 +54,8 @@ class UnitsMap extends MapBase<String, String>
 // For a units map that is not a UnitsMap (a subclass override or an assigned
 // map), the values as set, keyed by that map. Such a map cannot see its own
 // writes, so a stored value is used while the map holds its string form: a
-// write of a different string wins, a write of the same string keeps it.
+// write of a different string wins, and a lookup that finds the unit missing
+// drops it. Only a same-string rewrite that is never seen missing keeps it.
 final Expando<Map<String, Object>> _plainValues =
     Expando<Map<String, Object>>();
 
@@ -74,9 +75,11 @@ Object? unitValue(Map<String, String> units, String unitType) {
     return units.value(unitType);
   }
   final String? uid = units[unitType];
+  final Map<String, Object>? values = _plainValues[units];
   if (uid == null) {
+    values?.remove(unitType);
     return null;
   }
-  final Object? value = _plainValues[units]?[unitType];
+  final Object? value = values?[unitType];
   return (value != null && value.toString() == uid) ? value : uid;
 }
