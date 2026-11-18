@@ -1613,4 +1613,75 @@ void main() {
     context.getTreatment('exp_sb');
     expect(context.getPendingCount(), 3);
   });
+
+  // An unexposed override of a switchback with no linked unit is re-resolved
+  // by setUnit, so it is exposed under the unit that now serves.
+  test('setUnitReresolvesAnUnexposedOverrideOfANotApplyingSwitchback',
+      () async {
+    final context = await h.create(
+        dataOf([
+          sb(2, hour)
+            ..switchbackClusters = {'user_id': 'nothing', unitType: clusterPath}
+        ]),
+        units: {});
+    context.setOverride('exp_sb', 1);
+    expect(context.peekTreatment('exp_sb'), 1);
+    context.setUnit(unitType, uid);
+    expect(context.getTreatment('exp_sb'), 1);
+    expect(await h.publishExposures(context),
+        [exposure(1, 'exp_sb', 1, anchor, assigned: false, overridden: true)]);
+  });
+
+  // A split rule revalidated after setAttribute hashes the serving unit
+  // again, so the slot stays current and is not exposed twice.
+  test('aSplitRuleIsRevalidatedOverTheServingUnit', () async {
+    for (int u = 0; u < 8; ++u) {
+      final harness = Harness();
+      final context = await harness.create(
+          dataOf([
+            sb(2, hour)
+              ..unitType = 'user_id'
+              ..assignmentRules =
+                  '{"rules":[{"type":"split","environments":[],"percentages":"50/50"}]}'
+          ]),
+          units: {unitType: 'store-$u', 'user_id': 'fixed-user'});
+      final int first = context.getTreatment('exp_sb');
+      context.setAttribute('unrelated', 1);
+      expect(context.getTreatment('exp_sb'), first);
+      expect(context.getPendingCount(), 1, reason: 'store-$u');
+    }
+  });
+
+  // An override is exposed under the unit that serves, which need not be the
+  // first linked type.
+  test('anOverrideIsExposedUnderTheServingUnit', () async {
+    final context = await h.create(
+        dataOf([
+          sb(2, hour)
+            ..switchbackClusters = {'user_id': 'nothing', unitType: clusterPath}
+        ]),
+        units: {'user_id': 'u1', unitType: uid});
+    context.setOverride('exp_sb', 1);
+    expect(context.getTreatment('exp_sb'), 1);
+    expect(await h.publishExposures(context),
+        [exposure(1, 'exp_sb', 1, anchor, assigned: false, overridden: true)]);
+  });
+
+  // The allow-list is switchback identity: A -> B -> A without a read in
+  // between still ends the first epoch.
+  test('anAllowListChangeAndBackIsANewEpoch', () async {
+    final context = await h.create(dataOf([
+      sb(2, hour)..switchbackClusterValues = [clusterKey]
+    ]));
+    h.clock.now = anchor + 10;
+    context.getTreatment('exp_sb');
+    await h.refreshTo(context, [
+      sb(2, hour)..switchbackClusterValues = [clusterKey, 'other']
+    ]);
+    await h.refreshTo(context, [
+      sb(2, hour)..switchbackClusterValues = [clusterKey]
+    ]);
+    context.getTreatment('exp_sb');
+    expect(context.getPendingCount(), 2);
+  });
 }
