@@ -260,7 +260,9 @@ void main() {
     ]));
 
     expect(context.peekTreatment('exp_holdout_in'), 0);
+    expect(context.getAssignment('exp_holdout_in').exposed, isFalse);
     context.getTreatment('exp_holdout_in');
+    expect(context.getAssignment('exp_holdout_in').exposed, isTrue);
 
     await expectPublished(context, [holdoutExposure(11, 'holdout_a', 0)]);
   });
@@ -2042,6 +2044,25 @@ void main() {
           11.0
         ]);
       expect(experiment.holdoutIds, [9007199254740991, 11]);
+    });
+
+    test('an infinite holdout id is dropped, not thrown', () {
+      final data = ContextData.fromMap({
+        'experiments': [
+          newExperiment(1, 'exp_infinite').toMap()
+            ..['holdoutIds'] = [double.infinity, double.nan, 2]
+        ],
+        'holdouts': [
+          newHoldout(1, 'holdout_infinite', holdoutASeedHi, holdoutASeedLo)
+              .toMap()
+            ..['id'] = double.infinity,
+          newHoldout(2, 'holdout_finite', holdoutASeedHi, holdoutASeedLo)
+              .toMap(),
+        ],
+      });
+
+      expect(data.holdouts.map((holdout) => holdout.id), [2]);
+      expect(data.experiments.single.holdoutIds, [2]);
     });
 
     test('variable reads on holdout-free data never look up holdout keys',
