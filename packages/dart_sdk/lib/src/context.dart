@@ -595,7 +595,12 @@ class Context {
     closingFuture_ = closing;
     closing_ = true;
 
-    flush().then((_) {
+    // Events queued while the final publish runs (by an exposure logger, or a
+    // read still in progress) are published before close completes.
+    Future<void> drain() =>
+        flush().then((_) => pendingCount_ > 0 ? drain() : null);
+
+    drain().then((_) {
       closing_ = false;
       closingFuture_ = null;
       closed_ = true;
@@ -931,6 +936,7 @@ class Context {
   }
 
   Assignment getAssignment(final String experimentName) {
+    ContextCounters.assignmentLookups++;
     Assignment? assignment = assignmentCache_[experimentName];
     final int? custom = cassignments_[experimentName];
     final int? override = overrides_[experimentName];
@@ -1090,6 +1096,7 @@ class Context {
         assignment.variant >= 0 &&
         (assignment.variant < experiment.data.variants.length)) {
       assignment.variables = experiment.variables[assignment.variant] ?? {};
+      assignment._hasVariables = true;
     }
 
     assignment.attrsSeq = attrsSeq_;
@@ -1119,7 +1126,6 @@ class Context {
     return null;
   }
 
-  // Holdout-free data never hashes the key.
   bool _isHoldoutKey(final String key) {
     if (_holdoutKeys.isEmpty) {
       return false;
@@ -1128,11 +1134,12 @@ class Context {
     return _holdoutKeys.contains(key);
   }
 
-  // JS context.ts _resolveVariableValue, for keys in [_holdoutKeys]. Unless
-  // peeking, every
-  // candidate checked is exposed. Only a candidate defining the key wins, and
-  // the first held-out candidate (not overridden or rule-won) is the fallback
-  // even when it lacks the key.
+  // JS context.ts _resolveVariableValue, for keys in [_holdoutKeys]. A
+  // candidate whose variant resolved no variables (out of range, or removed
+  // by data installed during this read) is skipped. Unless peeking, every
+  // other one is exposed. Only a candidate defining the key wins, and the
+  // first held-out candidate (not overridden or rule-won) is the fallback even
+  // when it lacks the key.
   dynamic _resolveVariableValue(
       final String key, final dynamic defaultValue, final bool peek) {
     Map<String, dynamic>? suppressedFallback;
@@ -1140,8 +1147,7 @@ class Context {
         in getVariableExperiments(key) ?? const []) {
       final Assignment assignment =
           getAssignment(experimentVariables.data.name);
-      if (assignment.variant < 0 ||
-          assignment.variant >= experimentVariables.data.variants.length) {
+      if (!assignment._hasVariables) {
         continue;
       }
       if (!peek && !assignment.exposed) {
@@ -1357,7 +1363,6 @@ class Context {
   ContextData? data_;
   Map<String, ExperimentVariables> index_ = {};
   Map<String, List<ExperimentVariables>> indexVariables_ = {};
-  // Variable keys a holdout covers through one of their experiments.
   Set<String> _holdoutKeys = {};
 
   final Map<String, Uint8List> hashedUnits_ = {};
@@ -1422,6 +1427,8 @@ class Assignment {
   List<int>? _holdoutIdentity;
   List<_HoldoutAssignment?>? _holdoutAssignments;
   Map<String, dynamic> variables = {};
+  // Whether [variables] was resolved from the experiment's variant.
+  bool _hasVariables = false;
   bool exposed = false;
   int attrsSeq = 0;
 }

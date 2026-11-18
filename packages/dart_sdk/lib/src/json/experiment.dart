@@ -1,5 +1,7 @@
 import 'package:collection/collection.dart';
 
+import '../internal/whole_number.dart';
+
 import 'experiment_variant.dart';
 import 'experiment_application.dart';
 
@@ -175,12 +177,9 @@ class Experiment {
   static List<int> _parseHoldoutIds(List value) {
     final List<int> ids = [];
     for (final element in value) {
-      if (element is int) {
-        ids.add(element);
-      } else if (element is double &&
-          element.abs() <= 9007199254740991 &&
-          element == element.truncateToDouble()) {
-        ids.add(element.toInt());
+      final int? id = wholeNumber(element);
+      if (id != null) {
+        ids.add(id);
       }
     }
     return ids;
