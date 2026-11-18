@@ -298,12 +298,9 @@ class Context {
   }
 
   // A suppressed experiment publishes no exposure of its own; the holdouts
-  // that cover it publish theirs (JS context.ts _triggerExposures). A
-  // switchback the Collector records nothing for publishes nothing.
+  // that cover it publish theirs (JS context.ts _triggerExposures).
   void _triggerExposures(final Assignment assignment) {
-    if (assignment._switchbackSilent) {
-      assignment.exposed = true;
-    } else if (!assignment._suppressed ||
+    if (!assignment._suppressed ||
         assignment.overridden ||
         assignment._ruleOverride) {
       queueExposure(assignment);
@@ -361,6 +358,7 @@ class Context {
   void queueExposure(final Assignment assignment) {
     if (!assignment.exposed) {
       assignment.exposed = true;
+      // A switchback the Collector records nothing for publishes nothing.
       if (assignment._switchbackSilent) {
         return;
       }
