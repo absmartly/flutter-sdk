@@ -90,7 +90,9 @@ class Context {
 
     readyFuture_ = Completer<void>();
     dataFuture.future.then((data) {
-      setData(data);
+      if (!_refreshInstalled) {
+        setData(data);
+      }
       readyFuture_!.complete();
       readyFuture_ = null;
 
@@ -100,7 +102,9 @@ class Context {
         setTimeout();
       }
     }).catchError((exception) {
-      setDataFailed(exception);
+      if (!_refreshInstalled) {
+        setDataFailed(exception);
+      }
       readyFuture_!.complete();
       readyFuture_ = null;
       logError(exception);
@@ -405,6 +409,9 @@ class Context {
         dataProvider_.getContextData().future.then((data) {
           try {
             setData(data);
+            _refreshInstalled = true;
+            failed_ = false;
+            _failedErrors[this] = null;
           } catch (error) {
             fail(error);
             return;
@@ -1032,6 +1039,8 @@ class Context {
   bool closing_ = false;
   bool closed_ = false;
   bool refreshing_ = false;
+  // The initial response must not replace a successfully installed refresh.
+  bool _refreshInstalled = false;
   Completer<void>? readyFuture_;
   Completer<void>? closingFuture_;
   Completer<void>? refreshFuture_;

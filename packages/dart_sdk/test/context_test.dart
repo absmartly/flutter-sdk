@@ -344,6 +344,108 @@ void main() {
       verify(dataProvider.getContextData()).called(1);
     });
 
+    test('initialFailureBeforeOverlappingRefreshRecoversAndPublishes',
+        () async {
+      final context = createContextWithDefaultConfig(dataFuture);
+      final ready = context.waitUntilReady();
+      final error = Exception('initial load failed');
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      final refreshing = context.refresh();
+      dataFuture.completeError(error);
+      expect(await ready, same(context));
+      expect(context.isFailed(), isTrue);
+      expect(context.readyError(), same(error));
+
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+      expect(context.isReady(), isTrue);
+      expect(context.isFailed(), isFalse);
+      expect(context.readyError(), isNull);
+      expect(context.getData(), same(refreshData));
+      verifyInOrder([
+        eventLogger.handleEvent(context, EventType.error, error),
+        eventLogger.handleEvent(context, EventType.refresh, refreshData),
+      ]);
+      verifyNever(eventLogger.handleEvent(context, EventType.ready, any));
+
+      context.getTreatment(refreshData.experiments.first.name);
+      await context.publish();
+      final published = verify(eventHandler.publish(any, captureAny)).captured;
+      expect((published.single as PublishEvent).exposures, hasLength(1));
+    });
+
+    test('initialFailureAfterOverlappingRefreshKeepsRefresh', () async {
+      final context = createContextWithDefaultConfig(dataFuture);
+      final ready = context.waitUntilReady();
+      var readyCompleted = false;
+      ready.then((_) => readyCompleted = true);
+      final error = Exception('initial load failed');
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      final refreshing = context.refresh();
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+      expect(readyCompleted, isFalse);
+      dataFuture.completeError(error);
+      expect(await ready, same(context));
+      expect(context.isReady(), isTrue);
+      expect(context.isFailed(), isFalse);
+      expect(context.readyError(), isNull);
+      expect(context.getData(), same(refreshData));
+      verifyInOrder([
+        eventLogger.handleEvent(context, EventType.refresh, refreshData),
+        eventLogger.handleEvent(context, EventType.error, error),
+      ]);
+      verifyNever(eventLogger.handleEvent(context, EventType.ready, any));
+
+      context.getTreatment(refreshData.experiments.first.name);
+      await context.publish();
+      final published = verify(eventHandler.publish(any, captureAny)).captured;
+      expect((published.single as PublishEvent).exposures, hasLength(1));
+    });
+
+    test('initialSuccessAfterOverlappingRefreshKeepsRefresh', () async {
+      final context = createContextWithDefaultConfig(dataFuture);
+      final ready = context.waitUntilReady();
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+
+      final refreshing = context.refresh();
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+      dataFuture.complete(data);
+      expect(await ready, same(context));
+      expect(context.isFailed(), isFalse);
+      expect(context.readyError(), isNull);
+      expect(context.getData(), same(refreshData));
+      verifyInOrder([
+        eventLogger.handleEvent(context, EventType.refresh, refreshData),
+        eventLogger.handleEvent(context, EventType.ready, data),
+      ]);
+    });
+
+    test('initialSuccessBeforeOverlappingRefreshInstallsBoth', () async {
+      final context = createContextWithDefaultConfig(dataFuture);
+      final ready = context.waitUntilReady();
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+
+      final refreshing = context.refresh();
+      dataFuture.complete(data);
+      expect(await ready, same(context));
+      expect(context.getData(), same(data));
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+      expect(context.getData(), same(refreshData));
+      verifyInOrder([
+        eventLogger.handleEvent(context, EventType.ready, data),
+        eventLogger.handleEvent(context, EventType.refresh, refreshData),
+      ]);
+    });
+
     test('throwsWhenClosed', () async {
       final Context context = createReadyContext();
       await context.waitUntilReady();
