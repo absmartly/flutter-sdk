@@ -1058,8 +1058,7 @@ class Context {
 final Expando<Map<String, Object>> _contextUnitValues =
     Expando<Map<String, Object>>();
 
-// The UID as set: [value] when it still matches the string form [uid] (a UID
-// changed through Context.units_ is that string), otherwise [uid].
+// A UID written straight into Context.units_ wins over the stored value.
 Object? _unitValueOf(final String? uid, final Object? value) {
   if (uid == null) {
     return null;

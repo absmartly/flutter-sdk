@@ -1240,7 +1240,6 @@ void main() {
       expect(
           config.getUnitValues(), equals({'user_id': 42, 'session_id': 'abc'}));
 
-      // A UID replaced through the released units_ field wins.
       config.units_['user_id'] = '43';
       expect(config.getUnitValue('user_id'), equals('43'));
 
