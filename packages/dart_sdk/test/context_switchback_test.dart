@@ -1684,4 +1684,17 @@ void main() {
     context.getTreatment('exp_sb');
     expect(context.getPendingCount(), 2);
   });
+
+  // The start is switchback identity: a start change and back without a read
+  // in between still ends the first epoch.
+  test('aStartAtChangeAndBackIsANewEpoch', () async {
+    final context = await h.create(dataOf([sb(2, hour)]));
+    h.clock.now = anchor + 3 * hour + 10;
+    context.getTreatment('exp_sb');
+    await h.refreshTo(
+        context, [sb(2, hour)..switchbackStartAt = anchor - 2 * hour]);
+    await h.refreshTo(context, [sb(2, hour)]);
+    context.getTreatment('exp_sb');
+    expect(context.getPendingCount(), 2);
+  });
 }
