@@ -417,7 +417,6 @@ void main() {
     }
     expect(context.getPendingCount(), 0);
 
-    // Setting a linked unit later makes the experiment apply.
     context.setUnit(unitType, uid);
     expect(context.getTreatment('exp_sb'), expected2Arms[2]);
     expect(await h.publishExposures(context),
@@ -1024,16 +1023,47 @@ void main() {
         [exposure(1, 'exp_sb', expected2Arms[0], anchor + hour - 1)]);
   });
 
-  // A peek caches the period's assignment without exposing; the later
-  // getTreatment exposes at its own resolution instant, not the peek's.
-  test('exposureAfterPeekUsesTheExposingCallsInstant', () async {
+  // A peek caches the period's assignment, cluster included, without
+  // exposing; the later getTreatment exposes at the instant the cluster was
+  // read, so the Collector re-reads the cluster that was served. (Java stamps
+  // the exposing call's instant.)
+  test('exposureAfterPeekUsesTheClusterReadInstant', () async {
     final context = await h.create(dataOf([sb(2, hour)]));
     h.clock.now = anchor + 10;
     expect(context.peekTreatment('exp_sb'), expected2Arms[0]);
     h.clock.now = anchor + 20 * 60000;
     expect(context.getTreatment('exp_sb'), expected2Arms[0]);
     expect(await h.publishExposures(context),
-        [exposure(1, 'exp_sb', expected2Arms[0], anchor + 20 * 60000)]);
+        [exposure(1, 'exp_sb', expected2Arms[0], anchor + 10)]);
+  });
+
+  // An attribute set later in the period does not move the slot to another
+  // cluster, and the exposure is stamped when the served cluster was read:
+  // the Collector, re-reading the attributes at exposedAt, sees Faro, not
+  // Lisboa, which the allow-list rejects.
+  test('theExposureCarriesTheInstantItsClusterWasRead', () async {
+    final context = await h.create(
+        dataOf([
+          sb(2, hour)
+            ..switchbackClusters = {unitType: 'city'}
+            ..switchbackClusterValues = ['Faro']
+        ]),
+        clusterAttribute: false);
+    h.clock.now = anchor + 10;
+    context.setAttribute('city', 'Faro');
+    final int variant = context.peekTreatment('exp_sb');
+    expect(variant, draw('Faro', 0, 2));
+    h.clock.now = anchor + 20;
+    context.setAttribute('city', 'Lisboa');
+    expect(context.getTreatment('exp_sb'), variant);
+    final event = (await h.publishExposures(context)).single;
+    expect(event, exposure(1, 'exp_sb', variant, anchor + 10));
+    // The published attributes resolve to Faro at that instant.
+    final published = h.publisher.events.single.attributes
+        .where((a) => a.name == 'city' && a.setAt <= event.exposedAt)
+        .map((a) => a.value)
+        .toList();
+    expect(published.last, 'Faro');
   });
 
   // Unit experiments keep stamping at enqueue time, and a payload without
@@ -1715,5 +1745,20 @@ void main() {
       expect(context.getTreatment('exp_sb'), 0);
       expect(context.getPendingCount(), 0, reason: '$e');
     }
+  });
+
+  // The variant and variables the Flutter TreatmentBuilder renders come from
+  // one resolution, so a period boundary between them cannot mix periods.
+  test('aTreatmentAndItsVariablesComeFromOnePeriod', () async {
+    final context = await h.create(dataOf([sb(2, hour)]));
+    expect(expected2Arms[0], isNot(expected2Arms[1]));
+    h.clock.now = anchor + hour;
+    h.clock.nextRead = anchor + hour - 1;
+    final (variant, variables) =
+        exposedTreatmentWithVariables(context, 'exp_sb');
+    expect(variant, expected2Arms[0]);
+    expect(variables, {'sb.arm': expected2Arms[0]});
+    expect(await h.publishExposures(context),
+        [exposure(1, 'exp_sb', expected2Arms[0], anchor + hour - 1)]);
   });
 }

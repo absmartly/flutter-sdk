@@ -37,7 +37,14 @@ abstract class SwitchbackClusterKeys {
   }
 }
 
-// A context unit: its type and uid.
+// A linked unit type and the attribute path its cluster value is read at.
+class SwitchbackSource {
+  const SwitchbackSource(this.unitType, this.path);
+
+  final String unitType;
+  final SwitchbackAttributePath path;
+}
+
 class SwitchbackUnit {
   const SwitchbackUnit(this.type, this.uid);
 
@@ -66,24 +73,27 @@ enum SwitchbackStatus { absent, ineligible, eligible }
 // - A missing, empty or unreadable cluster map takes the Collector's legacy
 //   path instead (legacy).
 class SwitchbackServing {
-  const SwitchbackServing._(this.status, this.unit, this.clusterKey);
+  const SwitchbackServing._(this.status, this.unit, this.clusterKey,
+      [this.readAt = 0]);
 
   final SwitchbackStatus status;
-  // The serving unit when eligible, the first linked unit when ineligible,
-  // null when absent.
   final SwitchbackUnit? unit;
   // The raw normalised cluster key when eligible; never hashed.
   final String? clusterKey;
+  // The clock reading the attributes were read at.
+  final int readAt;
+
+  SwitchbackServing at(final int readAt) =>
+      SwitchbackServing._(status, unit, clusterKey, readAt);
 
   static const SwitchbackServing _absent =
       SwitchbackServing._(SwitchbackStatus.absent, null, null);
 
-  // sourceTypes and sourcePaths are parallel, in declared order, for a
-  // readable cluster map. The declared source order alone decides which unit
-  // serves: the source loop is the outer one.
+  // [sources] in declared order, for a readable cluster map. The declared
+  // source order alone decides which unit serves: the source loop is the
+  // outer one.
   static SwitchbackServing resolve(
-      final List<String> sourceTypes,
-      final List<SwitchbackAttributePath> sourcePaths,
+      final List<SwitchbackSource> sources,
       final List<String>? allowedValues,
       final List<SwitchbackUnit> units,
       final dynamic Function(SwitchbackAttributePath path) read) {
@@ -91,15 +101,14 @@ class SwitchbackServing {
     SwitchbackUnit? serving;
     String? key;
     bool disagreement = false;
-    for (int s = 0; s < sourceTypes.length; ++s) {
-      final String type = sourceTypes[s];
+    for (final SwitchbackSource source in sources) {
       for (final SwitchbackUnit unit in units) {
-        if (unit.type != type) {
+        if (unit.type != source.unitType) {
           continue;
         }
         first ??= unit;
         final String? value =
-            SwitchbackClusterKeys.normalize(read(sourcePaths[s]));
+            SwitchbackClusterKeys.normalize(read(source.path));
         if (value == null) {
           continue;
         }
@@ -144,23 +153,22 @@ class SwitchbackServing {
         allowedValues.contains(key);
   }
 
-  // The parsed paths of a switchbackClusters map, in declared order; null
-  // for a missing or empty map or any path that is not a supported attribute
-  // path (the legacy path).
-  static List<SwitchbackAttributePath>? sourcePaths(
-      final Map<String, String?>? clusters) {
+  // The sources of a switchbackClusters map, in declared order; null for a
+  // missing or empty map or any path that is not a supported attribute path
+  // (the legacy path).
+  static List<SwitchbackSource>? sources(final Map<String, String?>? clusters) {
     if (clusters == null || clusters.isEmpty) {
       return null;
     }
-    final List<SwitchbackAttributePath> paths = [];
-    for (final String? path in clusters.values) {
+    final List<SwitchbackSource> sources = [];
+    for (final MapEntry<String, String?> entry in clusters.entries) {
       final SwitchbackAttributePath? parsed =
-          SwitchbackAttributePath.parseSupported(path);
+          SwitchbackAttributePath.parseSupported(entry.value);
       if (parsed == null) {
         return null;
       }
-      paths.add(parsed);
+      sources.add(SwitchbackSource(entry.key, parsed));
     }
-    return List.unmodifiable(paths);
+    return List.unmodifiable(sources);
   }
 }

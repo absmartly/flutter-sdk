@@ -63,7 +63,6 @@ void main() {
     expect(unit.switchbackClusters, isNull);
     expect(unit.switchbackStartAt, isNull);
 
-    // A round trip through toMap keeps every field and the cluster order.
     final again = ContextData.fromMap(jsonDecode(jsonEncode(data.toMap())));
     expect(again, data);
     expect(again.experiments[0].switchbackClusters!.keys,

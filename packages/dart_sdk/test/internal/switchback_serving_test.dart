@@ -17,11 +17,10 @@ void main() {
     ];
     final attributes = {'session_store': 's-1', 'user_store': 's-1'};
     final serving = SwitchbackServing.resolve([
-      'session_id',
-      'user_id'
-    ], [
-      SwitchbackAttributePath.parseSupported('session_store')!,
-      SwitchbackAttributePath.parseSupported('user_store')!
+      SwitchbackSource('session_id',
+          SwitchbackAttributePath.parseSupported('session_store')!),
+      SwitchbackSource(
+          'user_id', SwitchbackAttributePath.parseSupported('user_store')!),
     ], null, units, (path) => path.resolve(attributes));
 
     expect(serving.status, SwitchbackStatus.eligible);
@@ -87,12 +86,14 @@ void main() {
     expect(SwitchbackServing.allowed(const ['y'], 'x'), isFalse);
   });
 
-  test('sourcePathsIsNullForAMissingEmptyOrUnreadableMap', () {
-    expect(SwitchbackServing.sourcePaths(null), isNull);
-    expect(SwitchbackServing.sourcePaths(const {}), isNull);
-    expect(SwitchbackServing.sourcePaths(const {'a': null}), isNull);
-    expect(SwitchbackServing.sourcePaths(const {'a': 'x', 'b': "'y"}), isNull);
-    expect(SwitchbackServing.sourcePaths(const {'a': 'x', 'b': 'y'}),
-        hasLength(2));
+  test('sourcesIsNullForAMissingEmptyOrUnreadableMap', () {
+    expect(SwitchbackServing.sources(null), isNull);
+    expect(SwitchbackServing.sources(const {}), isNull);
+    expect(SwitchbackServing.sources(const {'a': null}), isNull);
+    expect(SwitchbackServing.sources(const {'a': 'x', 'b': "'y"}), isNull);
+    expect(
+        SwitchbackServing.sources(const {'b': 'x', 'a': 'y'})!
+            .map((s) => s.unitType),
+        ['b', 'a']);
   });
 }

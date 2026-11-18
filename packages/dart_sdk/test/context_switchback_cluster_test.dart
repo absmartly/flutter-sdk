@@ -296,6 +296,19 @@ void main() {
     expect(context.peekTreatment('exp_sb'), expected('Lisboa', 4));
   });
 
+  // The greatest setAt wins, not the last one set: an attribute set later
+  // with an earlier clock reading (a clock rewind) does not replace it.
+  test('theGreatestSetAtWinsOverTheLastSet', () async {
+    final context = await create(attributeSwitchback('city'));
+    h.clock.now = anchor + 10;
+    context.setAttribute('city', 'Faro');
+    h.clock.now = anchor + 5;
+    context.setAttribute('city', 'Lisboa');
+    h.clock.now = anchor + 20;
+    expect(expected('Faro', 0), isNot(expected('Lisboa', 0)));
+    expect(context.getTreatment('exp_sb'), expected('Faro', 0));
+  });
+
   // Attribute names are matched trimmed, and only attributes set on the
   // context are read: system attributes are never a cluster source.
   test('attributeNamesAreTrimmedAndSystemAttributesAreNotRead', () async {
@@ -395,7 +408,9 @@ void main() {
     expect(context.getTreatment('exp_sb'), expected('Faro', 0));
     expect(await h.publishExposures(context), [
       clusterExposure(0, anchor + 10, eligible: false),
-      clusterExposure(expected('Faro', 0), anchor + 20),
+      // Stamped when the slot read Faro (Java stamps anchor + 20, when the
+      // Collector would re-read Lisboa).
+      clusterExposure(expected('Faro', 0), anchor + 10),
     ]);
   });
 
@@ -416,7 +431,8 @@ void main() {
 
     expect(await h.publishExposures(context), [
       clusterExposure(expected('Lisboa', 0), anchor + 10),
-      clusterExposure(expected('Lisboa', 0), anchor + 20,
+      // Stamped when the slot read Lisboa, not at the re-exposing call.
+      clusterExposure(expected('Lisboa', 0), anchor + 10,
           audienceMismatch: true),
     ]);
   });

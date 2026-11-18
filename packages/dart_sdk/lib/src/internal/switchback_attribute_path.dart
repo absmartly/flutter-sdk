@@ -45,8 +45,6 @@ class SwitchbackAttributePath {
     return parsed;
   }
 
-  // The attribute name the path starts at; a supported path always starts at
-  // a key segment.
   String get rootKey => _keys[0];
 
   dynamic resolve(final Map<String, dynamic> attributes) =>

@@ -285,7 +285,13 @@ class Context {
     }
   }
 
-  int getTreatment(final String experimentName) {
+  int getTreatment(final String experimentName) =>
+      _exposeTreatment(experimentName).variant;
+
+  // Resolves and exposes once, so a caller that needs the variant and its
+  // variables gets both from one assignment, even across a switchback
+  // period boundary.
+  Assignment _exposeTreatment(final String experimentName) {
     checkReady(true);
 
     final Assignment assignment = getAssignment(experimentName);
@@ -294,7 +300,7 @@ class Context {
       _triggerExposures(assignment);
     }
 
-    return assignment.variant;
+    return assignment;
   }
 
   // A suppressed experiment publishes no exposure of its own; the holdouts
@@ -351,10 +357,19 @@ class Context {
     }
   }
 
-  // A switchback exposure is stamped with the clock reading that selected its
-  // period: analysis derives the period from exposedAt, so a later reading
-  // could attribute this variant to the next period. Unit experiments read the
-  // clock at enqueue time.
+  // The Collector re-reads a switchback's cluster from the published
+  // attributes at exposedAt, so the exposure carries the instant this slot
+  // read its cluster, which lies in the slot's period: a setAttribute later in
+  // the period cannot make the Collector see another cluster than the one
+  // served. A switchback with no linked unit (an override) has no cluster
+  // and carries the resolving call's instant.
+  static int _switchbackExposedAt(final Assignment assignment) {
+    final SwitchbackServing? serving = assignment._switchbackServing;
+    return serving != null && serving.status != SwitchbackStatus.absent
+        ? serving.readAt
+        : assignment._resolvedAt;
+  }
+
   void queueExposure(final Assignment assignment) {
     if (!assignment.exposed) {
       assignment.exposed = true;
@@ -367,8 +382,9 @@ class Context {
           name: assignment.name,
           unit: assignment.unitType,
           variant: assignment.variant,
-          exposedAt:
-              assignment._switchback ? assignment._resolvedAt : clock_.millis(),
+          exposedAt: assignment._switchback
+              ? _switchbackExposedAt(assignment)
+              : clock_.millis(),
           assigned: assignment.assigned,
           eligible: assignment.eligible,
           overridden: assignment.overridden,
@@ -824,7 +840,7 @@ class Context {
   static int? _currentSwitchbackPeriod(
       final ExperimentVariables entry, final int now) {
     ContextCounters.switchbackPeriodLookups++;
-    if (!entry._switchbackServable || entry._switchbackSourcePaths == null) {
+    if (!entry._switchbackServable || entry._switchbackSources == null) {
       return null;
     }
     final int startAt = entry.data.switchbackStartAt!;
@@ -847,18 +863,16 @@ class Context {
       for (final MapEntry<String, Object> unit in units_.entries)
         SwitchbackUnit(unit.key, unit.value)
     ];
-    final List<SwitchbackAttributePath>? paths = entry._switchbackSourcePaths;
-    if (paths == null) {
-      return SwitchbackServing.legacy(entry.data.unitType, units);
+    final List<SwitchbackSource>? sources = entry._switchbackSources;
+    if (sources == null) {
+      return SwitchbackServing.legacy(entry.data.unitType, units).at(now);
     }
     return SwitchbackServing.resolve(
-        entry._switchbackSourceTypes!,
-        paths,
-        entry.data.switchbackClusterValues,
-        units, (SwitchbackAttributePath path) {
+        sources, entry.data.switchbackClusterValues, units,
+        (SwitchbackAttributePath path) {
       final Attribute? attribute = _latestAttribute(path.rootKey, now);
       return attribute != null ? path.resolveAttribute(attribute.value) : null;
-    });
+    }).at(now);
   }
 
   // The slot's serving resolution: reused when this slot already read it
@@ -875,9 +889,8 @@ class Context {
   // override is still exposed): the first linked type of a readable cluster
   // map, otherwise the declared unitType the legacy path reads.
   static String _switchbackFallbackUnitType(final ExperimentVariables entry) {
-    return entry._switchbackSourcePaths != null
-        ? entry._switchbackSourceTypes!.first
-        : entry.data.unitType;
+    final List<SwitchbackSource>? sources = entry._switchbackSources;
+    return sources != null ? sources.first.unitType : entry.data.unitType;
   }
 
   // The attribute the Collector records with an exposure at `now`
@@ -926,8 +939,8 @@ class Context {
         a.switchbackStartAt == b.switchbackStartAt &&
         a.switchbackPeriodMs == b.switchbackPeriodMs &&
         a.switchbackDesignType == b.switchbackDesignType &&
-        ((previous._switchbackSourcePaths != null &&
-                installed._switchbackSourcePaths != null) ||
+        ((previous._switchbackSources != null &&
+                installed._switchbackSources != null) ||
             a.unitType == b.unitType);
   }
 
@@ -948,7 +961,6 @@ class Context {
             epoch.generation != entry._switchbackGeneration);
   }
 
-  // Drops every slot of the epoch, the bare-name slot included.
   void _dropSwitchbackEpoch(final String experimentName) {
     final _SwitchbackEpoch? epoch = _switchbackEpochs.remove(experimentName);
     if (epoch != null) {
@@ -1567,7 +1579,6 @@ class Context {
                   (identical(experiment._holdouts, assignment._holdouts) ||
                       _holdoutSetMatches(experiment, assignment)));
     } else if (experiment == null) {
-      // previously not-running experiment
       return !assignment.assigned && !assignment._ruleOverride;
     } else if (assignment._switchback
         // A switchback slot is current for the custom assignment it was
@@ -1603,7 +1614,6 @@ class Context {
         getVariableExperiments(key);
 
     if (keyExperimentVariables != null) {
-      // Every switchback on the key resolves at one clock reading.
       final int? now = _hasSwitchbacks ? clock_.millis() : null;
       for (ExperimentVariables experimentVariables in keyExperimentVariables) {
         final Assignment assignment =
@@ -1637,7 +1647,6 @@ class Context {
   dynamic _resolveVariableValue(
       final String key, final dynamic defaultValue, final bool peek) {
     Map<String, dynamic>? suppressedFallback;
-    // Every switchback on the key resolves at one clock reading.
     final int? now = _hasSwitchbacks ? clock_.millis() : null;
     for (ExperimentVariables experimentVariables
         in getVariableExperiments(key) ?? const []) {
@@ -1744,13 +1753,9 @@ class Context {
       final ExperimentVariables experimentVariables = ExperimentVariables();
       experimentVariables.data = experiment;
       if (experiment.randomizationType == _randomizationSwitchback) {
-        // Holdouts never apply to a switchback.
         experimentVariables._switchback = true;
-        final Map<String, String?>? clusters = experiment.switchbackClusters;
-        experimentVariables._switchbackSourcePaths =
-            SwitchbackServing.sourcePaths(clusters);
-        experimentVariables._switchbackSourceTypes =
-            clusters == null ? null : List.unmodifiable(clusters.keys);
+        experimentVariables._switchbackSources =
+            SwitchbackServing.sources(experiment.switchbackClusters);
         experimentVariables._switchbackServable =
             _switchbackScheduleServable(experiment);
       } else if (holdoutsById.isNotEmpty) {
@@ -1895,7 +1900,6 @@ class Context {
   final Map<(int, String), _HoldoutAssignment> _holdoutAssignmentCache = {};
   final Map<String, _SwitchbackEpoch> _switchbackEpochs = {};
   int _switchbackGenerationCounter = 0;
-  // Whether the installed data has a switchback experiment.
   bool _hasSwitchbacks = false;
 
   static const String _randomizationSwitchback = 'switchback';
@@ -1936,13 +1940,11 @@ class ExperimentVariables {
   String _ruleKey = "";
   List? _rules;
   List<ContextHoldout>? _holdouts;
-  // Set for a switchback experiment (randomizationType "switchback").
   bool _switchback = false;
-  // switchbackClusters split in declared order: the linked unit types and
-  // their parsed paths. Paths are null when the map is missing, empty or
-  // unreadable: the legacy path.
-  List<String>? _switchbackSourceTypes;
-  List<SwitchbackAttributePath>? _switchbackSourcePaths;
+  // switchbackClusters in declared order: each linked unit type with its
+  // parsed path. Null when the map is missing, empty or unreadable: the
+  // legacy path.
+  List<SwitchbackSource>? _switchbackSources;
   bool _switchbackServable = false;
   // Carried over from the previous install while the switchback identity is
   // unchanged, otherwise a fresh value.
@@ -2006,7 +2008,6 @@ class Assignment {
   // linked unit, or an ineligible cluster (no value, disagreement, filtered
   // value, unservable or pre-start).
   bool _switchbackSilent = false;
-  // The custom assignment a switchback slot was resolved with.
   int? _customAssignment;
   // The clock reading of the latest resolution that returned this switchback
   // slot; its exposure is stamped with it.
@@ -2068,4 +2069,13 @@ class _HoldoutAssignment {
   // can change the live split without re-randomizing.
   final int armCount;
   bool exposed = false;
+}
+
+/// The variant [Context.getTreatment] returns for [experimentName] and that
+/// variant's variables, from one resolution and one exposure. Used by the
+/// Flutter `TreatmentBuilder`; not exported from the package.
+(int, Map<String, dynamic>) exposedTreatmentWithVariables(
+    final Context context, final String experimentName) {
+  final Assignment assignment = context._exposeTreatment(experimentName);
+  return (assignment.variant, assignment.variables);
 }

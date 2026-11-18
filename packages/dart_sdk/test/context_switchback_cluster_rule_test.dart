@@ -241,7 +241,6 @@ void main() {
   });
 
   test('trafficUsesServingUidNotExperimentUidInBothRequestOrders', () async {
-    // percentageOfTraffic = 40.
     experiment.trafficSplit = [0.6, 0.4];
     final ordinary = unitExperiment('ordinary', 901, user);
     final List<String?> witnesses = [null, null];
@@ -475,7 +474,6 @@ void main() {
     return (nowMs - start) ~/ periodMs;
   }
 
-  // (variant, eligible)
   (int, bool) oracle(Experiment e, String uid, String? key, int nowMs) {
     final int? periodIndex = oraclePeriodIndex(e, nowMs);
     if (key == null || periodIndex == null) {

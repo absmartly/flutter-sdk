@@ -186,4 +186,21 @@ void main() {
     expect(experiment.switchbackStartAt, 0);
     expect(experiment.switchbackPeriodMs, isNull);
   });
+
+  // A malformed switchback field reads as absent, so the experiment equals
+  // and hashes like one without it, as does one whose fields were cleared.
+  test('equalExperimentsHashEquallyWhateverTheirAbsentFields', () {
+    final plain = Experiment.fromMap(experimentMap());
+    final malformed =
+        Experiment.fromMap(experimentMap()..['randomizationType'] = 7);
+    final cleared = Experiment.fromMap(experimentMap())
+      ..switchbackPeriodMs = 1
+      ..switchbackPeriodMs = null;
+    for (final other in [malformed, cleared]) {
+      expect(other, plain);
+      expect(other.hashCode, plain.hashCode);
+      expect({plain}.contains(other), isTrue);
+      expect(other.toString(), plain.toString());
+    }
+  });
 }

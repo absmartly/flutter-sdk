@@ -195,8 +195,9 @@ class Experiment {
       listEquality.hash(applications),
       listEquality.hash(variants),
     );
-    // Unchanged for an experiment without switchback fields.
-    return _switchbackFields == null
+    // Unchanged for an experiment whose switchback fields are all absent,
+    // however they are stored, so equal experiments hash equally.
+    return _switchbackFields?.isEmpty ?? true
         ? hash
         : Object.hash(hash, _switchbackHash(this));
   }
@@ -223,7 +224,7 @@ class Experiment {
 
   @override
   String toString() {
-    return "ContextExperiment{id=$id, name='$name', unitType='$unitType', iteration=$iteration, seedHi=$seedHi, seedLo=$seedLo, split=$split, trafficSeedHi=$trafficSeedHi, trafficSeedLo=$trafficSeedLo, trafficSplit=$trafficSplit, fullOnVariant=$fullOnVariant, applications=$applications, variants=$variants, audienceStrict=$audienceStrict, audience='$audience', assignmentRules='$assignmentRules'${_switchbackFields == null ? "" : ", randomizationType='$randomizationType', switchbackClusters=$switchbackClusters, switchbackClusterValues=$switchbackClusterValues, switchbackStartAt=$switchbackStartAt, switchbackPeriodMs=$switchbackPeriodMs, switchbackCarryoverDurationMs=$switchbackCarryoverDurationMs, switchbackBurnInDurationMs=$switchbackBurnInDurationMs, switchbackBurnOutDurationMs=$switchbackBurnOutDurationMs, switchbackDesignType='$switchbackDesignType', switchbackEstimand='$switchbackEstimand'"}}";
+    return "ContextExperiment{id=$id, name='$name', unitType='$unitType', iteration=$iteration, seedHi=$seedHi, seedLo=$seedLo, split=$split, trafficSeedHi=$trafficSeedHi, trafficSeedLo=$trafficSeedLo, trafficSplit=$trafficSplit, fullOnVariant=$fullOnVariant, applications=$applications, variants=$variants, audienceStrict=$audienceStrict, audience='$audience', assignmentRules='$assignmentRules'${_switchbackFields?.isEmpty ?? true ? "" : ", randomizationType='$randomizationType', switchbackClusters=$switchbackClusters, switchbackClusterValues=$switchbackClusterValues, switchbackStartAt=$switchbackStartAt, switchbackPeriodMs=$switchbackPeriodMs, switchbackCarryoverDurationMs=$switchbackCarryoverDurationMs, switchbackBurnInDurationMs=$switchbackBurnInDurationMs, switchbackBurnOutDurationMs=$switchbackBurnOutDurationMs, switchbackDesignType='$switchbackDesignType', switchbackEstimand='$switchbackEstimand'"}}";
   }
 
   Experiment.fromMap(Map<String, dynamic> data) {
@@ -483,6 +484,18 @@ class _SwitchbackFields {
     }
     return null;
   }
+
+  bool get isEmpty =>
+      randomizationType == null &&
+      clusters == null &&
+      clusterValues == null &&
+      startAt == null &&
+      periodMs == null &&
+      carryoverDurationMs == null &&
+      burnInDurationMs == null &&
+      burnOutDurationMs == null &&
+      designType == null &&
+      estimand == null;
 
   Map<String, dynamic> toMap() {
     return {
