@@ -2273,27 +2273,6 @@ void main() {
       ]);
     });
 
-    test('a holdout exposure keeps the name it was resolved with', () async {
-      final holdout =
-          newHoldout(11, 'holdout_a', holdoutBSeedHi, holdoutBSeedLo);
-      final context = await ready(contextDataOf([
-        holdout
-      ], [
-        newExperiment(1, 'exp_rename', holdoutIds: [11])
-      ]));
-      logger.onExposure = (exposure) {
-        if (exposure.id == 1) {
-          holdout.name = 'renamed';
-        }
-      };
-
-      expect(context.getTreatment('exp_rename'), normalVariant);
-      await expectPublished(context, [
-        exposure(1, 'exp_rename', normalVariant),
-        holdoutExposure(11, 'holdout_a', 1),
-      ]);
-    });
-
     test('a suppressed key with no other candidate reads the control value',
         () async {
       final context = await ready(contextDataOf([

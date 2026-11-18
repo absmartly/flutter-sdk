@@ -300,7 +300,7 @@ class Context {
     final List<_HoldoutAssignment?>? holdoutAssignments =
         assignment._holdoutAssignments;
     if (holdoutAssignments != null) {
-      _triggerHoldoutExposures(holdoutAssignments);
+      _triggerHoldoutExposures(assignment._holdouts!, holdoutAssignments);
     }
   }
 
@@ -308,7 +308,7 @@ class Context {
   // a live re-resolution, so a refresh in between cannot publish a holdout
   // exposure from another epoch. Each holdout is exposed once per unit type
   // and iteration, in holdout id order.
-  void _triggerHoldoutExposures(
+  void _triggerHoldoutExposures(final List<ContextHoldout> holdouts,
       final List<_HoldoutAssignment?> holdoutAssignments) {
     for (int i = 0; i < holdoutAssignments.length; i++) {
       final _HoldoutAssignment? holdoutAssignment = holdoutAssignments[i];
@@ -319,7 +319,7 @@ class Context {
 
       final Exposure exposure = Exposure(
           id: holdoutAssignment.id,
-          name: holdoutAssignment.name,
+          name: holdouts[i].name,
           unit: holdoutAssignment.unitType,
           variant: holdoutAssignment.variant,
           exposedAt: clock_.millis(),
@@ -850,7 +850,6 @@ class Context {
         getVariantAssigner(unitType, getUnitHash(unitType, uid));
     final _HoldoutAssignment assignment = _HoldoutAssignment(
         live.id,
-        live.name,
         live.iteration,
         unitType,
         assigner.assign(live.split, live.seedHi, live.seedLo),
@@ -1418,12 +1417,10 @@ class _RuleResult {
 }
 
 class _HoldoutAssignment {
-  _HoldoutAssignment(this.id, this.name, this.iteration, this.unitType,
-      this.variant, this.armCount);
+  _HoldoutAssignment(
+      this.id, this.iteration, this.unitType, this.variant, this.armCount);
 
   final int id;
-  // The holdout's name when the arm was resolved, published with it.
-  final String name;
   final int iteration;
   final String unitType;
   final int variant;
