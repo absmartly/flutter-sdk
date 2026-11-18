@@ -112,6 +112,7 @@ jobs:
           test/context_switchback_test.dart
           test/context_switchback_cluster_test.dart
           test/context_switchback_cluster_rule_test.dart
+          test/switchback_model_test.dart
         working-directory: packages/dart_sdk
 
   test_min_sdk:

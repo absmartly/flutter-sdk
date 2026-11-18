@@ -1,10 +1,9 @@
+import 'dart:convert';
+
 import 'switchback_attribute_path.dart';
 
 // On the web an int is a JavaScript number, so 3.0 and 3 are the same value.
 const bool _isWeb = identical(0, 0.0);
-// JavaScript prints integers from 1e21 up in exponent form, which the
-// Collector decodes as a floating-point number.
-const double _maxWebIntegerText = 1e21;
 
 // Port of java-sdk internal/SwitchbackClusterKeys (the Collector's
 // SwitchbackClusterKeys.normalize): the cluster key an attribute value yields,
@@ -14,8 +13,10 @@ const double _maxWebIntegerText = 1e21;
 // SwitchbackAssigner unhashed.
 //
 // On the web a whole-number double such as 3.0 is an int and yields "3", as
-// the integer 3 does: the web cannot tell them apart, and JavaScript publishes
-// both as 3.
+// the integer 3 does: the web cannot tell them apart. The key is the number's
+// text in the published attributes, which the Collector re-reads, so a number
+// published as a float (-0.0, 1e+21) yields none and one published rounded
+// (2^60 as 1152921504606847000) yields that rounded text.
 abstract class SwitchbackClusterKeys {
   static String? normalize(final dynamic value) {
     if (value is String) {
@@ -23,11 +24,12 @@ abstract class SwitchbackClusterKeys {
     }
     if (value is int) {
       if (_isWeb) {
-        // -0.0 is an int on the web; BigInt prints it, and every integer
-        // above 2^53, without a sign or exponent.
-        return value.abs() < _maxWebIntegerText
-            ? BigInt.from(value).toString()
-            : null;
+        // Infinity is an int on the web and has no JSON encoding.
+        if (!value.isFinite) {
+          return null;
+        }
+        final String text = jsonEncode(value);
+        return text.contains('.') || text.contains('e') ? null : text;
       }
       return value.toString();
     }

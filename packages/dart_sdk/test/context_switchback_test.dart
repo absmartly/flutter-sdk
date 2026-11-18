@@ -1545,4 +1545,46 @@ void main() {
     final exposures = await h.publishExposures(context);
     expect(exposures.map((e) => e.unit), ['user_id', unitType]);
   });
+
+  // A unit experiment whose rule outcome changes after setAttribute: the read
+  // path evaluates the rules and rejects the slot, and the rebuild evaluates
+  // them once more. Two evaluations, not three; current again, none.
+  test('staleRuleTransitionEvaluatesTheRulesTwice', () async {
+    final matcher = CountingAudienceMatcher();
+    final context = await h.create(
+        dataOf([
+          sb(2, hour)
+            ..randomizationType = 'unit'
+            ..assignmentRules =
+                '{"rules":[{"type":"assign","environments":[],"conditions":{"and":[{"eq":[{"var":"country"},{"value":"US"}]}]},"variant":1}]}'
+        ]),
+        audienceMatcher: matcher);
+    context.peekTreatment('exp_sb');
+    expect(matcher.ruleEvaluations, 1);
+
+    context.setAttribute('country', 'US');
+    matcher.ruleEvaluations = 0;
+    expect(context.peekTreatment('exp_sb'), 1);
+    expect(matcher.ruleEvaluations, 2);
+    expect(context.peekTreatment('exp_sb'), 1);
+    expect(matcher.ruleEvaluations, 2);
+  });
+
+  // A pre-anchor switchback slot under the bare name is never served once a
+  // refresh turns the experiment into a unit experiment with the same grid
+  // fields.
+  test('aPreAnchorSlotIsNotReusedByTheUnitExperimentThatReplacesIt', () async {
+    h = Harness(now: anchor - 1);
+    final context = await h.create(dataOf([sb(2, hour)..fullOnVariant = 1]));
+    expect(context.getTreatment('exp_sb'), 1);
+    expect(context.getPendingCount(), 1);
+
+    await h.refreshTo(context, [
+      sb(2, hour)
+        ..fullOnVariant = 1
+        ..randomizationType = 'unit'
+    ]);
+    expect(context.getTreatment('exp_sb'), 1);
+    expect(context.getPendingCount(), 2);
+  });
 }

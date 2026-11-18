@@ -1250,13 +1250,6 @@ class Context {
 
   bool _audienceMatches(
       final ExperimentVariables entry, final Assignment assignment) {
-    // A switchback that did not resolve an eligible cluster never consulted
-    // its rules or audience (the Collector evaluates them only for a cluster
-    // key), so a change to either cannot make it stale.
-    if (assignment._switchback &&
-        assignment._switchbackServing?.status != SwitchbackStatus.eligible) {
-      return true;
-    }
     final Experiment experiment = entry.data;
     final String key = entry._ruleKey;
     final String cachedKey = assignment._ruleKey ?? "";
@@ -1312,12 +1305,30 @@ class Context {
     return true;
   }
 
-  Assignment getAssignment(final String experimentName) =>
-      _getAssignment(experimentName, null);
+  Assignment getAssignment(final String experimentName) {
+    // A unit experiment's cached slot is checked as it was before
+    // switchbacks, so a payload without switchbacks costs nothing extra per
+    // read. A unit slot never belongs to a switchback epoch.
+    // The slot it rejects is not checked again.
+    final ExperimentVariables? experiment = index_[experimentName];
+    Assignment? rejected;
+    if (experiment == null || !experiment._switchback) {
+      final Assignment? cached = assignmentCache_[experimentName];
+      if (cached != null && !cached._switchback) {
+        if (_isUnitAssignmentCurrent(cached, cassignments_[experimentName],
+            overrides_[experimentName], experiment)) {
+          return cached;
+        }
+        rejected = cached;
+      }
+    }
+    return _getAssignment(experimentName, null, rejected: rejected);
+  }
 
   // [now] is the caller's clock reading, shared by every switchback a
   // variable-key lookup resolves; read here when null.
-  Assignment _getAssignment(final String experimentName, int? now) {
+  Assignment _getAssignment(final String experimentName, int? now,
+      {Assignment? rejected}) {
     final int? custom = cassignments_[experimentName];
     final int? override = overrides_[experimentName];
     final ExperimentVariables? experiment = getExperiment(experimentName);
@@ -1341,7 +1352,7 @@ class Context {
     }
 
     final Assignment? cached = assignmentCache_[cacheKey];
-    if (cached != null) {
+    if (cached != null && !identical(cached, rejected)) {
       if (_isAssignmentCurrent(cached, custom, override, experiment)) {
         cached._resolvedAt = now ?? 0;
         return cached;
@@ -1497,6 +1508,29 @@ class Context {
     return assignment;
   }
 
+  // The pre-switchback cache-hit check, for a unit experiment's slot.
+  bool _isUnitAssignmentCurrent(final Assignment assignment, final int? custom,
+      final int? override, final ExperimentVariables? experiment) {
+    if (override != null) {
+      return assignment.overridden &&
+          assignment.variant == override &&
+          (experiment == null ||
+              identical(experiment._holdouts, assignment._holdouts) ||
+              _holdoutSetMatches(experiment, assignment));
+    } else if (experiment == null) {
+      return !assignment.assigned && !assignment._ruleOverride;
+    } else if ((custom == null) ||
+        assignment._ruleOverride ||
+        assignment._suppressed ||
+        custom == assignment.variant) {
+      return experimentMatches(experiment.data, assignment) &&
+          _audienceMatches(experiment, assignment) &&
+          (identical(experiment._holdouts, assignment._holdouts) ||
+              _holdoutSetMatches(experiment, assignment));
+    }
+    return false;
+  }
+
   bool _isAssignmentCurrent(final Assignment assignment, final int? custom,
       final int? override, final ExperimentVariables? experiment) {
     if (override != null) {
@@ -1524,8 +1558,14 @@ class Context {
       // A suppressed assignment is forced to variant 0 and a matching rule
       // wins over a custom assignment, so a custom mismatch is not
       // staleness.
+      // A switchback that did not resolve an eligible cluster never
+      // consulted its rules or audience (the Collector evaluates them only
+      // for a cluster key), so a change to either cannot make it stale.
       return _experimentMatches(experiment, assignment) &&
-          _audienceMatches(experiment, assignment) &&
+          ((assignment._switchback &&
+                  assignment._switchbackServing?.status !=
+                      SwitchbackStatus.eligible) ||
+              _audienceMatches(experiment, assignment)) &&
           (identical(experiment._holdouts, assignment._holdouts) ||
               _holdoutSetMatches(experiment, assignment));
     }
@@ -1547,13 +1587,13 @@ class Context {
 
     if (keyExperimentVariables != null) {
       Assignment? suppressedFallback;
-      int? now;
+      // Every switchback on the key resolves at one clock reading.
+      final int? now = _hasSwitchbacks ? clock_.millis() : null;
       for (ExperimentVariables experimentVariables in keyExperimentVariables) {
-        if (experimentVariables._switchback) {
-          now ??= clock_.millis();
-        }
         final Assignment assignment =
-            _getAssignment(experimentVariables.data.name, now);
+            now != null && experimentVariables._switchback
+                ? _getAssignment(experimentVariables.data.name, now)
+                : getAssignment(experimentVariables.data.name);
         if (assignment.assigned ||
             assignment.overridden ||
             assignment._ruleOverride) {
@@ -1723,6 +1763,7 @@ class Context {
     index_ = index;
     indexVariables_ = indexVariables;
     data_ = data;
+    _hasSwitchbacks = index.values.any((entry) => entry._switchback);
 
     assignmentCache_.removeWhere((experimentName, assignment) {
       // Switchback slots are revalidated on their next resolution, which
@@ -1814,6 +1855,8 @@ class Context {
   final Map<(int, String), _HoldoutAssignment> _holdoutAssignmentCache = {};
   final Map<String, _SwitchbackEpoch> _switchbackEpochs = {};
   int _switchbackGenerationCounter = 0;
+  // Whether the installed data has a switchback experiment.
+  bool _hasSwitchbacks = false;
 
   static const String _randomizationSwitchback = 'switchback';
   static const String _switchbackKeySeparator = '\u001f';

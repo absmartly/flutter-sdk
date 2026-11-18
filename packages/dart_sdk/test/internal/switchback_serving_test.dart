@@ -61,11 +61,14 @@ void main() {
   test('wholeNumberDoublesFollowThePlatformNumberModel', () {
     if (isWeb) {
       expect(SwitchbackClusterKeys.normalize(3.0), '3');
-      expect(SwitchbackClusterKeys.normalize(-0.0), '0');
       expect(SwitchbackClusterKeys.normalize(1e20), '100000000000000000000');
-      // JavaScript prints 1e21 in exponent form, a float to the Collector.
+      // The key is the number's published JSON text: -0.0 and 1e21 are
+      // published as floats, 2^60 rounded.
+      expect(SwitchbackClusterKeys.normalize(-0.0), isNull);
       expect(SwitchbackClusterKeys.normalize(1e21), isNull);
       expect(SwitchbackClusterKeys.normalize(-1e21), isNull);
+      expect(SwitchbackClusterKeys.normalize(1152921504606846976.0),
+          '1152921504606847000');
     } else {
       for (final value in [3.0, -0.0, 0.0, 1e20, 1e21, -1e21]) {
         expect(SwitchbackClusterKeys.normalize(value), isNull,
