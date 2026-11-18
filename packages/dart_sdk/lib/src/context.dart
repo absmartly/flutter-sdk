@@ -76,15 +76,17 @@ class Context {
       _environmentName = environment;
     }
 
-    setUnits(config.getUnits());
+    final Map<String, String> configUnits = config.getUnits();
+    setUnits(configUnits);
     // Numeric UIDs reach setUnits() in their string form, as in 2.1, so a
     // subclass overriding setUnits(Map<String, String>) still works; keep the
     // numbers they were set as for hashing.
-    config.getUnitValues().forEach((unitType, uid) {
+    for (final unitType in configUnits.keys) {
+      final Object? uid = unitValue(configUnits, unitType);
       if (uid is num && units_[unitType] == uid.toString()) {
         _setUnitValue(unitType, uid);
       }
-    });
+    }
     setAttributes(config.getAttributes());
     setOverrides(config.getOverrides());
     setCustomAssignments(config.getCustomAssignments());

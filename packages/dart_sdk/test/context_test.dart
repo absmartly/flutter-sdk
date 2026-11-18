@@ -1342,6 +1342,13 @@ void main() {
       expect(config.getUnit('p'), equals('x'));
     });
 
+    test('creatingAContextReadsTheConfigUnitsOnce', () {
+      final config = _CountingUnitsConfig()..setUnit('session_id', 'abc');
+      Context.create(clock, config, dataFutureReady, dataProvider, eventHandler,
+          variableParser, audienceMatcher, null);
+      expect(config.getUnitsCalls, equals(1));
+    });
+
     test('plainUnitsMapsFromSubclassesAreUsedAsIn21', () async {
       when(eventHandler.publish(any, any))
           .thenAnswer((_) => createCompleteVoidCompleter());
@@ -1397,7 +1404,7 @@ void main() {
     test('aSecondOverlappingRefreshDoesNotRetryAFailedPublish', () async {
       final config = ContextConfig.create()
         ..setUnits(units)
-        ..setPublishDelay(10);
+        ..setPublishDelay(0);
       final context = Context.create(clock, config, dataFuture, dataProvider,
           eventHandler, variableParser, audienceMatcher, null);
       when(eventHandler.publish(any, any)).thenAnswer(
@@ -1426,7 +1433,7 @@ void main() {
     test('aRefreshOfAReadyContextDoesNotRetryAFailedPublish', () async {
       final config = ContextConfig.create()
         ..setUnits(units)
-        ..setPublishDelay(10);
+        ..setPublishDelay(0);
       final context = Context.create(clock, config, dataFutureReady,
           dataProvider, eventHandler, variableParser, audienceMatcher, null);
       await context.waitUntilReady();
@@ -3545,4 +3552,14 @@ class _GetUnitsOnlyConfig implements ContextConfig {
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnsupportedError('${invocation.memberName}');
+}
+
+class _CountingUnitsConfig extends ContextConfig {
+  int getUnitsCalls = 0;
+
+  @override
+  Map<String, String> getUnits() {
+    getUnitsCalls++;
+    return super.getUnits();
+  }
 }
