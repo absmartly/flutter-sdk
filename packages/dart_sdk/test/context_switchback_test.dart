@@ -1420,4 +1420,129 @@ void main() {
     }
     expect(ContextCounters.switchbackServingResolutions, 1);
   });
+
+  // Burn and carryover windows are analysis-only: they neither move the grid
+  // nor silence exposures inside them.
+  test('burnAndCarryoverWindowsDoNotChangeServing', () async {
+    final context = await h.create(dataOf([
+      sb(2, hour)
+        ..switchbackBurnInDurationMs = 20 * 60000
+        ..switchbackBurnOutDurationMs = 20 * 60000
+        ..switchbackCarryoverDurationMs = 30 * 60000
+    ]));
+    for (int i = 0; i < 4; ++i) {
+      for (final offset in [0, 10 * 60000, 50 * 60000, hour - 1]) {
+        h.clock.now = anchor + i * hour + offset;
+        expect(context.getTreatment('exp_sb'), expected2Arms[i],
+            reason: '$i $offset');
+      }
+    }
+    expect(await h.publishExposures(context), [
+      for (int i = 0; i < 4; ++i)
+        exposure(1, 'exp_sb', expected2Arms[i], anchor + i * hour)
+    ]);
+  });
+
+  // Custom assignment comes after traffic: a traffic miss is control even
+  // with a custom assignment set.
+  test('aTrafficMissWinsOverACustomAssignment', () async {
+    final context = await h.create(dataOf([
+      sb(3, hour)..trafficSplit = [1.0, 0.0]
+    ]));
+    context.setCustomAssignment('exp_sb', 2);
+    h.clock.now = anchor + 2 * hour;
+    expect(context.getTreatment('exp_sb'), 0);
+    expect(await h.publishExposures(context),
+        [exposure(1, 'exp_sb', 0, anchor + 2 * hour, eligible: false)]);
+  });
+
+  // System attributes are evaluated by audiences but are not attributes set
+  // on the context, so a cluster path never reads them.
+  test('systemAttributesAreNotClusterSources', () async {
+    final context = await h.create(
+        dataOf([
+          sb(2, hour)
+            ..switchbackClusters = {unitType: 'environment'}
+            ..audience =
+                '{"filter":[{"eq":[{"var":"environment"},{"value":"prod"}]}]}'
+            ..audienceStrict = true,
+          switchback(2, 'exp_app', 2, hour)
+            ..switchbackClusters = {unitType: 'application'},
+        ]),
+        application: 'website',
+        environment: 'prod');
+    h.clock.now = anchor + hour;
+    expect(context.getTreatment('exp_sb'), 0);
+    expect(context.getTreatment('exp_app'), 0);
+    expect(context.getPendingCount(), 0);
+    // The same name set on the context is read.
+    context.setAttribute('environment', 'prod');
+    h.clock.now = anchor + 2 * hour;
+    expect(context.getTreatment('exp_sb'), draw('prod', 2, 2));
+  });
+
+  // An unexposed overridden slot is re-resolved on a grid change too: the
+  // refreshed variant config is served.
+  test('anUnexposedOverrideFollowsAGridChange', () async {
+    final context = await h.create(dataOf([sb(3, hour)]));
+    context.setOverride('exp_sb', 2);
+    h.clock.now = anchor + 10;
+    expect(context.peekTreatment('exp_sb'), 2);
+    expect(context.peekVariableValue('sb.arm', -1), 2);
+
+    final regridded = sb(3, 2 * hour);
+    regridded.variants[2] =
+        ExperimentVariant(name: 'C', config: '{"sb.arm":22}');
+    await h.refreshTo(context, [regridded]);
+    expect(context.peekVariableValue('sb.arm', -1), 22);
+  });
+
+  // A switchback slot is current for the custom assignment it was resolved
+  // with, even when it serves another variant (control, full-on, a rule), so
+  // re-reading it does not re-expose it.
+  test('aCustomAssignmentOnAControlSlotDoesNotReexpose', () async {
+    final context = await h.create(dataOf([
+      sb(3, hour)..fullOnVariant = 1,
+      switchback(2, 'exp_miss', 3, hour)..trafficSplit = [1.0, 0.0],
+    ]));
+    context.setCustomAssignment('exp_sb', 2);
+    context.setCustomAssignment('exp_miss', 2);
+    h.clock.now = anchor + 2 * hour;
+    for (int i = 0; i < 3; ++i) {
+      expect(context.getTreatment('exp_sb'), 1);
+      expect(context.getTreatment('exp_miss'), 0);
+    }
+    expect(context.getPendingCount(), 2);
+    // Clearing the custom assignment is a change too.
+    context.cassignments_.remove('exp_sb');
+    expect(context.getTreatment('exp_sb'), 1);
+    expect(context.getPendingCount(), 3);
+  });
+
+  // The arm count is the split length, not the number of variants.
+  test('theArmCountIsTheSplitLength', () async {
+    final experiment = sb(2, hour);
+    experiment.variants = [
+      ...experiment.variants,
+      ExperimentVariant(name: 'C', config: '{"sb.arm":2}')
+    ];
+    final context = await h.create(dataOf([experiment]));
+    expect(h.peekSchedule(context, 'exp_sb', hour, 12), expected2Arms);
+  });
+
+  // An overridden unit experiment that becomes a switchback sharing its slot
+  // (no anchor yet) is re-resolved: the override is exposed again under the
+  // switchback's linked unit.
+  test('anOverriddenUnitExperimentTurnedSwitchbackIsReresolved', () async {
+    final context = await h.create(
+        dataOf([asUnit(sb(2, hour))..unitType = 'user_id']),
+        units: {unitType: uid, 'user_id': 'u1'});
+    context.setOverride('exp_sb', 1);
+    expect(context.getTreatment('exp_sb'), 1);
+
+    await h.refreshTo(context, [sb(2, hour)..switchbackStartAt = null]);
+    expect(context.getTreatment('exp_sb'), 1);
+    final exposures = await h.publishExposures(context);
+    expect(exposures.map((e) => e.unit), ['user_id', unitType]);
+  });
 }

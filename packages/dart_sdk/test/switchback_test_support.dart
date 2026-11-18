@@ -211,7 +211,9 @@ class Harness {
       {Map<String, Object>? units,
       Map<String, dynamic>? attributes,
       AudienceMatcher? audienceMatcher,
-      bool clusterAttribute = true}) async {
+      bool clusterAttribute = true,
+      String? application,
+      String? environment}) async {
     final ContextConfig config = ContextConfig.create()..setPublishDelay(-1);
     config.setUnits(units ?? {unitType: uid});
     final Context context = Context.create(
@@ -222,7 +224,9 @@ class Harness {
         publisher,
         DefaultVariableParser(),
         audienceMatcher ?? AudienceMatcher(DefaultAudienceDeserializer()),
-        capture);
+        capture,
+        application: application,
+        environment: environment);
     if (clusterAttribute) {
       context.setAttribute(clusterPath, clusterKey);
     }

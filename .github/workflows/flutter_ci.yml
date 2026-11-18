@@ -86,6 +86,34 @@ jobs:
         run: flutter pub publish --dry-run
         working-directory: packages/flutter_sdk
 
+  test_web:
+    name: Test dart_sdk compiled to JavaScript
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install dependencies (dart_sdk)
+        run: dart pub get
+        working-directory: packages/dart_sdk
+
+      # On the web an int is a JavaScript number: the hashing, the switchback
+      # golden vectors (64-bit seeds and periods) and the switchback cluster
+      # rule must give the VM's results. These suites do not use dart:io.
+      - name: Test dart_sdk on node and Chrome
+        run: >-
+          dart test -p node,chrome
+          test/internal
+          test/context_switchback_test.dart
+          test/context_switchback_cluster_test.dart
+          test/context_switchback_cluster_rule_test.dart
+        working-directory: packages/dart_sdk
+
   test_min_sdk:
     name: Test dart_sdk on the minimum Dart SDK
     runs-on: ubuntu-latest
