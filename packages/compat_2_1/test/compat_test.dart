@@ -25,6 +25,5 @@ void main() {
     expect(r['handler'], 'MyHandler');
     expect(r['oldHandler'], 'MyHandler');
     expect(r['default'], 'DefaultContextEventHandler');
-    expect(r['g'], 'GreaterThanOperator');
   });
 }

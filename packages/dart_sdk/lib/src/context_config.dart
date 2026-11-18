@@ -30,6 +30,9 @@ class ContextConfig {
   /// [getUnit] and [getUnits] return it as a string, as in 2.1;
   /// [ContextConfigUnitValues.getUnitValue] returns it as set.
   ContextConfig setUnit(final String unitType, covariant final Object uid) {
+    if (uid is! String && uid is! num) {
+      throw Exception("Unit '$unitType' must be a string or a number.");
+    }
     units_[unitType] = uid is String ? uid : uid.toString();
     _unitValuesOf(this)[unitType] = uid;
     return this;
