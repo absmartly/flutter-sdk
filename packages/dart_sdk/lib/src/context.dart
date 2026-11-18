@@ -1121,14 +1121,14 @@ class Context {
 
   // Holdout-free data never hashes the key.
   bool _isHoldoutKey(final String key) {
-    if (holdoutKeys_.isEmpty) {
+    if (_holdoutKeys.isEmpty) {
       return false;
     }
     ContextCounters.holdoutKeyLookups++;
-    return holdoutKeys_.contains(key);
+    return _holdoutKeys.contains(key);
   }
 
-  // JS context.ts _resolveVariableValue, for keys in [holdoutKeys_]. Unless
+  // JS context.ts _resolveVariableValue, for keys in [_holdoutKeys]. Unless
   // peeking, every
   // candidate checked is exposed. Only a candidate defining the key wins, and
   // the first held-out candidate (not overridden or rule-won) is the fallback
@@ -1292,7 +1292,7 @@ class Context {
 
     index_ = index;
     indexVariables_ = indexVariables;
-    holdoutKeys_ = holdoutKeys;
+    _holdoutKeys = holdoutKeys;
     data_ = data;
 
     assignmentCache_.removeWhere((experimentName, assignment) {
@@ -1324,7 +1324,7 @@ class Context {
   void setDataFailed(exception) {
     index_ = {};
     indexVariables_ = {};
-    holdoutKeys_ = {};
+    _holdoutKeys = {};
     data_ = ContextData();
     failed_ = true;
     failedError_ = exception;
@@ -1358,7 +1358,7 @@ class Context {
   Map<String, ExperimentVariables> index_ = {};
   Map<String, List<ExperimentVariables>> indexVariables_ = {};
   // Variable keys a holdout covers through one of their experiments.
-  Set<String> holdoutKeys_ = {};
+  Set<String> _holdoutKeys = {};
 
   final Map<String, Uint8List> hashedUnits_ = {};
   final Map<String, VariantAssigner> assigners_ = {};

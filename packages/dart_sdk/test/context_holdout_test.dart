@@ -2050,6 +2050,28 @@ void main() {
       expect(ContextCounters.holdoutKeyLookups, 1);
     });
 
+    test('an uncovered key keeps the released selection next to a covered key',
+        () async {
+      final partial = newExperiment(2, 'exp_free_partial')
+        ..variants = [
+          ExperimentVariant(name: 'A', config: '{"free":"control"}'),
+          ExperimentVariant(name: 'B', config: '{}'),
+        ];
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+      ], [
+        withVariables(
+            newExperiment(1, 'exp_covered', holdoutIds: [11]), 'covered'),
+        partial,
+        withVariables(newExperiment(3, 'exp_free'), 'free'),
+      ]));
+
+      expect(context.peekTreatment('exp_free_partial'), normalVariant);
+      expect(context.peekVariableValue('free', 'default'), 'default');
+      expect(context.getVariableValue('free', 'default'), 'default');
+      expect(context.peekVariableValue('covered', 'default'), 'treatment');
+    });
+
     test('a variable read walks its key\'s candidates once', () async {
       final context = await ready(contextDataOf([
         newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
