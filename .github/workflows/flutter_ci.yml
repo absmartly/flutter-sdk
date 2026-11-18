@@ -4,7 +4,8 @@ on:
   push:
     branches: [ main, master, develop ]
   pull_request:
-    branches: [ main, master, develop ]
+    # feat/** covers PRs stacked on a feature branch.
+    branches: [ main, master, develop, 'feat/**' ]
 
 jobs:
   analyze:
