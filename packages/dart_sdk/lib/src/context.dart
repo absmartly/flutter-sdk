@@ -1170,6 +1170,7 @@ class Context {
   }
 
   List<ExperimentVariables>? getVariableExperiments(final String key) {
+    ContextCounters.variableCandidateLookups++;
     return indexVariables_[key];
   }
 

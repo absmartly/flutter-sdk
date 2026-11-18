@@ -2050,6 +2050,23 @@ void main() {
       expect(ContextCounters.holdoutKeyLookups, 1);
     });
 
+    test('a variable read walks its key\'s candidates once', () async {
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+      ], [
+        withVariables(
+            newExperiment(1, 'exp_covered', holdoutIds: [11]), 'covered'),
+        withVariables(newExperiment(2, 'exp_free'), 'free'),
+      ]));
+      ContextCounters.reset();
+
+      for (final key in ['covered', 'free']) {
+        expect(context.peekVariableValue(key, 'default'), 'treatment');
+        expect(context.getVariableValue(key, 'default'), 'treatment');
+      }
+      expect(ContextCounters.variableCandidateLookups, 4);
+    });
+
     test('holdoutIds with no servable holdout skip the holdout path', () async {
       ContextCounters.reset();
       final context = await ready(contextDataOf([], [

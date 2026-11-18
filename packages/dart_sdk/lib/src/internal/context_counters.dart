@@ -15,6 +15,8 @@ class ContextCounters {
 
   static int holdoutKeyLookups = 0;
 
+  static int variableCandidateLookups = 0;
+
   static void reset() {
     attributesMapBuilds = 0;
     ruleKeyBuilds = 0;
@@ -22,5 +24,6 @@ class ContextCounters {
     holdoutAssignmentLookups = 0;
     coveredAssignmentResolutions = 0;
     holdoutKeyLookups = 0;
+    variableCandidateLookups = 0;
   }
 }
