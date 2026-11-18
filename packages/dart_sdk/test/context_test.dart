@@ -344,7 +344,7 @@ void main() {
       verify(dataProvider.getContextData()).called(1);
     });
 
-    test('initialFailureBeforeOverlappingRefreshRecoversAndPublishes',
+    test('initialFailureBeforeOverlappingRefreshKeepsTheContextFailed',
         () async {
       final context = createContextWithDefaultConfig(dataFuture);
       final ready = context.waitUntilReady();
@@ -357,24 +357,71 @@ void main() {
       dataFuture.completeError(error);
       expect(await ready, same(context));
       expect(context.isFailed(), isTrue);
-      expect(context.readyError(), same(error));
+      // A read while failed queues a control exposure against empty data.
+      expect(context.getTreatment('exp_test_ab'), equals(0));
+      context.track('goal1', null);
 
       refreshDataFuture.complete(refreshData);
       await refreshing;
+      expect(context.isFailed(), isTrue);
+      expect(context.readyError(), same(error));
+      expect(context.getExperiments(), isEmpty);
+      verifyNever(
+          eventLogger.handleEvent(context, EventType.refresh, refreshData));
+
+      await context.publish();
+      verifyNever(eventHandler.publish(any, any));
+      expect(context.getPendingCount(), equals(0));
+    });
+
+    test('refreshFailureThenInitialSuccessUsesTheInitialData', () async {
+      final context = createContextWithDefaultConfig(dataFuture);
+      final ready = context.waitUntilReady();
+      final refreshError = Exception('refresh failed');
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+
+      final refreshing = context.refresh();
+      refreshDataFuture.completeError(refreshError);
+      await expectLater(refreshing, throwsA(same(refreshError)));
+      dataFuture.complete(data);
+      expect(await ready, same(context));
       expect(context.isReady(), isTrue);
       expect(context.isFailed(), isFalse);
-      expect(context.readyError(), isNull);
-      expect(context.getData(), same(refreshData));
-      verifyInOrder([
-        eventLogger.handleEvent(context, EventType.error, error),
-        eventLogger.handleEvent(context, EventType.refresh, refreshData),
-      ]);
-      verifyNever(eventLogger.handleEvent(context, EventType.ready, any));
+      expect(context.getData(), same(data));
+      expect(context.getTreatment('exp_test_ab'), equals(1));
+    });
 
-      context.getTreatment(refreshData.experiments.first.name);
-      await context.publish();
-      final published = verify(eventHandler.publish(any, captureAny)).captured;
-      expect((published.single as PublishEvent).exposures, hasLength(1));
+    test('refreshFailureThenInitialFailureReportsTheInitialError', () async {
+      final context = createContextWithDefaultConfig(dataFuture);
+      final ready = context.waitUntilReady();
+      final refreshError = Exception('refresh failed');
+      final initialError = Exception('initial load failed');
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+
+      final refreshing = context.refresh();
+      refreshDataFuture.completeError(refreshError);
+      await expectLater(refreshing, throwsA(same(refreshError)));
+      dataFuture.completeError(initialError);
+      expect(await ready, same(context));
+      expect(context.isFailed(), isTrue);
+      expect(context.readyError(), same(initialError));
+    });
+
+    test('refreshWhoseDataFailsToInstallDoesNotBlockTheInitialData', () async {
+      final throwingParser = _FailOnceVariableParser();
+      final config = ContextConfig.create()..setUnits(units);
+      final context = Context.create(clock, config, dataFuture, dataProvider,
+          eventHandler, throwingParser, audienceMatcher, eventLogger);
+      final ready = context.waitUntilReady();
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+
+      final refreshing = context.refresh();
+      refreshDataFuture.complete(refreshData);
+      await expectLater(refreshing, throwsA(isA<StateError>()));
+      dataFuture.complete(data);
+      expect(await ready, same(context));
+      expect(context.isFailed(), isFalse);
+      expect(context.getData(), same(data));
     });
 
     test('initialFailureAfterOverlappingRefreshKeepsRefresh', () async {
@@ -3216,5 +3263,20 @@ class _StringUnitsContext extends Context {
   void setUnits(Map<String, String> units) {
     seen = Map.of(units);
     super.setUnits(units);
+  }
+}
+
+// Throws on its first parse, so the first data install fails.
+class _FailOnceVariableParser extends DefaultVariableParser {
+  bool _failed = false;
+
+  @override
+  Map<String, dynamic>? parse(Context context, String experimentName,
+      String variantName, String config) {
+    if (!_failed) {
+      _failed = true;
+      throw StateError('bad config');
+    }
+    return super.parse(context, experimentName, variantName, config);
   }
 }

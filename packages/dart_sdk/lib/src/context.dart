@@ -407,11 +407,17 @@ class Context {
 
       try {
         dataProvider_.getContextData().future.then((data) {
+          // The initial load failed while this refresh was in flight: a
+          // failed context stays failed, as a refresh started after the
+          // failure would (2.1 kept it failed too).
+          if (failed_) {
+            refreshing_ = false;
+            refreshing.complete();
+            return;
+          }
           try {
             setData(data);
             _refreshInstalled = true;
-            failed_ = false;
-            _failedErrors[this] = null;
           } catch (error) {
             fail(error);
             return;

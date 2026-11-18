@@ -12,7 +12,11 @@ void main() {
     test('setUnit rejects unsupported types before string conversion', () {
       final config = ContextConfig.create();
       for (final uid in <Object>[true, <String>[], <String, String>{}]) {
-        expect(() => config.setUnit('u', uid), throwsException);
+        expect(
+            () => config.setUnit('u', uid),
+            throwsA(predicate((e) =>
+                e.toString() ==
+                "Exception: Unit 'u' must be a string or a number.")));
         expect(config.getUnit('u'), isNull);
         expect(config.getUnitValue('u'), isNull);
       }
