@@ -1580,6 +1580,42 @@ void main() {
           equals(utf8.decode(Hashing.hashUnit('125.75'))));
     });
 
+    test('unknownCustomFieldMetadataDoesNotFailEitherExperiment', () async {
+      final payload = data.toMap();
+      final experiments = payload['experiments'] as List;
+      for (final experiment in experiments) {
+        (experiment as Map<String, dynamic>)['customFieldValues'] = [
+          {
+            'name': 'country',
+            'value': 'US',
+            'type': 'string',
+            'futureScalar': 42,
+            'futureObject': {'enabled': true},
+            'futureArray': [1, 'two'],
+          }
+        ];
+      }
+      final bytes = utf8.encode(jsonEncode(payload));
+      final parsed =
+          DefaultContextDataDeserializer().deserialize(bytes, 0, bytes.length)!;
+      final context = Context.create(
+          clock,
+          ContextConfig.create()..setUnits(units),
+          Completer<ContextData>()..complete(parsed),
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          null);
+      await context.waitUntilReady();
+      expect(context.isReady(), isTrue);
+      expect(context.isFailed(), isFalse);
+      expect(context.getTreatment('exp_test_ab'), equals(1));
+      expect(context.getTreatment('exp_test_abc'), equals(2));
+      expect(context.getCustomFieldValue('exp_test_ab', 'country'), 'US');
+      expect(context.getCustomFieldValue('exp_test_abc', 'country'), 'US');
+    });
+
     test('creatingAContextReadsTheConfigUnitsOnce', () {
       final config = _CountingUnitsConfig()..setUnit('session_id', 'abc');
       Context.create(clock, config, dataFutureReady, dataProvider, eventHandler,

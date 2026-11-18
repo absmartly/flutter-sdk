@@ -275,6 +275,46 @@ void main() {
       expect(notAList!.experiments.single.customFieldValues, isNull);
     });
 
+    test('unknownCustomFieldEntryKeysAreIgnored', () {
+      final data = deserializeJson({
+        'experiments': [
+          {
+            ...experimentJson(split: [0.5, 0.5], trafficSplit: [0, 1]),
+            'customFieldValues': [
+              {
+                'name': 'country',
+                'value': 'US',
+                'type': 'string',
+                'futureScalar': 1,
+                'futureObject': {'nested': true},
+                'futureArray': [1, 'two'],
+              }
+            ],
+          },
+          {
+            ...experimentJson(split: [0.5, 0.5], trafficSplit: [0, 1]),
+            'id': 2,
+            'name': 'other',
+            'customFieldValues': [
+              {
+                'name': 'enabled',
+                'value': 'true',
+                'type': 'boolean',
+                'future': ['ignored'],
+              }
+            ],
+          },
+        ]
+      });
+
+      expect(data, isNotNull);
+      expect(data!.experiments, hasLength(2));
+      expect(data.experiments[0].customFieldValues!.single.name,
+          equals('country'));
+      expect(data.experiments[1].customFieldValues!.single.name,
+          equals('enabled'));
+    });
+
     test('deserializeMissingOrNullAssignmentRules', () {
       final missing = deserializeJson({
         'experiments': [
