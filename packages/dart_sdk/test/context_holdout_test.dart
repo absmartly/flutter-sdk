@@ -1,6 +1,3 @@
-// Port of java-sdk ContextHoldoutTest (core-api, PR #12), checked against the
-// javascript-sdk reference (src/context.ts, PR #65). Java test names are kept
-// in snake-free camel case so each case can be traced back.
 import 'dart:async';
 
 import 'package:absmartly_dart/src/audience_matcher.dart';
@@ -11,6 +8,7 @@ import 'package:absmartly_dart/src/context_event_logger.dart';
 import 'package:absmartly_dart/src/context_publisher.dart';
 import 'package:absmartly_dart/src/default_audience_deserializer.dart';
 import 'package:absmartly_dart/src/default_variable_parser.dart';
+import 'package:absmartly_dart/src/internal/context_counters.dart';
 import 'package:absmartly_dart/src/internal/hashing/hashing.dart';
 import 'package:absmartly_dart/src/java/time/clock.dart';
 import 'package:absmartly_dart/src/json/attribute.dart';
@@ -262,7 +260,9 @@ void main() {
     ]));
 
     expect(context.peekTreatment('exp_holdout_in'), 0);
+    expect(context.getAssignment('exp_holdout_in').exposed, isFalse);
     context.getTreatment('exp_holdout_in');
+    expect(context.getAssignment('exp_holdout_in').exposed, isTrue);
 
     await expectPublished(context, [holdoutExposure(11, 'holdout_a', 0)]);
   });
@@ -892,9 +892,6 @@ void main() {
         newExperiment(1, 'exp_epoch_race', holdoutIds: [11])
       ]));
 
-      // The logger runs synchronously after the experiment's own exposure is
-      // queued and installs data that bumps the holdout to an iteration whose
-      // arm would hold the unit out, before the holdout trigger runs.
       logger.onExposure = (exposure) {
         if (exposure.id == 1) {
           context.setData(contextDataOf([
@@ -937,9 +934,6 @@ void main() {
       expect(context.getTreatment('exp_g'), normalVariant);
       expect(context.getPendingCount(), 3);
 
-      // exp_f's cached assignment still pins the iteration-1 holdout: it is
-      // re-resolved against the live iteration-2 entry, which is already
-      // exposed, so nothing new is published for the holdout.
       expect(context.getTreatment('exp_f'), normalVariant);
       expect(context.getPendingCount(), 4);
 
@@ -1200,7 +1194,6 @@ void main() {
       ]));
       final retained = context.getAssignment('exp_settled');
 
-      // Two refreshes that each replace the cached assignment.
       for (final iteration in [2, 3]) {
         await refreshWith(
             context,
@@ -1704,6 +1697,183 @@ void main() {
       expect(context.timeout_, isNotNull);
       context.clearTimeout();
     });
+    test('a held-out fallback beats an assigned candidate lacking the key',
+        () async {
+      final context = await ready(
+          contextDataOf([
+            newHoldout(11, 'holdout_all', holdoutASeedHi, holdoutASeedLo,
+                split: const [1.0, 0.0])
+          ], [
+            withVariables(newExperiment(1, 'exp_held_banner', holdoutIds: [11]),
+                'banner'),
+            newExperiment(2, 'exp_sparse_banner')
+              ..variants[1].config = '{"banner":"b1"}',
+          ]),
+          unitId: uidNotHeldOut);
+
+      expect(context.peekTreatment('exp_sparse_banner'), 0);
+      expect(context.peekVariableValue('banner', 'default'), 'control');
+      expect(context.getPendingCount(), 0);
+      expect(context.getVariableValue('banner', 'default'), 'control');
+
+      await expectPublished(
+          context,
+          [
+            holdoutExposure(11, 'holdout_all', 0),
+            exposure(2, 'exp_sparse_banner', 0),
+          ],
+          unitId: uidNotHeldOut);
+    });
+
+    test('an assigned candidate lacking a covered key passes to the next one',
+        () async {
+      final context = await ready(
+          contextDataOf([
+            newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+          ], [
+            newExperiment(1, 'exp_sparse_first')
+              ..variants[1].config = '{"banner":"first"}',
+            withVariables(
+                newExperiment(2, 'exp_dense_second', holdoutIds: [11]),
+                'banner'),
+          ]),
+          unitId: uidNotHeldOut);
+
+      expect(context.getVariableValue('banner', 'default'), 'control');
+
+      await expectPublished(
+          context,
+          [
+            exposure(1, 'exp_sparse_first', 0),
+            exposure(2, 'exp_dense_second', 0),
+            holdoutExposure(11, 'holdout_b', 1),
+          ],
+          unitId: uidNotHeldOut);
+    });
+
+    test('a key no holdout covers reads as without holdouts', () async {
+      final experiments = [
+        newExperiment(1, 'exp_sparse_first')
+          ..variants[1].config = '{"banner":"first"}',
+        withVariables(newExperiment(2, 'exp_dense_second'), 'banner'),
+        newExperiment(3, 'exp_covered', holdoutIds: [11]),
+      ];
+      final withHoldout = await ready(
+          contextDataOf(
+              [newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)],
+              experiments),
+          unitId: uidNotHeldOut);
+      final withoutHoldout =
+          await ready(contextDataOf(null, experiments), unitId: uidNotHeldOut);
+
+      for (final context in [withHoldout, withoutHoldout]) {
+        expect(context.peekVariableValue('banner', 'default'), 'default');
+        expect(context.getVariableValue('banner', 'default'), 'default');
+        expect(context.getPendingCount(), 1);
+      }
+    });
+
+    test('a key whose holdouts are not servable reads as without holdouts',
+        () async {
+      List<Experiment> experiments() => [
+            newExperiment(1, 'exp_sparse_first', holdoutIds: [11])
+              ..variants[1].config = '{"banner":"first"}',
+            withVariables(newExperiment(2, 'exp_dense_second'), 'banner'),
+          ];
+      for (final holdouts in [
+        [newHoldout(12, 'holdout_other', holdoutBSeedHi, holdoutBSeedLo)],
+        [
+          newHoldout(11, 'holdout_empty', holdoutBSeedHi, holdoutBSeedLo,
+              split: const [])
+        ],
+      ]) {
+        final context = await ready(contextDataOf(holdouts, experiments()),
+            unitId: uidNotHeldOut);
+
+        expect(context.peekVariableValue('banner', 'default'), 'default');
+        expect(context.getVariableValue('banner', 'default'), 'default');
+        expect(context.getPendingCount(), 1);
+      }
+    });
+
+    test('an out-of-range override on a covered key is skipped', () async {
+      for (final variant in [5, -1]) {
+        publisher.events.clear();
+        final context = await ready(contextDataOf([
+          newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+        ], [
+          withVariables(
+              newExperiment(1, 'exp_out_of_range', holdoutIds: [11]), 'color'),
+          withVariables(newExperiment(2, 'exp_in_range'), 'color'),
+        ]));
+        context.setOverride('exp_out_of_range', variant);
+
+        expect(context.peekVariableValue('color', 'default'), 'treatment');
+        expect(context.getVariableValue('color', 'default'), 'treatment');
+
+        await expectPublished(
+            context, [exposure(2, 'exp_in_range', normalVariant)]);
+      }
+    });
+
+    test('an override on a held-out covered candidate wins', () async {
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_a', holdoutASeedHi, holdoutASeedLo)
+      ], [
+        withVariables(
+            newExperiment(1, 'exp_held_overridden', holdoutIds: [11]), 'color'),
+      ]));
+      context.setOverride('exp_held_overridden', 1);
+
+      expect(context.peekVariableValue('color', 'default'), 'treatment');
+      expect(context.getVariableValue('color', 'default'), 'treatment');
+    });
+
+    test('a rule-won held-out candidate lacking the key is no fallback',
+        () async {
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_a', holdoutASeedHi, holdoutASeedLo)
+      ], [
+        newExperiment(1, 'exp_held_rule', holdoutIds: [11])
+          ..assignmentRules = usRule
+          ..variants[0].config = '{"shared":"rule_control"}',
+        newExperiment(2, 'exp_held_plain', holdoutIds: [11])
+          ..variants[0].config = '{"shared":"plain_control"}',
+      ]));
+      context.setAttribute('country', 'US');
+
+      expect(context.peekVariableValue('shared', 'default'), 'plain_control');
+      expect(context.getVariableValue('shared', 'default'), 'plain_control');
+    });
+
+    test('the first held-out candidate is the fallback', () async {
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_a', holdoutASeedHi, holdoutASeedLo)
+      ], [
+        newExperiment(1, 'exp_held_first', holdoutIds: [11])
+          ..variants[0].config = '{"shared":"first_control"}',
+        newExperiment(2, 'exp_held_second', holdoutIds: [11])
+          ..variants[0].config = '{"shared":"second_control"}',
+      ]));
+
+      expect(context.peekVariableValue('shared', 'default'), 'first_control');
+      expect(context.getVariableValue('shared', 'default'), 'first_control');
+    });
+
+    test('an overridden held-out candidate lacking the key is no fallback',
+        () async {
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_a', holdoutASeedHi, holdoutASeedLo)
+      ], [
+        newExperiment(1, 'exp_held_overridden', holdoutIds: [11])
+          ..variants[0].config = '{"shared":"overridden_control"}',
+        newExperiment(2, 'exp_held_plain', holdoutIds: [11])
+          ..variants[0].config = '{"shared":"plain_control"}',
+      ]));
+      context.setOverride('exp_held_overridden', 1);
+
+      expect(context.getVariableValue('shared', 'default'), 'plain_control');
+    });
   });
 
   group('event logger', () {
@@ -1809,6 +1979,236 @@ void main() {
       expect(context.getTreatment('exp_empty_split_holdout'), normalVariant);
       await expectPublished(
           context, [exposure(1, 'exp_empty_split_holdout', normalVariant)]);
+    });
+
+    test('whole-number doubles are accepted for holdout integers', () async {
+      final holdout = ContextHoldout.fromMap({
+        'id': 11.0,
+        'name': 'holdout_doubles',
+        'unitType': unitType,
+        'iteration': 1.0,
+        'seedHi': 13.0,
+        'seedLo': 111.0,
+        'split': [0.1, 0.9],
+      });
+
+      expect(
+          holdout,
+          newHoldout(11, 'holdout_doubles', holdoutASeedHi, holdoutASeedLo)
+            ..holdoutType = null);
+    });
+
+    test('ContextData equality compares holdouts', () {
+      final experiments = [
+        newExperiment(1, 'exp_eq', holdoutIds: [11])
+      ];
+
+      expect(
+          contextDataOf(
+              [newHoldout(11, 'holdout_eq', holdoutASeedHi, holdoutASeedLo)],
+              experiments),
+          isNot(contextDataOf(
+              [newHoldout(11, 'holdout_eq', holdoutBSeedHi, holdoutBSeedLo)],
+              experiments)));
+      expect(
+          contextDataOf(null, experiments),
+          isNot(contextDataOf(
+              [newHoldout(11, 'holdout_eq', holdoutASeedHi, holdoutASeedLo)],
+              experiments)));
+    });
+
+    test('ids beyond 2^53 - 1 are dropped', () {
+      // Integer and decimal spellings alike, so the VM and the web agree.
+      final Map<String, dynamic> holdout =
+          newHoldout(11, 'holdout_huge', holdoutASeedHi, holdoutASeedLo)
+              .toMap();
+      for (final id in [
+        9007199254740992,
+        9007199254740992.0,
+        -9007199254740992
+      ]) {
+        holdout['id'] = id;
+        expect(() => ContextHoldout.fromMap(holdout), throwsFormatException);
+      }
+      for (final id in [9007199254740991, 9007199254740991.0]) {
+        holdout['id'] = id;
+        expect(ContextHoldout.fromMap(holdout).id, 9007199254740991);
+      }
+
+      final experiment = Experiment.fromMap(newExperiment(1, 'exp_huge').toMap()
+        ..['holdoutIds'] = [
+          1e20,
+          9007199254740992,
+          9007199254740992.0,
+          9007199254740991,
+          11.0
+        ]);
+      expect(experiment.holdoutIds, [9007199254740991, 11]);
+    });
+
+    test('an infinite holdout id is dropped, not thrown', () {
+      final data = ContextData.fromMap({
+        'experiments': [
+          newExperiment(1, 'exp_infinite').toMap()
+            ..['holdoutIds'] = [double.infinity, double.nan, 2]
+        ],
+        'holdouts': [
+          newHoldout(1, 'holdout_infinite', holdoutASeedHi, holdoutASeedLo)
+              .toMap()
+            ..['id'] = double.infinity,
+          newHoldout(2, 'holdout_finite', holdoutASeedHi, holdoutASeedLo)
+              .toMap(),
+        ],
+      });
+
+      expect(data.holdouts.map((holdout) => holdout.id), [2]);
+      expect(data.experiments.single.holdoutIds, [2]);
+    });
+
+    test('variable reads on holdout-free data never look up holdout keys',
+        () async {
+      ContextCounters.reset();
+      final experiments = [
+        withVariables(newExperiment(1, 'exp_free'), 'color')
+      ];
+      final free = await ready(contextDataOf(null, experiments));
+
+      expect(free.peekVariableValue('color', 'default'), 'treatment');
+      expect(free.getVariableValue('color', 'default'), 'treatment');
+      expect(ContextCounters.holdoutKeyLookups, 0);
+
+      final covered = await ready(contextDataOf([
+        newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+      ], [
+        withVariables(
+            newExperiment(1, 'exp_covered', holdoutIds: [11]), 'color')
+      ]));
+      expect(covered.getVariableValue('color', 'default'), 'treatment');
+      expect(ContextCounters.holdoutKeyLookups, 1);
+    });
+
+    test('an uncovered key keeps the released selection next to a covered key',
+        () async {
+      final partial = newExperiment(2, 'exp_free_partial')
+        ..variants = [
+          ExperimentVariant(name: 'A', config: '{"free":"control"}'),
+          ExperimentVariant(name: 'B', config: '{}'),
+        ];
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+      ], [
+        withVariables(
+            newExperiment(1, 'exp_covered', holdoutIds: [11]), 'covered'),
+        partial,
+        withVariables(newExperiment(3, 'exp_free'), 'free'),
+      ]));
+
+      expect(context.peekTreatment('exp_free_partial'), normalVariant);
+      expect(context.peekVariableValue('free', 'default'), 'default');
+      expect(context.getVariableValue('free', 'default'), 'default');
+      expect(context.peekVariableValue('covered', 'default'), 'treatment');
+    });
+
+    test('close publishes exposures a variable read queues while closing',
+        () async {
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+      ], [
+        newExperiment(1, 'exp_sparse', holdoutIds: [11])
+          ..variants[0].config = '{"k":"a0"}',
+        withVariables(newExperiment(2, 'exp_dense'), 'k'),
+      ]));
+      Future<void>? closing;
+      logger.onExposure = (exposure) {
+        if (exposure.id == 1) {
+          closing ??= context.close();
+        }
+      };
+
+      expect(context.getVariableValue('k', 'default'), 'treatment');
+      await closing;
+
+      expect(publisher.events.expand((event) => event.exposures).toList(), [
+        exposure(1, 'exp_sparse', normalVariant),
+        holdoutExposure(11, 'holdout_b', 1),
+        exposure(2, 'exp_dense', normalVariant),
+      ]);
+      expect(context.getPendingCount(), 0);
+      expect(context.isClosed(), isTrue);
+    });
+
+    test('a candidate removed during a variable read is not exposed', () async {
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+      ], [
+        newExperiment(1, 'exp_sparse', holdoutIds: [11])
+          ..variants[0].config = '{"k":"a0"}',
+        withVariables(newExperiment(2, 'exp_removed'), 'k'),
+      ]));
+      logger.onExposure = (exposure) {
+        if (exposure.id == 1) {
+          context.setData(contextDataOf([], []));
+        }
+      };
+
+      expect(context.getVariableValue('k', 'default'), 'default');
+
+      await expectPublished(context, [
+        exposure(1, 'exp_sparse', normalVariant),
+        holdoutExposure(11, 'holdout_b', 1),
+      ]);
+    });
+
+    test('a retained override keeps its variables after a refresh', () async {
+      ContextData data(int variants) => contextDataOf([
+            newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+          ], [
+            newExperiment(1, 'exp_override', holdoutIds: [11])
+              ..variants = [
+                for (final name in ['zero', 'one', 'two'].take(variants))
+                  ExperimentVariant(name: name, config: '{"k":"$name"}')
+              ],
+          ]);
+      final context = await ready(data(3));
+      context.setOverride('exp_override', 2);
+
+      expect(context.peekVariableValue('k', 'default'), 'two');
+      await refreshWith(context, data(2));
+      expect(context.peekTreatment('exp_override'), 2);
+      expect(context.getVariableValue('k', 'default'), 'two');
+
+      await expectPublished(context, [
+        exposure(1, 'exp_override', 2, assigned: false, overridden: true),
+        holdoutExposure(11, 'holdout_b', 1),
+      ]);
+    });
+
+    test('a variable read walks its key\'s candidates once', () async {
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+      ], [
+        withVariables(
+            newExperiment(1, 'exp_covered', holdoutIds: [11]), 'covered'),
+        withVariables(newExperiment(2, 'exp_free'), 'free'),
+      ]));
+      ContextCounters.reset();
+
+      for (final key in ['covered', 'free']) {
+        expect(context.peekVariableValue(key, 'default'), 'treatment');
+        expect(context.getVariableValue(key, 'default'), 'treatment');
+      }
+      expect(ContextCounters.variableCandidateLookups, 4);
+      expect(ContextCounters.assignmentLookups, 4);
+    });
+
+    test('holdoutIds with no servable holdout skip the holdout path', () async {
+      ContextCounters.reset();
+      final context = await ready(contextDataOf([], [
+        newExperiment(1, 'exp_no_servable', holdoutIds: [11])
+      ]));
+
+      expect(context.getTreatment('exp_no_servable'), normalVariant);
+      expect(ContextCounters.coveredAssignmentResolutions, 0);
     });
 
     test('setDataDoesNotMutateCallerSuppliedHoldoutIdsArray', () async {
@@ -1953,8 +2353,6 @@ void main() {
     });
   });
 
-  // Beyond the Java suite: JS (the reference) behaviour that the Java tests
-  // do not pin, and cross-sdk-tests H1-H8.
   group('javascript parity', () {
     test('a duplicate holdout id exposes and decides once (H1)', () async {
       final context = await ready(contextDataOf([
@@ -2294,6 +2692,25 @@ void main() {
       await expectPublished(context, [
         exposure(1, 'exp_rename', normalVariant),
         holdoutExposure(11, 'renamed', 1),
+      ]);
+    });
+
+    test('a same-iteration rename keeps the name the arm was resolved with',
+        () async {
+      ContextData data(String name) => contextDataOf([
+            newHoldout(11, name, holdoutBSeedHi, holdoutBSeedLo)
+          ], [
+            newExperiment(1, 'exp_a', holdoutIds: [11]),
+          ]);
+      final context = await ready(data('h_old'));
+
+      expect(context.peekTreatment('exp_a'), normalVariant);
+      await refreshWith(context, data('h_new'));
+      expect(context.getTreatment('exp_a'), normalVariant);
+
+      await expectPublished(context, [
+        exposure(1, 'exp_a', normalVariant),
+        holdoutExposure(11, 'h_old', 1),
       ]);
     });
 

@@ -1,5 +1,7 @@
 import 'package:collection/collection.dart';
 
+import '../internal/whole_number.dart';
+
 /// A holdout from the context payload's top-level `holdouts` array.
 ///
 /// An experiment lists the holdouts that cover it in `holdoutIds`. A covered
@@ -62,17 +64,7 @@ class ContextHoldout {
     this.holdoutType = holdoutType is String ? holdoutType : null;
   }
 
-  static int? _int(dynamic value) {
-    if (value is int) {
-      return value;
-    }
-    if (value is double &&
-        value.isFinite &&
-        value == value.truncateToDouble()) {
-      return value.toInt();
-    }
-    return null;
-  }
+  static int? _int(dynamic value) => wholeNumber(value);
 
   Map<String, dynamic> toMap() {
     return {

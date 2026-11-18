@@ -10,11 +10,8 @@ class ContextData {
   // field (unlike an Expando) travels with the object across isolates.
   List<ContextHoldout>? _holdoutList;
 
-  ContextData({this.experiments = const [], List<ContextHoldout>? holdouts}) {
-    if (holdouts != null) {
-      this.holdouts = holdouts;
-    }
-  }
+  ContextData({this.experiments = const [], List<ContextHoldout>? holdouts})
+      : _holdoutList = holdouts;
 
   @override
   bool operator ==(Object other) {

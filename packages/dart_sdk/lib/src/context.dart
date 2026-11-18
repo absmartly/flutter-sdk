@@ -487,13 +487,16 @@ class Context {
   dynamic getVariableValue(final String key, final dynamic defaultValue) {
     checkReady(true);
 
-    final Assignment? assignment = _getVariableAssignment(key, false);
+    if (_isHoldoutKey(key)) {
+      return _resolveVariableValue(key, defaultValue, false);
+    }
+    final Assignment? assignment = getVariableAssignment(key);
     if (assignment != null) {
       // Queue exposure when assignment exists, regardless of whether key is in variables
       // This matches JavaScript SDK behavior - exposure is logged even when user
       // is not in traffic (eligible=false) to record that the variable was accessed
       if (!assignment.exposed) {
-        _triggerExposures(assignment);
+        queueExposure(assignment);
       }
       if (assignment.variables.containsKey(key)) {
         return assignment.variables[key];
@@ -505,6 +508,9 @@ class Context {
   dynamic peekVariableValue(final String key, final dynamic defaultValue) {
     checkReady(true);
 
+    if (_isHoldoutKey(key)) {
+      return _resolveVariableValue(key, defaultValue, true);
+    }
     final Assignment? assignment = getVariableAssignment(key);
     if (assignment != null) {
       if (assignment.variables.containsKey(key)) {
@@ -608,7 +614,12 @@ class Context {
     closingFuture_ = closing;
     closing_ = true;
 
-    flush().then((_) {
+    // Events queued while the final publish runs (by an exposure logger, or a
+    // read still in progress) are published before close completes.
+    Future<void> drain() =>
+        flush().then((_) => pendingCount_ > 0 ? drain() : null);
+
+    drain().then((_) {
       closing_ = false;
       closingFuture_ = null;
       closed_ = true;
@@ -1211,8 +1222,6 @@ class Context {
   _HoldoutAssignment? _getHoldoutAssignment(
       final ContextHoldout live, final String unitType) {
     ContextCounters.holdoutAssignmentLookups++;
-    // `live` is always the installed definition: setData rebuilds every
-    // experiment's holdout list, so no stale reference reaches here.
     final (int, String) cacheKey = (live.id, unitType);
     final _HoldoutAssignment? cached = _holdoutAssignmentCache[cacheKey];
     if (cached != null && cached.iteration == live.iteration) {
@@ -1306,6 +1315,7 @@ class Context {
   }
 
   Assignment getAssignment(final String experimentName) {
+    ContextCounters.assignmentLookups++;
     // A unit experiment's cached slot is checked as it was before
     // switchbacks, so a payload without switchbacks costs nothing extra per
     // read. A unit slot never belongs to a switchback epoch.
@@ -1323,6 +1333,14 @@ class Context {
       }
     }
     return _getAssignment(experimentName, null, rejected: rejected);
+  }
+
+  // A variable-key lookup's switchback candidate, resolved at the lookup's
+  // single clock reading.
+  Assignment _getSwitchbackAssignment(
+      final String experimentName, final int now) {
+    ContextCounters.assignmentLookups++;
+    return _getAssignment(experimentName, now);
   }
 
   // [now] is the caller's clock reading, shared by every switchback a
@@ -1498,6 +1516,7 @@ class Context {
         assignment.variant >= 0 &&
         (assignment.variant < experiment.data.variants.length)) {
       assignment.variables = experiment.variables[assignment.variant] ?? {};
+      assignment._hasVariables = true;
     }
 
     assignment.attrsSeq = attrsSeq_;
@@ -1575,49 +1594,78 @@ class Context {
     return false;
   }
 
-  Assignment? getVariableAssignment(final String key) {
-    return _getVariableAssignment(key, true);
-  }
-
   // The first candidate the unit is assigned to, overridden into or given by a
-  // rule. A suppressed candidate never wins over one of those, but the first
-  // one is the fallback (its control values) when nothing else wins. Unless
-  // peeking, every holdout-covered candidate passed over is exposed (JS
-  // context.ts _resolveVariableValue).
-  Assignment? _getVariableAssignment(final String key, final bool peek) {
+  // rule. Variable reads on a key a holdout covers select through
+  // _resolveVariableValue instead.
+  Assignment? getVariableAssignment(final String key) {
     final List<ExperimentVariables>? keyExperimentVariables =
         getVariableExperiments(key);
 
     if (keyExperimentVariables != null) {
-      Assignment? suppressedFallback;
       // Every switchback on the key resolves at one clock reading.
       final int? now = _hasSwitchbacks ? clock_.millis() : null;
       for (ExperimentVariables experimentVariables in keyExperimentVariables) {
         final Assignment assignment =
             now != null && experimentVariables._switchback
-                ? _getAssignment(experimentVariables.data.name, now)
+                ? _getSwitchbackAssignment(experimentVariables.data.name, now)
                 : getAssignment(experimentVariables.data.name);
         if (assignment.assigned ||
             assignment.overridden ||
             assignment._ruleOverride) {
-          // The caller exposes the winner and then its holdouts.
           return assignment;
         }
-        // A covered candidate passed over is exposed like JS does it: its
-        // own exposure (unless suppressed) and its holdouts'. Marking it
-        // exposed also keeps a later setUnit from re-randomizing it.
-        if (!peek &&
-            assignment._holdoutAssignments != null &&
-            !assignment.exposed) {
-          _triggerExposures(assignment);
-        }
-        if (assignment._suppressed) {
-          suppressedFallback ??= assignment;
-        }
       }
-      return suppressedFallback;
     }
     return null;
+  }
+
+  bool _isHoldoutKey(final String key) {
+    if (_holdoutKeys.isEmpty) {
+      return false;
+    }
+    ContextCounters.holdoutKeyLookups++;
+    return _holdoutKeys.contains(key);
+  }
+
+  // JS context.ts _resolveVariableValue, for keys in [_holdoutKeys]. A
+  // candidate whose variant resolved no variables (out of range, or removed
+  // by data installed during this read) is skipped. Unless peeking, every
+  // other one is exposed. Only a candidate defining the key wins, and the
+  // first held-out candidate (not overridden or rule-won) is the fallback even
+  // when it lacks the key.
+  dynamic _resolveVariableValue(
+      final String key, final dynamic defaultValue, final bool peek) {
+    Map<String, dynamic>? suppressedFallback;
+    // Every switchback on the key resolves at one clock reading.
+    final int? now = _hasSwitchbacks ? clock_.millis() : null;
+    for (ExperimentVariables experimentVariables
+        in getVariableExperiments(key) ?? const []) {
+      final Assignment assignment =
+          now != null && experimentVariables._switchback
+              ? _getSwitchbackAssignment(experimentVariables.data.name, now)
+              : getAssignment(experimentVariables.data.name);
+      if (!assignment._hasVariables) {
+        continue;
+      }
+      if (!peek && !assignment.exposed) {
+        _triggerExposures(assignment);
+      }
+      if (assignment.variables.containsKey(key) &&
+          (assignment.assigned ||
+              assignment.overridden ||
+              assignment._ruleOverride)) {
+        return assignment.variables[key];
+      }
+      if (assignment._suppressed &&
+          !assignment.overridden &&
+          !assignment._ruleOverride) {
+        suppressedFallback ??= assignment.variables;
+      }
+    }
+    if (suppressedFallback != null && suppressedFallback.containsKey(key)) {
+      return suppressedFallback[key];
+    }
+    return defaultValue;
   }
 
   ExperimentVariables? getExperiment(final String experimentName) {
@@ -1625,6 +1673,7 @@ class Context {
   }
 
   List<ExperimentVariables>? getVariableExperiments(final String key) {
+    ContextCounters.variableCandidateLookups++;
     return indexVariables_[key];
   }
 
@@ -1680,6 +1729,7 @@ class Context {
   void setData(final ContextData data) {
     final Map<String, ExperimentVariables> index = {};
     final Map<String, List<ExperimentVariables>> indexVariables = {};
+    final Set<String> holdoutKeys = {};
 
     // Only holdouts with a split can be served (JS context.ts _init).
     final Map<int, ContextHoldout> holdoutsById = {};
@@ -1720,6 +1770,9 @@ class Context {
               this, experiment.name, variant.name, variant.config!);
 
           variables?.forEach((key, value) {
+            if (experimentVariables._holdouts != null) {
+              holdoutKeys.add(key);
+            }
             List<ExperimentVariables>? keyExperimentVariables =
                 indexVariables[key];
             if (keyExperimentVariables == null) {
@@ -1765,6 +1818,7 @@ class Context {
 
     index_ = index;
     indexVariables_ = indexVariables;
+    _holdoutKeys = holdoutKeys;
     data_ = data;
     _hasSwitchbacks = index.values.any((entry) => entry._switchback);
 
@@ -1784,41 +1838,22 @@ class Context {
     setRefreshTimer();
   }
 
-  // The holdouts covering an experiment, sorted by id without duplicates;
-  // unknown ids are ignored. Null when none applies.
   static List<ContextHoldout>? _resolveHoldouts(final List<int>? holdoutIds,
       final Map<int, ContextHoldout> holdoutsById) {
     if (holdoutIds == null || holdoutIds.isEmpty) {
       return null;
     }
-    final List<ContextHoldout> resolved = [];
-    for (final int holdoutId in holdoutIds) {
-      final ContextHoldout? holdout = holdoutsById[holdoutId];
-      if (holdout == null) {
-        continue;
-      }
-      int insertAt = resolved.length;
-      bool duplicate = false;
-      for (int i = 0; i < resolved.length; i++) {
-        if (resolved[i].id == holdoutId) {
-          duplicate = true;
-          break;
-        }
-        if (resolved[i].id > holdoutId) {
-          insertAt = i;
-          break;
-        }
-      }
-      if (!duplicate) {
-        resolved.insert(insertAt, holdout);
-      }
-    }
-    return resolved.isEmpty ? null : List.unmodifiable(resolved);
+    final List<int> ids =
+        holdoutIds.where(holdoutsById.containsKey).toSet().toList()..sort();
+    return ids.isEmpty
+        ? null
+        : List.unmodifiable(ids.map((id) => holdoutsById[id]!));
   }
 
   void setDataFailed(exception) {
     index_ = {};
     indexVariables_ = {};
+    _holdoutKeys = {};
     data_ = ContextData();
     failed_ = true;
     failedError_ = exception;
@@ -1851,6 +1886,7 @@ class Context {
   ContextData? data_;
   Map<String, ExperimentVariables> index_ = {};
   Map<String, List<ExperimentVariables>> indexVariables_ = {};
+  Set<String> _holdoutKeys = {};
 
   final Map<String, Uint8List> hashedUnits_ = {};
   final Map<String, VariantAssigner> assigners_ = {};
@@ -1898,7 +1934,6 @@ class ExperimentVariables {
   // use. setData installs new entries, so neither outlives its rules.
   String _ruleKey = "";
   List? _rules;
-  // The holdouts covering [data], sorted by id; null when none applies.
   List<ContextHoldout>? _holdouts;
   // Set for a switchback experiment (randomizationType "switchback").
   bool _switchback = false;
@@ -1948,10 +1983,11 @@ class Assignment {
   // The covering holdouts and their arms when this was resolved; an arm is
   // null when the unit was not set.
   List<ContextHoldout>? _holdouts;
-  // The (id, iteration) pairs of [_holdouts] when this was resolved.
   List<int>? _holdoutIdentity;
   List<_HoldoutAssignment?>? _holdoutAssignments;
   Map<String, dynamic> variables = {};
+  // Whether [variables] was resolved from the experiment's variant.
+  bool _hasVariables = false;
   bool exposed = false;
   int attrsSeq = 0;
   // Switchback grid this assignment was resolved under; compared by

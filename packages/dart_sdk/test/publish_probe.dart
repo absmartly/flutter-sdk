@@ -14,9 +14,6 @@ import 'package:absmartly_dart/src/java/time/clock.dart';
 import 'package:absmartly_dart/src/json/context_data.dart';
 import 'package:absmartly_dart/src/json/publish_event.dart';
 
-// Shared by holdout_compat_test.dart: drives a fixed sequence of reads on a
-// context and returns the serialized publish body.
-
 class BytesPublisher implements ContextPublisher {
   final List<String> bodies = [];
 

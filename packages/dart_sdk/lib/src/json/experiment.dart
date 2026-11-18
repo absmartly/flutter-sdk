@@ -1,5 +1,7 @@
 import 'package:collection/collection.dart';
 
+import '../internal/whole_number.dart';
+
 import 'experiment_variant.dart';
 import 'experiment_application.dart';
 
@@ -87,13 +89,8 @@ class Experiment {
     int? switchbackBurnOutDurationMs,
     String? switchbackDesignType,
     String? switchbackEstimand,
-  }) {
-    if (holdoutIds != null) {
-      this.holdoutIds = holdoutIds;
-    }
-    if (holdoutType != null) {
-      this.holdoutType = holdoutType;
-    }
+  })  : _holdoutIdList = holdoutIds,
+        _holdoutTypeValue = holdoutType {
     if (randomizationType != null ||
         switchbackClusters != null ||
         switchbackClusterValues != null ||
@@ -271,16 +268,14 @@ class Experiment {
     _switchbackFields = _SwitchbackFields.fromMap(data);
   }
 
-  // Whole numbers only; any other entry can't name a holdout and is dropped.
+  // Whole numbers up to 2^53 - 1 only; any other entry can't name a holdout
+  // and is dropped.
   static List<int> _parseHoldoutIds(List value) {
     final List<int> ids = [];
     for (final element in value) {
-      if (element is int) {
-        ids.add(element);
-      } else if (element is double &&
-          element.isFinite &&
-          element == element.truncateToDouble()) {
-        ids.add(element.toInt());
+      final int? id = wholeNumber(element);
+      if (id != null) {
+        ids.add(id);
       }
     }
     return ids;

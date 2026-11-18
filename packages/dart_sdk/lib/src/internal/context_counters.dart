@@ -13,6 +13,12 @@ class ContextCounters {
 
   static int coveredAssignmentResolutions = 0;
 
+  static int holdoutKeyLookups = 0;
+
+  static int variableCandidateLookups = 0;
+
+  static int assignmentLookups = 0;
+
   static int switchbackPeriodLookups = 0;
 
   static int switchbackServingResolutions = 0;
@@ -25,6 +31,9 @@ class ContextCounters {
     ruleKeyComparisons = 0;
     holdoutAssignmentLookups = 0;
     coveredAssignmentResolutions = 0;
+    holdoutKeyLookups = 0;
+    variableCandidateLookups = 0;
+    assignmentLookups = 0;
     switchbackPeriodLookups = 0;
     switchbackServingResolutions = 0;
     slowAssignmentLookups = 0;
