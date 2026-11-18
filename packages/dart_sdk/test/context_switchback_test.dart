@@ -1697,4 +1697,23 @@ void main() {
     context.getTreatment('exp_sb');
     expect(context.getPendingCount(), 2);
   });
+
+  // A variable read that resolves a switchback first records nothing when
+  // the Collector records nothing: no cluster value, a filtered value, before
+  // the anchor and an unservable schedule.
+  test('aFirstVariableReadOfASilentSwitchbackRecordsNothing', () async {
+    for (final e in [
+      sb(2, hour)..switchbackClusters = {unitType: 'missing'},
+      sb(2, hour)..switchbackClusterValues = ['other-store'],
+      sb(2, hour)..switchbackStartAt = anchor + 10 * hour,
+      sb(2, hour)..switchbackPeriodMs = 0,
+    ]) {
+      final harness = Harness(now: anchor + 5);
+      final context = await harness.create(dataOf([e]));
+      expect(context.getVariableValue('sb.arm', -1), 0);
+      expect(context.getPendingCount(), 0, reason: '$e');
+      expect(context.getTreatment('exp_sb'), 0);
+      expect(context.getPendingCount(), 0, reason: '$e');
+    }
+  });
 }

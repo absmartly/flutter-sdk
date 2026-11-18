@@ -361,6 +361,9 @@ class Context {
   void queueExposure(final Assignment assignment) {
     if (!assignment.exposed) {
       assignment.exposed = true;
+      if (assignment._switchbackSilent) {
+        return;
+      }
       final Exposure exposure = Exposure(
           id: assignment.id,
           name: assignment.name,
