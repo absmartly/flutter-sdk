@@ -1342,6 +1342,26 @@ void main() {
       expect(config.getUnit('p'), equals('x'));
     });
 
+    test('aSetUnitsOverrideThatRewritesUnitsIsNotUndone', () async {
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      final config = ContextConfig.create()
+        ..setUnit('session_id', 125)
+        ..setUnit('user_id', 125);
+      final context = _RewritingUnitsContext(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher);
+      await context.waitUntilReady();
+
+      expect(context.getUnits(), equals({'session_id': 'p-125'}));
+      context.track('goal1', null);
+      await context.publish();
+      final PublishEvent event =
+          verify(eventHandler.publish(context, captureAny)).captured.single
+              as PublishEvent;
+      expect(event.units.map((u) => u.uid),
+          equals([utf8.decode(Hashing.hashUnit('p-125'))]));
+    });
+
     test('creatingAContextReadsTheConfigUnitsOnce', () {
       final config = _CountingUnitsConfig()..setUnit('session_id', 'abc');
       Context.create(clock, config, dataFutureReady, dataProvider, eventHandler,
@@ -3561,5 +3581,24 @@ class _CountingUnitsConfig extends ContextConfig {
   Map<String, String> getUnits() {
     getUnitsCalls++;
     return super.getUnits();
+  }
+}
+
+// A 2.1-style subclass whose setUnits drops one unit and rewrites another.
+class _RewritingUnitsContext extends Context {
+  _RewritingUnitsContext(
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, null);
+
+  @override
+  void setUnits(Map<String, String> units) {
+    super.setUnits({'session_id': 'p-${units['session_id']}'});
   }
 }
