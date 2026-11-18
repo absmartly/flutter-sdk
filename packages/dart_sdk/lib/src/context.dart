@@ -443,11 +443,11 @@ class Context {
           refreshing_ = false;
           refreshing.complete();
           logEvent(EventType.refresh, data);
-          // The context may have become ready through this refresh, before
-          // the initial fetch settled: queued events are due now. The ready
-          // future still completes when the initial fetch settles, so the
-          // ready and error events keep their 2.1 order.
-          if (getPendingCount() > 0) {
+          // This refresh made the context ready before the initial fetch
+          // settled: events queued before ready are due now. The ready future
+          // still completes when the initial fetch settles, so the ready and
+          // error events keep their 2.1 order.
+          if (readyFuture_ != null && getPendingCount() > 0) {
             setTimeout();
           }
         }, onError: fail);

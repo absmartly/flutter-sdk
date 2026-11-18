@@ -36,7 +36,7 @@ These follow the cross-SDK contract all ABsmartly SDKs implement in this release
 - Integer split weights (`1` instead of `1.0`) are accepted when deserializing context data, and a response that cannot be deserialized fails the context instead of completing with null.
 - `getUnits()` returns the units; it returned an empty map.
 - Publishing no longer sends each unit twice.
-- A refresh that completes before the initial context fetch is no longer overwritten by the late initial response, and a late initial failure no longer discards it and marks the context failed. A context whose initial fetch failed stays failed, as before.
+- A refresh that completes before the initial context fetch is no longer overwritten by the late initial response, and a late initial failure no longer discards it and marks the context failed. In that case the `ready` event carries the refresh data the context serves, and events queued before ready are published once the refresh lands. A context whose initial fetch failed stays failed, as before.
 - A failed publish keeps its events queued for the next publish instead of dropping them; one publish runs at a time, and `close()` waits for an in-flight publish.
 - A throwing `ContextEventLogger` no longer breaks the context.
 - `track(name, properties)` copies `properties`, so later changes to the map are not published.

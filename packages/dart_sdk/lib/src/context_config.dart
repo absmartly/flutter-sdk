@@ -34,7 +34,12 @@ class ContextConfig {
     if (uid is! String && uid is! num) {
       throw Exception("Unit '$unitType' must be a string or a number.");
     }
-    _units.setValue(unitType, uid);
+    final Map<String, String> units = units_;
+    if (units is UnitsMap) {
+      units.setValue(unitType, uid);
+    } else {
+      units[unitType] = uid is String ? uid : uid.toString();
+    }
     return this;
   }
 
@@ -45,9 +50,9 @@ class ContextConfig {
     return this;
   }
 
-  String? getUnit(final String unitType) => _units[unitType];
+  String? getUnit(final String unitType) => units_[unitType];
 
-  Map<String, String> getUnits() => _units;
+  Map<String, String> getUnits() => units_;
 
   ContextConfig setAttribute(final String name, final Object value) {
     attributes_[name] = value;
@@ -114,15 +119,10 @@ class ContextConfig {
 
   int getRefreshInterval() => refreshInterval;
 
-  UnitsMap _units = UnitsMap();
-
-  /// The units, numeric UIDs in their `toString()` form. A UID written
-  /// directly to this map replaces the value it was set as.
-  Map<String, String> get units_ => _units;
-
-  set units_(Map<String, String> units) {
-    _units = UnitsMap()..addAll(units);
-  }
+  /// The units, numeric UIDs in their `toString()` form. The default map
+  /// also keeps the value each UID was set as; a UID written directly to it
+  /// replaces that value. An assigned map is used as given.
+  Map<String, String> units_ = UnitsMap();
 
   Map<String, dynamic> attributes_ = {};
   Map<String, int> overrides_ = {};

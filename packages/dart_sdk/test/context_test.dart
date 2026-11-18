@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:absmartly_dart/src/internal/hashing/hashing.dart';
@@ -1321,17 +1322,70 @@ void main() {
       final config = ContextConfig.create()..setUnit('c', 125.75);
       config.units_['c'] = '125.75';
       expect(config.getUnitValue('c'), equals('125.75'));
-      config.setUnit('n', 7);
-      config.units_ = {'n': '7'};
-      expect(config.getUnitValue('n'), equals('7'));
       config.setUnit('m', 8);
       expect(config.getUnitValue('m'), equals(8));
-
-      // A removal through the map clears the stored number too, so a later
-      // putIfAbsent of the same text does not bring it back.
       config.units_.remove('m');
-      config.units_.putIfAbsent('m', () => '8');
-      expect(config.getUnitValue('m'), equals('8'));
+      expect(config.getUnitValue('m'), isNull);
+      expect(config.units_, isA<LinkedHashMap<String, String>>());
+
+      // An assigned map is kept as given, as in 2.1: setUnit writes the
+      // string form into it, and later writes to it are seen.
+      final assigned = <String, String>{'n': '7'};
+      config.units_ = assigned;
+      expect(identical(config.units_, assigned), isTrue);
+      config.setUnit('o', 9);
+      expect(assigned['o'], equals('9'));
+      expect(config.getUnitValue('o'), equals('9'));
+      assigned['p'] = 'x';
+      expect(config.getUnit('p'), equals('x'));
+    });
+
+    test('plainUnitsMapsFromSubclassesAreUsedAsIn21', () async {
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      final config = _SortedUnitsConfig()
+        ..setUnit('session_id', 'e791e240fcd3df7d238cfc285f475e8152fcc0ec');
+      expect(config.getUnit('session_id'),
+          equals('e791e240fcd3df7d238cfc285f475e8152fcc0ec'));
+      expect(config.units_, isA<SplayTreeMap<String, String>>());
+
+      final context = _SortedUnitsContext(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher);
+      await context.waitUntilReady();
+      expect(context.getUnitValue('session_id'),
+          equals('e791e240fcd3df7d238cfc285f475e8152fcc0ec'));
+      expect(context.getTreatment('exp_test_ab'), equals(1));
+
+      await context.publish();
+      final PublishEvent event =
+          verify(eventHandler.publish(context, captureAny)).captured.single
+              as PublishEvent;
+      expect(
+          event.units.single.uid,
+          equals(utf8.decode(
+              Hashing.hashUnit('e791e240fcd3df7d238cfc285f475e8152fcc0ec'))));
+    });
+
+    test('aRefreshOfAReadyContextDoesNotRetryAFailedPublish', () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setPublishDelay(10);
+      final context = Context.create(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher, null);
+      await context.waitUntilReady();
+      when(eventHandler.publish(any, any)).thenAnswer(
+          (_) => Completer<void>()..completeError(Exception('publish failed')));
+      context.track('goal1', null);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      verify(eventHandler.publish(any, any)).called(1);
+      expect(context.getPendingCount(), equals(1));
+
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+      refreshDataFuture.complete(refreshData);
+      await context.refresh();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      verifyNever(eventHandler.publish(any, any));
+      expect(context.getPendingCount(), equals(1));
     });
 
     test('paddedUidSetAgainThrowsAsIn21', () async {
@@ -3350,4 +3404,26 @@ class _FailOnceVariableParser extends DefaultVariableParser {
     }
     return super.parse(context, experimentName, variantName, config);
   }
+}
+
+// 2.1-style subclasses whose units_ is a plain sorted map.
+class _SortedUnitsConfig extends ContextConfig {
+  @override
+  Map<String, String> units_ = SplayTreeMap<String, String>();
+}
+
+class _SortedUnitsContext extends Context {
+  _SortedUnitsContext(
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, null);
+
+  @override
+  final Map<String, String> units_ = SplayTreeMap<String, String>();
 }

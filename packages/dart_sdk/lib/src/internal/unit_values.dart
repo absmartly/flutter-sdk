@@ -4,7 +4,8 @@ import 'dart:collection';
 /// string form, plus the value each was set as (a number keeps its type for
 /// hashing). A write or removal through the map itself drops that key's
 /// stored value, so the string written is what is used from then on.
-class UnitsMap extends MapBase<String, String> {
+class UnitsMap extends MapBase<String, String>
+    implements LinkedHashMap<String, String> {
   final Map<String, String> _strings = {};
   final Map<String, Object> _values = {};
 
