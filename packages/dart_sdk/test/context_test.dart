@@ -1336,6 +1336,9 @@ void main() {
       config.setUnit('o', 9);
       expect(assigned['o'], equals('9'));
       expect(config.getUnitValue('o'), equals(9));
+      // Looking up an unset unit drops nothing else.
+      expect(config.getUnitValue('absent'), isNull);
+      expect(config.getUnitValue('o'), equals(9));
       assigned['o'] = '10';
       expect(config.getUnitValue('o'), equals('10'));
 
