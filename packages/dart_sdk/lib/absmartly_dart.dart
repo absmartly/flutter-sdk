@@ -4,7 +4,7 @@ export 'src/ab_smartly.dart';
 export 'src/absmartly_sdk_config.dart';
 export 'src/client.dart';
 export 'src/client_config.dart';
-export 'src/context.dart';
+export 'src/context.dart' hide switchbackResolutionForTest;
 export 'src/context_config.dart';
 export 'src/context_data_provider.dart';
 export 'src/context_data_deserializer.dart';

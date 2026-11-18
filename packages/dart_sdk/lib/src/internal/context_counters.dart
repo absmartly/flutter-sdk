@@ -13,11 +13,17 @@ class ContextCounters {
 
   static int coveredAssignmentResolutions = 0;
 
+  static int switchbackPeriodLookups = 0;
+
+  static int switchbackServingResolutions = 0;
+
   static void reset() {
     attributesMapBuilds = 0;
     ruleKeyBuilds = 0;
     ruleKeyComparisons = 0;
     holdoutAssignmentLookups = 0;
     coveredAssignmentResolutions = 0;
+    switchbackPeriodLookups = 0;
+    switchbackServingResolutions = 0;
   }
 }

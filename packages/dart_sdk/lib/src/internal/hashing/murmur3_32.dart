@@ -54,8 +54,12 @@ abstract class Murmur3_32 {
     return h;
   }
 
+  // Multiplies in 16-bit halves: on the web an int is a JavaScript number, so
+  // the full 64-bit product of two 32-bit values would lose its low bits.
   static int imul32(int a, int b) {
-    return (a * b) & 0xffffffff;
+    final int lo = (a & 0xffff) * b;
+    final int hi = (((a >>> 16) & 0xffff) * b) & 0xffff;
+    return (lo + (hi << 16)) & 0xffffffff;
   }
 
   static int rotl32(int n, int d) {
