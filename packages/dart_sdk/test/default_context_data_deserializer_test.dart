@@ -248,6 +248,31 @@ void main() {
       expect(data!.experiments.single.assignmentRules, rules);
     });
 
+    test('malformedCustomFieldValuesDoNotFailTheContext', () {
+      Map<String, dynamic> withFields(dynamic fields) => {
+            'experiments': [
+              {
+                ...experimentJson(split: [0.5, 0.5], trafficSplit: [0, 1]),
+                'customFieldValues': fields,
+              }
+            ]
+          };
+
+      final mixed = deserializeJson(withFields([
+        {'name': 'country', 'value': 'US', 'type': 'string'},
+        {'name': 'noValue', 'value': null, 'type': 'string'},
+        {'name': 'noType', 'value': 'x'},
+        'not an object',
+      ]));
+      expect(mixed, isNotNull);
+      final fields = mixed!.experiments.single.customFieldValues!;
+      expect(fields.map((f) => f.name), equals(['country']));
+
+      final notAList = deserializeJson(withFields({'name': 'x'}));
+      expect(notAList, isNotNull);
+      expect(notAList!.experiments.single.customFieldValues, isNull);
+    });
+
     test('deserializeMissingOrNullAssignmentRules', () {
       final missing = deserializeJson({
         'experiments': [

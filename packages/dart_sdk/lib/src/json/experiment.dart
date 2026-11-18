@@ -143,14 +143,26 @@ class Experiment {
     audienceStrict = data["audienceStrict"] ?? false;
     audience = data["audience"];
     assignmentRules = _parseAssignmentRules(data["assignmentRules"]);
-    final rawCustomFields = data["customFieldValues"];
-    if (rawCustomFields != null) {
-      customFieldValues = (rawCustomFields as List)
-          .map((e) => CustomFieldValue.fromMap(e as Map<String, dynamic>))
-          .toList();
-    } else {
-      customFieldValues = null;
+    customFieldValues = _parseCustomFieldValues(data["customFieldValues"]);
+  }
+
+  // 2.1 ignored customFieldValues, so a malformed field or entry must not fail
+  // the context: an entry that is not a name/value/type object of strings is
+  // skipped, and a value that is not a list means no custom fields.
+  static List<CustomFieldValue>? _parseCustomFieldValues(dynamic value) {
+    if (value is! List) {
+      return null;
     }
+    final List<CustomFieldValue> fields = [];
+    for (final entry in value) {
+      if (entry is Map<String, dynamic> &&
+          entry['name'] is String &&
+          entry['value'] is String &&
+          entry['type'] is String) {
+        fields.add(CustomFieldValue.fromMap(entry));
+      }
+    }
+    return fields;
   }
 
   // The API sends assignmentRules as a JSON string. An object or array in its

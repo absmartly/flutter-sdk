@@ -12,7 +12,9 @@ abstract class Hashing {
   /// as "126".
   static Uint8List hashUnitValue(Object unit) {
     if (unit is num) {
-      return hashUnit(unit.toStringAsFixed(0));
+      // JS toFixed(0) writes -0 (and values that round to it) as "0".
+      final String text = unit.toStringAsFixed(0);
+      return hashUnit(text == '-0' ? '0' : text);
     }
     return hashUnit(unit as String);
   }

@@ -13,6 +13,7 @@ import 'package:absmartly_dart/src/default_context_data_serializer.dart';
 import 'package:absmartly_dart/src/default_variable_parser.dart';
 import 'package:absmartly_dart/src/java/time/clock.dart';
 import 'package:absmartly_dart/src/json/context_data.dart';
+import 'package:absmartly_dart/src/json/experiment.dart';
 import 'package:absmartly_dart/src/json/exposure.dart';
 import 'package:absmartly_dart/src/json/goal_achievement.dart';
 import 'package:absmartly_dart/src/json/publish_event.dart';
@@ -1156,6 +1157,78 @@ void main() {
       expect(context.getUnitValue('user_id'), equals(42));
       expect(
           context.getUnitHash('user_id', 42), equals(Hashing.hashUnit('42')));
+    });
+
+    test('numericUnitsAssignLikeTheirJavaScriptToFixedForm', () async {
+      final Experiment ruleFree =
+          data.experiments.firstWhere((e) => e.name == 'exp_test_abc');
+      final ContextData splitRule = ContextData(experiments: [
+        Experiment(
+            id: ruleFree.id,
+            name: 'exp_split_rule',
+            unitType: 'u',
+            iteration: 1,
+            seedHi: 123,
+            seedLo: 456,
+            split: ruleFree.split,
+            trafficSeedHi: ruleFree.trafficSeedHi,
+            trafficSeedLo: ruleFree.trafficSeedLo,
+            trafficSplit: ruleFree.trafficSplit,
+            fullOnVariant: 0,
+            applications: ruleFree.applications,
+            variants: ruleFree.variants,
+            audienceStrict: false,
+            audience: null,
+            assignmentRules:
+                '{"rules":[{"type":"split","percentages":"20/30/50"}]}'),
+        Experiment(
+            id: ruleFree.id + 1000,
+            name: 'exp_no_rule',
+            unitType: 'u',
+            iteration: 1,
+            seedHi: ruleFree.seedHi,
+            seedLo: ruleFree.seedLo,
+            split: ruleFree.split,
+            trafficSeedHi: ruleFree.trafficSeedHi,
+            trafficSeedLo: ruleFree.trafficSeedLo,
+            trafficSplit: ruleFree.trafficSplit,
+            fullOnVariant: 0,
+            applications: ruleFree.applications,
+            variants: ruleFree.variants,
+            audienceStrict: false,
+            audience: null),
+      ]);
+
+      // One context per experiment: the unit hash is cached per unit type,
+      // so each assignment path must hash the UID itself.
+      Future<int> treatment(Object uid, String experiment) async {
+        final config = ContextConfig.create()..setUnit('u', uid);
+        final completer = Completer<ContextData>()..complete(splitRule);
+        final context = Context.create(clock, config, completer, dataProvider,
+            eventHandler, variableParser, audienceMatcher, null);
+        await context.waitUntilReady();
+        return context.peekTreatment(experiment);
+      }
+
+      for (final name in ['exp_split_rule', 'exp_no_rule']) {
+        int discriminating = 0;
+        for (int i = 0; i < 40; i++) {
+          final int expected = await treatment('${i + 1}', name);
+          expect(await treatment(i + 0.75, name), equals(expected),
+              reason: '$name uid ${i + 0.75}');
+          if (await treatment('${i + 0.75}', name) != expected) {
+            discriminating++;
+          }
+        }
+        // Hashing "i.75" instead of "i+1" would change some assignments.
+        expect(discriminating, greaterThan(0), reason: name);
+      }
+    });
+
+    test('negativeZeroUnitHashesLikeZero', () {
+      expect(Hashing.hashUnitValue(-0.0), equals(Hashing.hashUnit('0')));
+      expect(Hashing.hashUnitValue(-0.4), equals(Hashing.hashUnit('0')));
+      expect(Hashing.hashUnitValue(0), equals(Hashing.hashUnit('0')));
     });
 
     test('numericUnitFromConfigIsHashedAsANumber', () async {
