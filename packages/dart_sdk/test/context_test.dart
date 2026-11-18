@@ -1461,6 +1461,16 @@ void main() {
       expect(config.getUnitValue('user'), equals('5.0'));
     });
 
+    test('aNumberOfARemovedKeyDoesNotLeakOntoAnotherUnit', () {
+      final config = ContextConfig.create();
+      config.units_ = SplayTreeMap<String, String>(
+          (a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      config.setUnit('User', 5.0);
+      config.units_.remove('User');
+      config.units_['x'] = '5.0';
+      expect(config.getUnitValue('x'), equals('5.0'));
+    });
+
     test('creatingAContextReadsTheConfigUnitsOnce', () {
       final config = _CountingUnitsConfig()..setUnit('session_id', 'abc');
       Context.create(clock, config, dataFutureReady, dataProvider, eventHandler,

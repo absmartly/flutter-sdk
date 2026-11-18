@@ -120,9 +120,9 @@ bool _sameEntry(Map<String, String> units, String a, String b) {
   if (units is SplayTreeMap<String, String>) {
     // A SplayTreeMap finds a key through its comparator: a and b address the
     // same entry when looking either up lands on the other's position.
-    return units.containsKey(a) &&
-        units.containsKey(b) &&
-        units.lastKeyBefore(a) == units.lastKeyBefore(b);
+    // Both callers pass a [b] that is in the map.
+    return units.lastKeyBefore(a) == units.lastKeyBefore(b) &&
+        units.containsKey(a);
   }
   return false;
 }
