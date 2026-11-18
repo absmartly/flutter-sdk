@@ -285,8 +285,17 @@ class Context {
     }
   }
 
-  int getTreatment(final String experimentName) =>
-      _exposeTreatment(experimentName).variant;
+  int getTreatment(final String experimentName) {
+    checkReady(true);
+
+    final Assignment assignment = getAssignment(experimentName);
+
+    if (!assignment.exposed) {
+      _triggerExposures(assignment);
+    }
+
+    return assignment.variant;
+  }
 
   // Resolves and exposes once, so a caller that needs the variant and its
   // variables gets both from one assignment, even across a switchback
@@ -357,19 +366,6 @@ class Context {
     }
   }
 
-  // The Collector re-reads a switchback's cluster from the published
-  // attributes at exposedAt, so the exposure carries the instant this slot
-  // read its cluster, which lies in the slot's period: a setAttribute later in
-  // the period cannot make the Collector see another cluster than the one
-  // served. A switchback with no linked unit (an override) has no cluster
-  // and carries the resolving call's instant.
-  static int _switchbackExposedAt(final Assignment assignment) {
-    final SwitchbackServing? serving = assignment._switchbackServing;
-    return serving != null && serving.status != SwitchbackStatus.absent
-        ? serving.readAt
-        : assignment._resolvedAt;
-  }
-
   void queueExposure(final Assignment assignment) {
     if (!assignment.exposed) {
       assignment.exposed = true;
@@ -382,9 +378,11 @@ class Context {
           name: assignment.name,
           unit: assignment.unitType,
           variant: assignment.variant,
-          exposedAt: assignment._switchback
-              ? _switchbackExposedAt(assignment)
-              : clock_.millis(),
+          // A switchback exposure is stamped with the clock reading of the
+          // call that resolved it, which selected its period (java-sdk): a
+          // later reading could attribute it to the next period.
+          exposedAt:
+              assignment._switchback ? assignment._resolvedAt : clock_.millis(),
           assigned: assignment.assigned,
           eligible: assignment.eligible,
           overridden: assignment.overridden,
@@ -865,14 +863,14 @@ class Context {
     ];
     final List<SwitchbackSource>? sources = entry._switchbackSources;
     if (sources == null) {
-      return SwitchbackServing.legacy(entry.data.unitType, units).at(now);
+      return SwitchbackServing.legacy(entry.data.unitType, units);
     }
     return SwitchbackServing.resolve(
         sources, entry.data.switchbackClusterValues, units,
         (SwitchbackAttributePath path) {
       final Attribute? attribute = _latestAttribute(path.rootKey, now);
       return attribute != null ? path.resolveAttribute(attribute.value) : null;
-    }).at(now);
+    });
   }
 
   // The slot's serving resolution: reused when this slot already read it
@@ -2074,8 +2072,16 @@ class _HoldoutAssignment {
 /// The variant [Context.getTreatment] returns for [experimentName] and that
 /// variant's variables, from one resolution and one exposure. Used by the
 /// Flutter `TreatmentBuilder`; not exported from the package.
+/// A subclass or a class that implements [Context] (a test double or a
+/// wrapper) is read through its own getTreatment and getAssignment.
 (int, Map<String, dynamic>) exposedTreatmentWithVariables(
     final Context context, final String experimentName) {
-  final Assignment assignment = context._exposeTreatment(experimentName);
-  return (assignment.variant, assignment.variables);
+  if (context.runtimeType == Context) {
+    final Assignment assignment = context._exposeTreatment(experimentName);
+    return (assignment.variant, assignment.variables);
+  }
+  return (
+    context.getTreatment(experimentName),
+    context.getAssignment(experimentName).variables
+  );
 }

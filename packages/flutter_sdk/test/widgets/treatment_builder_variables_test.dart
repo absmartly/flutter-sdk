@@ -55,6 +55,23 @@ class _DataProvider implements ContextDataProvider {
   Completer<ContextData> getContextData() => Completer<ContextData>();
 }
 
+// A customer subclass that overrides getTreatment.
+class _OverridingContext extends Context {
+  _OverridingContext(ContextData data)
+      : super(
+            Clock.fixed(1620000000000),
+            ContextConfig.create(publishDelay: -1)..setUnit('user_id', '12345'),
+            Completer<ContextData>()..complete(data),
+            _DataProvider(),
+            _Publisher(),
+            DefaultVariableParser(),
+            AudienceMatcher(DefaultAudienceDeserializer()),
+            null);
+
+  @override
+  int getTreatment(String experimentName) => 7;
+}
+
 void main() {
   testWidgets('TreatmentBuilder reads variables from the named experiment',
       (tester) async {
@@ -150,5 +167,36 @@ void main() {
     expect(renderedVariables, {'price': 0});
     await context.publish();
     expect(publisher.events.single.exposures.single.variant, renderedVariant);
+  });
+  testWidgets(
+      'TreatmentBuilder reads a customer Context subclass through its API',
+      (tester) async {
+    final sdk = ABSmartly(ABSmartlyConfig.create()
+      ..setClient(Client.create(ClientConfig()
+        ..setEndpoint('https://test.absmartly.io/v1')
+        ..setAPIKey('test-api-key')
+        ..setApplication('test-app')
+        ..setEnvironment('development'))));
+    final context = _OverridingContext(ContextData.fromMap({
+      'experiments': [_experiment(2, 'exp_b', 20)]
+    }));
+    await context.waitUntilReady();
+    int? renderedVariant;
+    Map<String, dynamic>? renderedVariables;
+    await tester.pumpWidget(ABSmartlyProvider(
+      sdk: sdk,
+      context: context,
+      child: TreatmentBuilder(
+        name: 'exp_b',
+        builder: (_, variant, variables) {
+          renderedVariant = variant;
+          renderedVariables = variables;
+          return const SizedBox();
+        },
+      ),
+    ));
+    await tester.pump();
+    expect(renderedVariant, 7);
+    expect(renderedVariables, {'price': 20});
   });
 }
