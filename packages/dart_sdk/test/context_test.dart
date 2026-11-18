@@ -1,3 +1,4 @@
+import 'package:absmartly_dart/src/internal/unit_values.dart';
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
@@ -1351,6 +1352,43 @@ void main() {
           equals(Hashing.hashUnit('125.75')));
       assigned['p'] = 'x';
       expect(config.getUnit('p'), equals('x'));
+    });
+
+    test('aPlainMapMissingLookupTouchesOnlyTheQueriedKey', () {
+      final map = _CountingMap();
+      for (int i = 0; i < 100; i++) {
+        setUnitValue(map, 'u$i', i);
+      }
+      map.containsCalls = 0;
+      expect(unitValue(map, 'absent'), isNull);
+      expect(map.containsCalls, equals(0));
+    });
+
+    test('aPlainMapStringSetUnitReplacesTheStoredNumber', () {
+      final config = ContextConfig.create();
+      config.units_ = <String, String>{};
+      config.setUnit('u', 125.75);
+      config.setUnit('u', '125.75');
+      expect(config.getUnitValue('u'), equals('125.75'));
+    });
+
+    test('contextSetUnitValuesPreservesNumericUid', () {
+      final context = Context.create(
+          clock,
+          ContextConfig.create(),
+          dataFutureReady,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          null);
+      context.setUnitValues({'u': 125.75});
+      expect(context.getUnitValue('u'), equals(125.75));
+    });
+
+    test('contextConfigFactoryUnitsPreservesNumericUid', () {
+      final config = ContextConfig.create(units: {'u': 125.75});
+      expect(config.getUnitValue('u'), equals(125.75));
     });
 
     test('aSetUnitsOverrideThatRewritesUnitsIsNotUndone', () async {
@@ -3854,5 +3892,26 @@ class _StringUnitsConfig extends ContextConfig {
   ContextConfig setUnits(Map<String, String> units) {
     seen.add(Map.of(units));
     return super.setUnits(units);
+  }
+}
+
+class _CountingMap extends MapBase<String, String> {
+  final Map<String, String> _map = {};
+  int containsCalls = 0;
+
+  @override
+  String? operator [](Object? key) => _map[key];
+  @override
+  void operator []=(String key, String value) => _map[key] = value;
+  @override
+  void clear() => _map.clear();
+  @override
+  Iterable<String> get keys => _map.keys;
+  @override
+  String? remove(Object? key) => _map.remove(key);
+  @override
+  bool containsKey(Object? key) {
+    containsCalls++;
+    return _map.containsKey(key);
   }
 }
