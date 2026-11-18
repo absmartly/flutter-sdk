@@ -14,7 +14,7 @@ class ContextConfig {
     ContextEventLogger? contextEventLogger,
   }) {
     final config = ContextConfig();
-    if (units != null) config.setUnits(units);
+    if (units != null) config.setUnitValues(units);
     if (attributes != null) config.setAttributes(attributes);
     if (overrides != null) config.setOverrides(overrides);
     if (customAssignments != null)
@@ -38,7 +38,7 @@ class ContextConfig {
     return this;
   }
 
-  ContextConfig setUnits(covariant final Map<String, Object> units) {
+  ContextConfig setUnits(final Map<String, String> units) {
     for (final entry in units.entries) {
       setUnit(entry.key, entry.value);
     }
@@ -132,6 +132,15 @@ class ContextConfig {
 /// extension rather than members of [ContextConfig], so existing
 /// `implements ContextConfig` classes keep compiling.
 extension ContextConfigUnitValues on ContextConfig {
+  /// Sets several units at once, each a [String] or a [num]. [setUnits]
+  /// keeps its 2.1 `Map<String, String>` parameter.
+  ContextConfig setUnitValues(final Map<String, Object> units) {
+    for (final entry in units.entries) {
+      setUnit(entry.key, entry.value);
+    }
+    return this;
+  }
+
   /// The UID of [unitType] as set: a [String] or a [num].
   ///
   /// The values come from the map [ContextConfig.getUnits] returns, so an

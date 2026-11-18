@@ -100,7 +100,6 @@ class Context {
 
       logEvent(EventType.ready, data_);
 
-      // A refresh that made the context ready already scheduled them.
       if (!_refreshInstalled && getPendingCount() > 0) {
         setTimeout();
       }
@@ -242,7 +241,7 @@ class Context {
   void _setUnitValue(final String unitType, final Object uid) =>
       setUnitValue(units_, unitType, uid);
 
-  void setUnits(covariant Map<String, Object> units) {
+  void setUnits(Map<String, String> units) {
     for (final entry in units.entries) {
       setUnit(entry.key, entry.value);
     }
@@ -1070,7 +1069,6 @@ class Context {
   bool closing_ = false;
   bool closed_ = false;
   bool refreshing_ = false;
-  // The initial response must not replace a successfully installed refresh.
   bool _refreshInstalled = false;
   Completer<void>? readyFuture_;
   Completer<void>? closingFuture_;
@@ -1089,6 +1087,14 @@ final Expando<Object> _failedErrors = Expando<Object>();
 /// Extension methods rather than members of [Context], so classes that
 /// implement [Context] keep compiling.
 extension ContextExtensions on Context {
+  /// Sets several units at once, each a [String] or a [num].
+  /// [Context.setUnits] keeps its 2.1 `Map<String, String>` parameter.
+  void setUnitValues(final Map<String, Object> units) {
+    for (final entry in units.entries) {
+      setUnit(entry.key, entry.value);
+    }
+  }
+
   /// The error the context data failed to load with, or null.
   dynamic readyError() {
     return _failedErrors[this];
@@ -1114,7 +1120,6 @@ extension ContextExtensions on Context {
   /// number is restored only while it matches that UID.
   Object? getUnitValue(final String unitType) {
     final Context self = this;
-    // Looked up first, so a unit seen missing drops its stored number.
     final Object? value = unitValue(self.units_, unitType);
     final String? uid = getUnit(unitType);
     if (uid == null) {

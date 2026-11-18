@@ -1471,6 +1471,77 @@ void main() {
       expect(config.getUnitValue('x'), equals('5.0'));
     });
 
+    test('aStaleKeyIsNotMatchedToANeighbouringUnit', () {
+      final config = ContextConfig.create();
+      final units = SplayTreeMap<String, String>(
+          (a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      config.units_ = units;
+      config.setUnit('b', 5.0);
+      // Removed without a lookup, so its number is still stored under 'b'.
+      units.remove('b');
+      units['c'] = '5.0';
+      // 'a' and 'c' sit next to where 'b' was: neither inherits its number.
+      expect(config.getUnitValue('c'), equals('5.0'));
+      units['a'] = '5.0';
+      expect(config.getUnitValue('a'), equals('5.0'));
+    });
+
+    test('stringLiteralSetUnitsCallsReachA21Override', () async {
+      final config = _StringUnitsConfig();
+      final ContextConfig asConfig = config;
+      asConfig.setUnits({'session_id': 'abc'});
+      asConfig.setUnits({});
+      expect(
+          config.seen,
+          equals([
+            {'session_id': 'abc'},
+            {}
+          ]));
+
+      final context = _StringUnitsContext(
+          clock,
+          ContextConfig.create(),
+          dataFutureReady,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher);
+      final Context asContext = context;
+      asContext.setUnits({'user_id': '42'});
+      asContext.setUnits({});
+      expect(context.seen, equals({}));
+      expect(context.getUnit('user_id'), equals('42'));
+
+      // Numbers go through setUnitValues.
+      final numeric = ContextConfig.create()
+        ..setUnitValues({'session_id': 5.0, 'user_id': 'u'});
+      expect(
+          numeric.getUnitValues(), equals({'session_id': 5.0, 'user_id': 'u'}));
+    });
+
+    test('aNumberSeenReplacedIsNotRevivedByTheSameText', () async {
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      final assigned = <String, String>{};
+      final config = ContextConfig.create()..units_ = assigned;
+      config.setUnit('k', 125.75);
+      assigned['k'] = 'other';
+      expect(config.getUnitValue('k'), equals('other'));
+      assigned['k'] = '125.75';
+      expect(config.getUnitValue('k'), equals('125.75'));
+
+      final context = Context.create(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher, null);
+      await context.waitUntilReady();
+      context.track('goal1', null);
+      await context.publish();
+      final PublishEvent event =
+          verify(eventHandler.publish(context, captureAny)).captured.single
+              as PublishEvent;
+      expect(event.units.single.uid,
+          equals(utf8.decode(Hashing.hashUnit('125.75'))));
+    });
+
     test('creatingAContextReadsTheConfigUnitsOnce', () {
       final config = _CountingUnitsConfig()..setUnit('session_id', 'abc');
       Context.create(clock, config, dataFutureReady, dataProvider, eventHandler,
@@ -1705,7 +1776,6 @@ void main() {
 
       // One context per experiment: the unit hash is cached per unit type,
       // so each assignment path must hash the UID itself.
-      // [legacy] uses a 2.1 subclass with a String-typed getUnitHash.
       Future<int> treatment(Object uid, String experiment,
           {bool legacy = false}) async {
         final config = ContextConfig.create()..setUnit('u', uid);
@@ -3606,7 +3676,6 @@ class _ThrowingVariableParser implements VariableParser {
   }
 }
 
-// A 2.1-style subclass: setUnits overridden with the released String types.
 class _StringUnitsContext extends Context {
   _StringUnitsContext(
       Clock clock,
@@ -3642,7 +3711,6 @@ class _FailOnceVariableParser extends DefaultVariableParser {
   }
 }
 
-// 2.1-style subclasses whose units_ is a plain sorted map.
 class _SortedUnitsConfig extends ContextConfig {
   @override
   Map<String, String> units_ = SplayTreeMap<String, String>();
@@ -3698,7 +3766,6 @@ class _CountingUnitsConfig extends ContextConfig {
   }
 }
 
-// A 2.1-style subclass whose setUnits drops one unit and rewrites another.
 class _RewritingUnitsContext extends Context {
   _RewritingUnitsContext(
       Clock clock,
@@ -3717,7 +3784,6 @@ class _RewritingUnitsContext extends Context {
   }
 }
 
-// A 2.1-style subclass with the released String-typed hash override.
 class _StringHashContext extends Context {
   _StringHashContext(
       Clock clock,
@@ -3739,7 +3805,6 @@ class _StringHashContext extends Context {
   }
 }
 
-// A 2.1-style subclass exposing its units through the getters only.
 class _GetterUnitsContext extends Context {
   _GetterUnitsContext(
       Clock clock,
@@ -3760,7 +3825,6 @@ class _GetterUnitsContext extends Context {
   Map<String, String> getUnits() => {'session_id': 'abc'};
 }
 
-// A 2.1-style subclass whose getters report another UID than units_ holds.
 class _OtherUnitContext extends Context {
   _OtherUnitContext(
       Clock clock,
@@ -3780,4 +3844,15 @@ class _OtherUnitContext extends Context {
   @override
   Map<String, String> getUnits() =>
       super.getUnits().map((key, _) => MapEntry(key, 'other'));
+}
+
+// A 2.1-style config that overrides setUnits with the released String types.
+class _StringUnitsConfig extends ContextConfig {
+  final List<Map<String, String>> seen = [];
+
+  @override
+  ContextConfig setUnits(Map<String, String> units) {
+    seen.add(Map.of(units));
+    return super.setUnits(units);
+  }
 }
