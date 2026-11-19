@@ -1,3 +1,5 @@
+import 'context_counters.dart';
+
 // Recovers the wire key order of the "switchbackClusters" objects in a
 // context payload. On the web, jsonDecode builds JavaScript objects, which
 // enumerate integer-like keys (a unit type named "2") before the others, so
@@ -11,11 +13,17 @@ typedef JsonPath = List<Object>;
 // names are compared decoded, so an escaped spelling counts. Null when [json]
 // is not well-formed enough to follow.
 List<(JsonPath, List<String>)>? switchbackClusterKeyOrders(final String json) {
+  // Only a \u escape can spell the field name other than literally.
+  if (!json.contains('switchbackClusters') && !json.contains(r'\u')) {
+    return const [];
+  }
+  ContextCounters.keyOrderScans++;
   final _Scanner scanner = _Scanner(json);
   try {
     scanner.value(const []);
     return scanner.found;
-  } on FormatException {
+  } catch (_) {
+    // Malformed, or nested deeper than the scanner's stack allows.
     return null;
   }
 }

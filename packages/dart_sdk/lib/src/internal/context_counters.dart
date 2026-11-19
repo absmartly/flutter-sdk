@@ -25,6 +25,8 @@ class ContextCounters {
 
   static int slowAssignmentLookups = 0;
 
+  static int keyOrderScans = 0;
+
   static void reset() {
     attributesMapBuilds = 0;
     ruleKeyBuilds = 0;
@@ -37,5 +39,6 @@ class ContextCounters {
     switchbackPeriodLookups = 0;
     switchbackServingResolutions = 0;
     slowAssignmentLookups = 0;
+    keyOrderScans = 0;
   }
 }

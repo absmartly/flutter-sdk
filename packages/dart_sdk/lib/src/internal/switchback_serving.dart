@@ -80,7 +80,8 @@ class SwitchbackServing {
   final SwitchbackUnit? unit;
   // The raw normalised cluster key when eligible; never hashed.
   final String? clusterKey;
-  // The clock reading the cluster attributes were read at.
+  // The clock reading the cluster attributes were read at; 0 on the legacy
+  // path, which reads none.
   final int readAt;
 
   SwitchbackServing at(final int readAt) =>

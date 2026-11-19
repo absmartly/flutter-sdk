@@ -4,6 +4,7 @@
 import 'dart:convert';
 
 import 'package:absmartly_dart/src/default_context_data_serializer.dart';
+import 'package:absmartly_dart/src/internal/context_counters.dart';
 import 'package:absmartly_dart/src/internal/json_key_order.dart';
 import 'package:absmartly_dart/src/json/experiment.dart';
 import 'package:test/test.dart';
@@ -76,5 +77,33 @@ void main() {
       (['missing', 0], ['a']),
     ]);
     expect(decoded['switchbackClusters']!.keys, ['a']);
+  });
+
+  // A repeated key keeps its first position, as JavaScript and Dart maps do.
+  test('a repeated unit type keeps its first position', () {
+    final payload = '{"experiments":['
+        '${experiment(1, '{"2":"a","store_id":"b","2":"c"}')}'
+        ']}';
+    expect(decodedOrders(payload), [
+      ['2', 'store_id']
+    ]);
+  });
+
+  // A payload that cannot contain the field is never scanned.
+  test('a payload without switchbackClusters is not scanned', () {
+    ContextCounters.reset();
+    decodedOrders('{"experiments":[]}');
+    expect(ContextCounters.keyOrderScans, 0);
+    expect(switchbackClusterKeyOrders('{"experiments":[]}'), isEmpty);
+  });
+
+  // An unrelated value nested deeper than the scanner can follow keeps the
+  // decoded order instead of failing the payload.
+  test('a deeply nested payload still decodes', () {
+    final deep = '${'[' * 5000}${']' * 5000}';
+    final payload = '{"experiments":['
+        '${experiment(1, '{"store_id":"city","2":"city"}')}'
+        '],"x":$deep}';
+    expect(decodedOrders(payload).single.toSet(), {'store_id', '2'});
   });
 }

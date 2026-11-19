@@ -368,25 +368,24 @@ class Context {
 
   // A switchback exposure is stamped with the clock reading of the call that
   // resolved it, which selected its period (java-sdk). The Collector re-reads
-  // the cluster from the published attributes at exposedAt, so when an
-  // attribute set since the slot read its cluster would resolve another
-  // cluster at that reading, the exposure is stamped when the cluster was
-  // read instead, in the same period: the Collector then attributes it to the
-  // cluster that was served. java-sdk stamps the later reading in that case.
+  // the cluster from the published attributes (and the request's units) at
+  // exposedAt. When an attribute set since the slot read its cluster would
+  // make it resolve another serving unit or key at that reading, but the read
+  // instant, in the same period, still resolves the served one, the exposure
+  // carries the read instant. java-sdk stamps the later reading in that case.
   int _switchbackExposedAt(final Assignment assignment) {
     final int resolvedAt = assignment._resolvedAt;
     final SwitchbackServing? served = assignment._switchbackServing;
     final ExperimentVariables? entry = index_[assignment.name];
-    if (served == null ||
-        served.status == SwitchbackStatus.absent ||
-        served.readAt == resolvedAt ||
-        entry == null ||
-        !entry._switchback) {
+    if (served == null || served.readAt == resolvedAt || entry == null) {
       return resolvedAt;
     }
-    return _resolveSwitchbackServing(entry, resolvedAt).servesSameAs(served)
-        ? resolvedAt
-        : served.readAt;
+    if (_resolveSwitchbackServing(entry, resolvedAt).servesSameAs(served)) {
+      return resolvedAt;
+    }
+    return _resolveSwitchbackServing(entry, served.readAt).servesSameAs(served)
+        ? served.readAt
+        : resolvedAt;
   }
 
   void queueExposure(final Assignment assignment) {
@@ -884,7 +883,7 @@ class Context {
     ];
     final List<SwitchbackSource>? sources = entry._switchbackSources;
     if (sources == null) {
-      return SwitchbackServing.legacy(entry.data.unitType, units).at(now);
+      return SwitchbackServing.legacy(entry.data.unitType, units);
     }
     return SwitchbackServing.resolve(
         sources, entry.data.switchbackClusterValues, units,

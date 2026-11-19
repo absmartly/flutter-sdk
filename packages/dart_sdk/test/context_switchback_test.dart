@@ -1106,6 +1106,38 @@ void main() {
         [exposure(1, 'exp_sb', variant, anchor + 10)]);
   });
 
+  // A unit set since the read changes what the Collector serves whatever the
+  // instant (units carry no timestamp), so the exposing call's instant is
+  // kept.
+  test('aUnitSetSinceTheReadKeepsTheExposingCallsInstant', () async {
+    final context = await h.create(
+        dataOf([
+          sb(2, hour)
+            ..switchbackClusters = {'user_id': 'city', unitType: 'city'}
+        ]),
+        clusterAttribute: false);
+    h.clock.now = anchor + 10;
+    context.setAttribute('city', 'Faro');
+    final int variant = context.peekTreatment('exp_sb');
+    h.clock.now = anchor + 20;
+    context.setUnit('user_id', 'u1');
+    expect(context.getTreatment('exp_sb'), variant);
+    expect((await h.publishExposures(context)).single.exposedAt, anchor + 20);
+  });
+
+  // A legacy switchback's override is exposed at the exposing call's instant.
+  test('aLegacySwitchbackKeepsTheExposingCallsInstant', () async {
+    final context =
+        await h.create(dataOf([sb(2, hour)..switchbackClusters = null]));
+    context.setOverride('exp_sb', 1);
+    h.clock.now = anchor + 10;
+    context.peekTreatment('exp_sb');
+    h.clock.now = anchor + 20;
+    context.setAttribute(clusterPath, 'other');
+    context.getTreatment('exp_sb');
+    expect((await h.publishExposures(context)).single.exposedAt, anchor + 20);
+  });
+
   // An attribute change that leaves the cluster as it was keeps the exposing
   // call's instant, as in java-sdk.
   test('anUnrelatedAttributeChangeKeepsTheExposingCallsInstant', () async {
