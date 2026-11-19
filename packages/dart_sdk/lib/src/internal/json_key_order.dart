@@ -24,30 +24,33 @@ List<(JsonPath, List<String>)>? switchbackClusterKeyOrders(final String json) {
   }
 }
 
-// Whether a decoded "switchbackClusters" map has an integer-like key, the
-// only kind JavaScript enumerates out of wire order. Field names are already
-// unescaped here.
+// Whether an experiment's decoded "switchbackClusters" map has an
+// integer-like key, the only kind JavaScript enumerates out of wire order.
+// Only the experiments are read, so the cost does not grow with the rest of
+// the payload. Field names are already unescaped here.
 bool hasReorderedSwitchbackClusters(final dynamic decoded) {
-  if (decoded is Map) {
-    for (final MapEntry entry in decoded.entries) {
-      final dynamic value = entry.value;
-      if (entry.key == 'switchbackClusters' && value is Map) {
-        if (value.keys.any((k) => _integerLike.hasMatch('$k'))) {
-          return true;
-        }
-      } else if (hasReorderedSwitchbackClusters(value)) {
-        return true;
-      }
+  final dynamic experiments = decoded is Map ? decoded['experiments'] : null;
+  if (experiments is! List) {
+    return false;
+  }
+  for (final dynamic experiment in experiments) {
+    final dynamic clusters =
+        experiment is Map ? experiment['switchbackClusters'] : null;
+    if (clusters is Map && clusters.keys.any(_isArrayIndex)) {
+      return true;
     }
-  } else if (decoded is List) {
-    return decoded.any(hasReorderedSwitchbackClusters);
   }
   return false;
 }
 
-// JavaScript's array-index keys: 0 or a positive integer below 2^32 - 1
-// with no leading zero.
+// JavaScript's array-index keys, the ones it lists first: 0 or a positive
+// integer up to 2^32 - 2, with no leading zero.
 final RegExp _integerLike = RegExp(r'^(0|[1-9][0-9]{0,9})$');
+
+bool _isArrayIndex(final Object? key) {
+  final String text = '$key';
+  return _integerLike.hasMatch(text) && int.parse(text) <= 4294967294;
+}
 
 // Re-keys each "switchbackClusters" map of [decoded] at a recorded path in
 // that path's wire order. A path that does not lead to a map with exactly

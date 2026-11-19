@@ -97,15 +97,36 @@ void main() {
       '{"experiments":[]}',
       '{"experiments":[${experiment(1, '{"store_id":"caf\\u00e9"}')}]}',
       '{"experiments":[${experiment(1, '{"b":"x","a":"y","02":"z"}')}]}',
+      '{"experiments":[${experiment(1, '{"b":"x","4294967295":"y","-1":"z"}')}]}',
+      // A cluster map outside an experiment is not read.
+      '{"experiments":[],"x":{"switchbackClusters":{"a":"b","2":"c"}}}',
     ]) {
       ContextCounters.reset();
       decodedOrders(payload);
       expect(ContextCounters.keyOrderScans, 0, reason: payload);
     }
-    expect(
-        hasReorderedSwitchbackClusters(jsonDecode(
-            '{"e":[{"switchbackClusters":{"store_id":"c","2":"c"}}]}')),
-        isTrue);
+    for (final key in ['0', '2', '42', '4294967294']) {
+      expect(
+          hasReorderedSwitchbackClusters(jsonDecode('{"experiments":'
+              '[{"switchbackClusters":{"store_id":"c","$key":"c"}}]}')),
+          isTrue,
+          reason: key);
+    }
+  });
+
+  // A deeply nested unrelated field never fails a payload without
+  // switchbacks, wherever it sits.
+  test('a deeply nested payload without switchbacks decodes', () {
+    final deep = '${'[' * 5000}${']' * 5000}';
+    for (final payload in [
+      '{"experiments":[],"x":$deep}',
+      '{"x":$deep,"experiments":[]}',
+    ]) {
+      final bytes = utf8.encode(payload);
+      expect(
+          DefaultContextDataDeserializer().deserialize(bytes, 0, bytes.length),
+          isNotNull);
+    }
   });
 
   // An unrelated value nested deeper than the scanner can follow keeps the
