@@ -126,6 +126,17 @@ Map<String, dynamic> experimentMap() => {
       ],
     };
 
+// Customer models whose noSuchMethod returns null instead of throwing.
+class LenientContextData implements ContextData {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+
+class LenientExperiment implements Experiment {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+
 class NullPublisher implements ContextPublisher {
   @override
   Completer<void> publish(Context context, PublishEvent event) =>
@@ -223,6 +234,20 @@ void main() {
     expect(legacy.holdouts, [holdout]);
 
     final experiment = LegacyExperiment(Experiment.fromMap(experimentMap()));
+    experiment.holdoutIds = [1];
+    experiment.holdoutType = 'full';
+    expect(experiment.holdoutIds, [1]);
+    expect(experiment.holdoutType, 'full');
+  });
+
+  test('holdout fields of a lenient customer implementation are kept', () {
+    final data = LenientContextData();
+    final holdout = ContextHoldout(
+        id: 1, name: 'h', iteration: 1, seedHi: 0, seedLo: 0, split: [1.0]);
+    data.holdouts = [holdout];
+    expect(data.holdouts, [holdout]);
+
+    final experiment = LenientExperiment();
     experiment.holdoutIds = [1];
     experiment.holdoutType = 'full';
     expect(experiment.holdoutIds, [1]);
