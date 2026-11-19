@@ -20,6 +20,13 @@ class ContextCounters {
   static int assignmentLookups = 0;
 
   static int holdoutSetComparisons = 0;
+  static int switchbackPeriodLookups = 0;
+
+  static int switchbackServingResolutions = 0;
+
+  static int slowAssignmentLookups = 0;
+
+  static int keyOrderScans = 0;
 
   static void reset() {
     attributesMapBuilds = 0;
@@ -31,5 +38,9 @@ class ContextCounters {
     variableCandidateLookups = 0;
     assignmentLookups = 0;
     holdoutSetComparisons = 0;
+    switchbackPeriodLookups = 0;
+    switchbackServingResolutions = 0;
+    slowAssignmentLookups = 0;
+    keyOrderScans = 0;
   }
 }

@@ -309,6 +309,20 @@ A holdout keeps a share of units out of a group of experiments. The context payl
 - `setOverride` and a matching assignment rule win over a holdout. The holdout's exposure is still published.
 - A unit's arm is kept until the holdout's iteration changes.
 
+### Switchback Experiments
+
+A switchback experiment (`randomizationType: "switchback"` in the context payload) is randomized over *clusters* and time instead of over units. The cluster is the value of a context attribute, for example a store's region, and the cluster's variant changes on a fixed time grid. Every unit in the same cluster sees the same variant within a period. The SDK serves it the way the ABsmartly Collector does; there is no API to call.
+
+- `switchbackClusters` maps unit types to attribute paths, in the order the payload lists them. For each linked unit type set on the context, the SDK reads the attribute at its path (`geo/city`, `items/0/city`, a quoted segment `'a/b'` is a literal key; a `.` makes the path unreadable). The first unit with a value serves the experiment, and that value is the cluster key. Exposures are published under that unit.
+- A cluster value is a non-empty string as-is, or a whole-number integer as its decimal text (`17` keys the cluster `"17"`). Floating-point numbers (including `3.0`), booleans, maps, lists, empty strings and `null` give no value. **On the web** (Flutter web, `dart2js`) `3.0` and `3` are the same number, so `3.0` keys the cluster `"3"` there. The key is the number as it is published, so on the web a number published in float form (`-0.0`, `1e+21`) gives no value.
+- Only attributes you set with `setAttribute` are read, and only those set at or before the moment of the call. The configured application and environment names are not cluster sources.
+- No linked unit set: the experiment does not apply. No value, two units with different values, or a value outside `switchbackClusterValues`: control (variant 0), and nothing is published. Only `setOverride` still applies.
+- Otherwise the usual order applies: `setOverride`, assignment rules (a `split` rule hashes the serving unit), a strict audience mismatch, full-on, then traffic (on the serving unit) and `setCustomAssignment`, then the period's draw. Before `switchbackStartAt`, or when the schedule cannot be served, the draw gives control and publishes nothing. Holdouts never apply to a switchback.
+- Each retained period slot is exposed once, the first time it is read with `getTreatment` or `getVariableValue`. Revalidation (for example a changed audience or traffic) can replace a slot and expose again, and re-entering an evicted period can expose again. At most two periods plus a pre-start slot are kept. The cluster is read once per period slot, so a `setAttribute` later in the period takes effect in the next one. The exposure is stamped with the time of the exposing read, as in the Java SDK, unless an attribute set since the slot read its cluster would make the Collector re-read another cluster at that time; then it carries the time the cluster was read, so the Collector records it under the cluster that was served. This cannot help when the change is a newly set unit (units carry no timestamp) or an attribute set in the same millisecond as the read.
+- Exposures and the publish payload have no new fields. Attributes are published with their timestamps as before, because the Collector re-reads the cluster from them.
+
+The switchback fields are available on `Experiment` (`randomizationType`, `switchbackClusters`, `switchbackStartAt`, `switchbackPeriodMs`, ...). Releases before this one ignore them and serve a switchback experiment as a sticky unit experiment, so upgrade every SDK that serves switchback experiments.
+
 ### Custom Assignments
 
 Sometimes it may be necessary to override the automatic selection of a variant. For example, if you wish to have your variant chosen based on data from an API call. This can be accomplished using the `setCustomAssignment()` method.

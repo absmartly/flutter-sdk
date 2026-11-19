@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:absmartly_dart/absmartly_dart.dart';
+// ignore: implementation_imports
+import 'package:absmartly_dart/src/context.dart'
+    show exposedTreatmentWithVariables;
 import 'package:flutter/widgets.dart';
 
 import '../inherited_absmartly.dart';
@@ -150,9 +153,12 @@ class _TreatmentBuilderState extends State<TreatmentBuilder> {
     int variant = 0;
     final variables = <String, dynamic>{};
     try {
-      variant = ctx.getTreatment(widget.name);
-
-      variables.addAll(ctx.getAssignment(widget.name).variables);
+      // One resolution for both, so they always describe the same exposure
+      // (a switchback's period can change between two reads).
+      final (int treatment, Map<String, dynamic> treatmentVariables) =
+          exposedTreatmentWithVariables(ctx, widget.name);
+      variant = treatment;
+      variables.addAll(treatmentVariables);
     } catch (error) {
       assert(() {
         debugPrint(
