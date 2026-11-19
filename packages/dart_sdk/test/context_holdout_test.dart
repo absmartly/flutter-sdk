@@ -101,6 +101,42 @@ class AwaitingPublisher extends RecordingPublisher {
   }
 }
 
+class ThrowingOncePublisher extends RecordingPublisher {
+  int calls = 0;
+
+  @override
+  Completer<void> publish(Context context, PublishEvent event) {
+    calls++;
+    if (calls == 1) {
+      throw Exception('publisher down');
+    }
+    return super.publish(context, event);
+  }
+}
+
+// On its first publish, queues and publishes one more exposure (a nested
+// publish), then waits for close().
+class NestedPublisher extends RecordingPublisher {
+  NestedPublisher(this.context);
+
+  final Context Function() context;
+
+  @override
+  Completer<void> publish(Context context, PublishEvent event) {
+    events.add(event);
+    final Completer<void> done = Completer<void>();
+    if (events.length == 1) {
+      final Context outer = this.context();
+      outer.getTreatment('exp_two');
+      outer.publish();
+      outer.close().then((_) => done.complete());
+    } else {
+      done.complete();
+    }
+    return done;
+  }
+}
+
 class QueuedDataProvider implements ContextDataProvider {
   ContextData? next;
 
@@ -2283,6 +2319,44 @@ void main() {
         expect(context.isClosed(), isTrue);
       });
     }
+
+    test('a publisher that throws once does not hold close()', () async {
+      final throwing = ThrowingOncePublisher();
+      publisher = throwing;
+      final context = await ready(contextDataOf([], [
+        newExperiment(1, 'exp_one'),
+      ]));
+      context.getTreatment('exp_one');
+
+      final failed = context.publish();
+      expect(throwing.calls, 1);
+      // close() waits for the failed publish instead of acting as if it ran
+      // inside the publisher.
+      final closing = context.close();
+      expect(throwing.calls, 1);
+      await expectLater(failed, throwsException);
+      await closing.timeout(const Duration(seconds: 2));
+
+      expect(throwing.calls, 2);
+      expect(context.isClosed(), isTrue);
+    });
+
+    test('a nested publish leaves the outer publisher able to close', () async {
+      late Context context;
+      final nested = NestedPublisher(() => context);
+      publisher = nested;
+      context = await ready(contextDataOf([], [
+        newExperiment(1, 'exp_one'),
+        newExperiment(2, 'exp_two'),
+      ]));
+      context.getTreatment('exp_one');
+
+      await context.publish().timeout(const Duration(seconds: 2));
+
+      expect(context.isClosed(), isTrue);
+      expect(nested.events.expand((event) => event.exposures).map((e) => e.id),
+          [1, 2]);
+    });
 
     test('a candidate removed during a variable read is not exposed', () async {
       final context = await ready(contextDataOf([

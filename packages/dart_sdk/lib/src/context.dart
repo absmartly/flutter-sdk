@@ -597,7 +597,8 @@ class Context {
     // Events queued while the final publish runs (by an exposure logger, or a
     // read still in progress) are published before close completes. Called
     // from inside the publisher, close() does not wait for that publish,
-    // which may itself wait for close() (JS context.ts _flush).
+    // which may itself wait for close() (JS context.ts _flush). It settles one
+    // microtask later than JS, so a read still in progress is drained too.
     final bool fromPublisher = _publisherRunning;
     Future<void> drain() => (fromPublisher ? _flushBatch() : flush())
         .then((_) => pendingCount_ > 0 ? drain() : null);
@@ -683,6 +684,9 @@ class Context {
         attributes: attributes_.toList(),
       );
 
+      // Restored rather than cleared, so a nested publish() does not hide
+      // the outer publisher from a close() it makes afterwards.
+      final bool wasPublisherRunning = _publisherRunning;
       _publisherRunning = true;
       try {
         eventHandler_.publish(this, event).future.then((_) {
@@ -690,7 +694,7 @@ class Context {
           logEvent(EventType.publish, event);
         }, onError: restore);
       } finally {
-        _publisherRunning = false;
+        _publisherRunning = wasPublisherRunning;
       }
     } catch (error) {
       restore(error);
