@@ -1,4 +1,3 @@
-import 'package:absmartly_dart/src/internal/unit_values.dart';
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
@@ -6,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:absmartly_dart/src/internal/hashing/hashing.dart';
 import 'package:absmartly_dart/src/internal/variant_assigner.dart';
+import 'package:absmartly_dart/src/internal/unit_values.dart';
 import 'package:absmartly_dart/src/audience_matcher.dart';
 import 'package:absmartly_dart/src/context.dart';
 import 'package:absmartly_dart/src/context_config.dart';
