@@ -29,7 +29,7 @@ These follow the cross-SDK contract all ABsmartly SDKs implement in this release
 - **Unit UIDs with emoji or other characters outside the Basic Multilingual Plane** are hashed from their correct UTF-8 bytes, as in every other ABsmartly SDK and the collector (2.1 hashed the UTF-16 surrogates). Units whose UID contains such a character move once to the variant the other SDKs already gave them, and are exposed again.
 - **A failed final publish leaves the context open.** `close()` completes with the error and keeps the events queued, so it can be retried (2.1 marked the context closed and lost them). Code that treated a failed `close()` as closed should retry or discard the context.
 - **`setOverride`/`setOverrides` work after `close()`** (they threw), as in the other SDKs.
-- **Variables shared by several experiments** resolve from the experiment with the lowest id in which the unit is assigned, as in the other SDKs, instead of the first one in the payload.
+- **Variables shared by several experiments** resolve from the experiment with the lowest id in which the unit is assigned, instead of the first one in the payload. Unlike the JavaScript SDK, when that experiment's variant does not define the variable the default value is returned rather than the next experiment's value.
 
 ### Fixed
 - JSON expression `eq`/`in` compare nested lists and maps by value, as the other SDKs do.

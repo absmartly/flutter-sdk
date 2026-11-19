@@ -3519,7 +3519,7 @@ void main() {
 
       // The second publish waits for the in-flight one instead of resending.
       expect(sent.length, equals(1));
-      expect(sent[0].goals!.map((g) => g.name), equals(['goal1', 'goal2']));
+      expect(sent[0].goals.map((g) => g.name), equals(['goal1', 'goal2']));
       expect(context.getPendingCount(), equals(0));
 
       context.track('goal3', {'amount': 3});
@@ -3528,7 +3528,7 @@ void main() {
       await Future.delayed(Duration.zero);
 
       expect(sent.length, equals(2));
-      expect(sent[1].goals!.map((g) => g.name), equals(['goal3']));
+      expect(sent[1].goals.map((g) => g.name), equals(['goal3']));
       pending[1].complete();
       await second;
 
@@ -3561,7 +3561,7 @@ void main() {
       pending[1].complete();
       await retry;
 
-      expect(sent[1].goals!.map((g) => g.name), equals(['goal1', 'goal2']));
+      expect(sent[1].goals.map((g) => g.name), equals(['goal1', 'goal2']));
       expect(context.getPendingCount(), equals(0));
     });
 

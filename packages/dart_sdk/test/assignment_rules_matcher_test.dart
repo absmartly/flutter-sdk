@@ -185,6 +185,20 @@ void main() {
           RuleAction.assign(2));
     });
 
+    test('skips an infinite variant', () {
+      // jsonEncode cannot write Infinity, so the JSON is written by hand; on
+      // the VM jsonDecode reads 1e400 as double.infinity.
+      String withVariant(String variant) => '{"rules":['
+          '{"type":"assign","variant":$variant,"environments":[],'
+          '"conditions":{"value":true}},'
+          '{"type":"assign","variant":2,"environments":[],'
+          '"conditions":{"value":true}}]}';
+      expect(matcher.evaluateRules(withVariant('1e400'), 'production', {}),
+          RuleAction.assign(2));
+      expect(matcher.evaluateRules(withVariant('-1e400'), 'production', {}),
+          RuleAction.assign(2));
+    });
+
     test('accepts a whole-number double variant', () {
       expect(evaluate([assignRule(1.0)]), RuleAction.assign(1));
     });
