@@ -126,7 +126,6 @@ Map<String, dynamic> experimentMap() => {
       ],
     };
 
-// Customer models whose noSuchMethod returns null instead of throwing.
 class LenientContextData implements ContextData {
   @override
   dynamic noSuchMethod(Invocation invocation) => null;
