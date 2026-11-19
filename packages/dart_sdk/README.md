@@ -301,6 +301,17 @@ Conditions use the same JSON expressions as audiences, including the semantic ve
 { "semver_gte": [{ "var": "app_version" }, { "value": "2.4.0" }] }
 ```
 
+### Holdouts
+
+A holdout keeps a share of units out of a group of experiments. The context payload lists the holdouts, and each experiment names the ones that cover it. The SDK resolves them for you; there is no API to call.
+
+- A covered unit is hashed into one of the holdout's arms, using the covered experiment's unit type.
+- In a 2-arm holdout, arm 0 holds the unit out. In a 3-arm holdout, arm 0 holds the unit out of every covered experiment, and arm 1 holds it out of covered experiments that are not full-on. The arm count comes from the holdout's split.
+- A held-out unit gets variant 0 (control values, including variable values) for the experiment, and the experiment publishes no exposure of its own. When a unit is covered by several holdouts, any one of them holding it out is enough.
+- Each holdout publishes its own exposure, once per unit type, the first time a covered experiment is read with `getTreatment` or `getVariableValue`. Peek methods publish nothing.
+- `setOverride` and a matching assignment rule win over a holdout. The holdout's exposure is still published.
+- A unit's arm is kept until the holdout's iteration changes.
+
 ### Custom Assignments
 
 Custom assignments allow you to force a specific variant for a user in a particular experiment, while still recording the assignment as a regular exposure (unlike overrides, which are marked as overridden).

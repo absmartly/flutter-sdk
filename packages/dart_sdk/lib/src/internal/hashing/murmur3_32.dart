@@ -4,6 +4,8 @@ import '../buffers.dart';
 
 // ignore: camel_case_types
 abstract class Murmur3_32 {
+  static const bool _isWeb = identical(0, 0.0);
+
   static int digest(
     Uint8List key,
     int seed, {
@@ -54,12 +56,23 @@ abstract class Murmur3_32 {
     return h;
   }
 
+  // The low 32 bits of a * b. On the VM, 64-bit ints make one multiply exact
+  // and about a third cheaper. On the web, where ints are doubles, it splits
+  // into 16-bit halves so every partial product stays below 2^53.
   static int imul32(int a, int b) {
-    return (a * b) & 0xffffffff;
+    if (!_isWeb) {
+      return (a * b) & 0xffffffff;
+    }
+    a &= 0xffffffff;
+    b &= 0xffffffff;
+    final int low = (a & 0xffff) * b;
+    final int high = (((a >>> 16) * b) & 0xffff) * 0x10000;
+    return (low + high) & 0xffffffff;
   }
 
   static int rotl32(int n, int d) {
-    return (n << d) | (n >> (32 - d));
+    n &= 0xffffffff;
+    return ((n << d) | (n >>> (32 - d))) & 0xffffffff;
   }
 
   static int scramble32(int block) {

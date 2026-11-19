@@ -28,6 +28,7 @@ export 'src/audience_deserializer.dart';
 
 export 'src/json/attribute.dart';
 export 'src/json/context_data.dart';
+export 'src/json/context_holdout.dart';
 export 'src/json/experiment.dart';
 export 'src/json/experiment_application.dart';
 export 'src/json/experiment_variant.dart';
