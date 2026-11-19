@@ -46,6 +46,8 @@ class Experiment {
   late List<ExperimentVariant> variants;
   late bool audienceStrict;
   late String? audience;
+  String? _assignmentRules;
+  List<CustomFieldValue>? _customFieldValues;
 
   Experiment({
     required this.id,
@@ -226,21 +228,47 @@ class Experiment {
 }
 
 // Experiment is implementable by customers, so the fields added after 2.1 are
-// kept outside the class: new fields would break `implements Experiment`.
-final Expando<String> _assignmentRules = Expando<String>();
-final Expando<List<CustomFieldValue>> _customFieldValues =
+// private: a public member would break `implements Experiment`. Private
+// fields, unlike an Expando, survive copying the object to another isolate
+// (prefetched data decoded in a worker). A class from another library that
+// implements Experiment has no such fields; its values live in an Expando.
+final Expando<String> _implAssignmentRules = Expando<String>();
+final Expando<List<CustomFieldValue>> _implCustomFieldValues =
     Expando<List<CustomFieldValue>>();
 
 /// The experiment's assignment rules (a JSON string) and custom field values.
 /// An extension rather than fields of [Experiment], so existing
 /// `implements Experiment` classes keep compiling.
 extension ExperimentFields on Experiment {
-  String? get assignmentRules => _assignmentRules[this];
+  String? get assignmentRules {
+    try {
+      return _assignmentRules;
+    } on NoSuchMethodError {
+      return _implAssignmentRules[this];
+    }
+  }
 
-  set assignmentRules(String? value) => _assignmentRules[this] = value;
+  set assignmentRules(String? value) {
+    try {
+      _assignmentRules = value;
+    } on NoSuchMethodError {
+      _implAssignmentRules[this] = value;
+    }
+  }
 
-  List<CustomFieldValue>? get customFieldValues => _customFieldValues[this];
+  List<CustomFieldValue>? get customFieldValues {
+    try {
+      return _customFieldValues;
+    } on NoSuchMethodError {
+      return _implCustomFieldValues[this];
+    }
+  }
 
-  set customFieldValues(List<CustomFieldValue>? value) =>
-      _customFieldValues[this] = value;
+  set customFieldValues(List<CustomFieldValue>? value) {
+    try {
+      _customFieldValues = value;
+    } on NoSuchMethodError {
+      _implCustomFieldValues[this] = value;
+    }
+  }
 }

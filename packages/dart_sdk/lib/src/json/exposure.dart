@@ -10,6 +10,7 @@ class Exposure {
   late bool fullOn;
   late bool custom;
   late bool audienceMismatch;
+  bool _ruleOverride = false;
 
   Exposure({
     required this.id,
@@ -88,15 +89,29 @@ class Exposure {
   }
 }
 
-// Exposure is implementable by customers, so ruleOverride is kept outside the
-// class: a new field would break `implements Exposure`.
-final Expando<bool> _ruleOverrides = Expando<bool>();
+// Exposure is implementable by customers, so ruleOverride is a private field
+// (it survives copying to another isolate, unlike an Expando): a public one
+// would break `implements Exposure`. A class from another library that
+// implements Exposure has no such field; its value lives in an Expando.
+final Expando<bool> _implRuleOverrides = Expando<bool>();
 
 /// Whether an assignment rule chose the variant. An extension rather than a
 /// field of [Exposure], so existing `implements Exposure` classes keep
 /// compiling.
 extension ExposureRuleOverride on Exposure {
-  bool get ruleOverride => _ruleOverrides[this] ?? false;
+  bool get ruleOverride {
+    try {
+      return _ruleOverride;
+    } on NoSuchMethodError {
+      return _implRuleOverrides[this] ?? false;
+    }
+  }
 
-  set ruleOverride(bool value) => _ruleOverrides[this] = value;
+  set ruleOverride(bool value) {
+    try {
+      _ruleOverride = value;
+    } on NoSuchMethodError {
+      _implRuleOverrides[this] = value;
+    }
+  }
 }

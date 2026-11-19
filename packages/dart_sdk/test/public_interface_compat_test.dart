@@ -79,6 +79,16 @@ class LegacyClientConfig implements ClientConfig {
   ContextEventSerializer? serializer_;
 }
 
+class LegacyExperiment implements Experiment {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class LegacyExposure implements Exposure {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class SubclassedClient extends Client {
   SubclassedClient(ClientConfig config) : super(config, MockHTTPClient());
 }
@@ -124,5 +134,47 @@ void main() {
     expect(client.getEnvironment(), 'production');
     expect(client.getApplicationVersion(), '0');
     expect(client.headers_['X-Agent'], SdkVersion.agent);
+  });
+
+  test('a customer Experiment implementation keeps the 2.2 fields', () {
+    final experiment = LegacyExperiment();
+    expect(experiment.assignmentRules, isNull);
+    expect(experiment.customFieldValues, isNull);
+
+    experiment.assignmentRules = '{"rules":[]}';
+    experiment.customFieldValues = [
+      CustomFieldValue(name: 'region', value: 'EU', type: 'string'),
+    ];
+
+    expect(experiment.assignmentRules, '{"rules":[]}');
+    expect(experiment.customFieldValues!.single.name, 'region');
+    expect(LegacyExperiment().assignmentRules, isNull);
+  });
+
+  test('a customer Exposure implementation keeps ruleOverride', () {
+    final exposure = LegacyExposure();
+    expect(exposure.ruleOverride, isFalse);
+
+    exposure.ruleOverride = true;
+
+    expect(exposure.ruleOverride, isTrue);
+    expect(LegacyExposure().ruleOverride, isFalse);
+  });
+
+  test('contexts are created after a 2.1 caller clears client_', () async {
+    final sdk = ABSmartly(ABSmartlyConfig.create(client: LegacyClient()))
+      ..client_ = null;
+    final contextConfig = ContextConfig.create()
+      ..setUnit('session_id', 'abc')
+      ..setPublishDelay(-1)
+      ..setRefreshInterval(0);
+
+    final created = sdk.createContext(contextConfig);
+    await created.waitUntilReady();
+    expect(created.isFailed(), isFalse);
+
+    final prefetched = sdk.createContextWith(contextConfig, ContextData());
+    await prefetched.waitUntilReady();
+    expect(prefetched.isFailed(), isFalse);
   });
 }

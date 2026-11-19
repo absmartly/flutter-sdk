@@ -34,8 +34,8 @@ class ABSmartly {
         variableParser_!,
         AudienceMatcher(audienceDeserializer_!),
         contextEventLogger_,
-        application: client_!.getApplication(),
-        environment: client_!.getEnvironment());
+        application: client_?.getApplication(),
+        environment: client_?.getEnvironment());
   }
 
   Context createContextWith(ContextConfig config, ContextData data) {
@@ -48,8 +48,8 @@ class ABSmartly {
         variableParser_!,
         AudienceMatcher(audienceDeserializer_!),
         contextEventLogger_,
-        application: client_!.getApplication(),
-        environment: client_!.getEnvironment());
+        application: client_?.getApplication(),
+        environment: client_?.getEnvironment());
   }
 
   Future<ContextData> getContextData() {

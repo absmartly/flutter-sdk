@@ -332,7 +332,6 @@ void main() {
       expect(() => context.getCustomFieldValue('exp_test_ab', 'x'), notReady);
       expect(
           () => context.getCustomFieldValueType('exp_test_ab', 'x'), notReady);
-      // As in 2.1, publish() only rejects a closed context.
       expect(() => context.publish(), returnsNormally);
     });
 
@@ -580,7 +579,6 @@ void main() {
       expect(() => context.peekVariableValue('banner.border', 17), finalized);
       expect(() => context.getVariableKeys(), finalized);
       expect(() => context.getCustomFieldKeys(), finalized);
-      // As in 2.1, data and experiments are not readable after close.
       expect(() => context.getData(), finalized);
       expect(() => context.getExperiments(), finalized);
     });
