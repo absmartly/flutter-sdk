@@ -1035,6 +1035,90 @@ void main() {
         [exposure(1, 'exp_sb', expected2Arms[0], anchor + 20 * 60000)]);
   });
 
+  // A cluster attribute set between a peek and the exposing read would make
+  // the Collector, which re-reads the attributes at exposedAt, see another
+  // cluster: the exposure is stamped when the served cluster was read, so the
+  // Collector records it under the cluster that was served (Faro, the only
+  // allowed value).
+  test('anExposureIsAttributedToTheClusterThatWasServed', () async {
+    final context = await h.create(
+        dataOf([
+          sb(2, hour)
+            ..switchbackClusters = {unitType: 'city'}
+            ..switchbackClusterValues = ['Faro']
+        ]),
+        clusterAttribute: false);
+    h.clock.now = anchor + 10;
+    context.setAttribute('city', 'Faro');
+    final int variant = context.peekTreatment('exp_sb');
+    expect(variant, draw('Faro', 0, 2));
+    h.clock.now = anchor + 20;
+    context.setAttribute('city', 'Lisboa');
+    expect(context.getTreatment('exp_sb'), variant);
+    final published = await h.publishExposures(context);
+    expect(published, [exposure(1, 'exp_sb', variant, anchor + 10)]);
+    final cityAtExposure = h.publisher.events.single.attributes
+        .where((a) => a.name == 'city' && a.setAt <= published.single.exposedAt)
+        .last
+        .value;
+    expect(cityAtExposure, 'Faro');
+  });
+
+  // The same key read from another unit is another serving unit, so the
+  // Collector would publish under it: the exposure keeps the served unit's
+  // read instant. The user source is declared first and serves Faro until its
+  // attribute is set; then it serves Faro too, the store unit no longer does.
+  test('anExposureKeepsTheServedUnitWhenAnotherUnitWouldServe', () async {
+    final context = await h.create(
+        dataOf([
+          sb(2, hour)
+            ..switchbackClusters = {'user_id': 'ucity', unitType: 'city'}
+        ]),
+        units: {unitType: uid, 'user_id': 'u1'},
+        clusterAttribute: false);
+    h.clock.now = anchor + 10;
+    context.setAttribute('city', 'Faro');
+    final int variant = context.peekTreatment('exp_sb');
+    h.clock.now = anchor + 20;
+    context.setAttribute('ucity', 'Faro');
+    expect(context.getTreatment('exp_sb'), variant);
+    expect(await h.publishExposures(context),
+        [exposure(1, 'exp_sb', variant, anchor + 10)]);
+  });
+
+  // A cluster that would be ineligible at the exposing read (units now
+  // disagree) keeps the served read's instant too.
+  test('anExposureKeepsTheReadInstantWhenTheClusterTurnsIneligible', () async {
+    final context = await h.create(
+        dataOf([
+          sb(2, hour)
+            ..switchbackClusters = {unitType: 'city', 'user_id': 'ucity'}
+        ]),
+        units: {unitType: uid, 'user_id': 'u1'},
+        clusterAttribute: false);
+    h.clock.now = anchor + 10;
+    context.setAttribute('city', 'Faro');
+    final int variant = context.peekTreatment('exp_sb');
+    h.clock.now = anchor + 20;
+    context.setAttribute('ucity', 'Porto');
+    expect(context.getTreatment('exp_sb'), variant);
+    expect(await h.publishExposures(context),
+        [exposure(1, 'exp_sb', variant, anchor + 10)]);
+  });
+
+  // An attribute change that leaves the cluster as it was keeps the exposing
+  // call's instant, as in java-sdk.
+  test('anUnrelatedAttributeChangeKeepsTheExposingCallsInstant', () async {
+    final context = await h.create(dataOf([sb(2, hour)]));
+    h.clock.now = anchor + 10;
+    context.peekTreatment('exp_sb');
+    h.clock.now = anchor + 20;
+    context.setAttribute(clusterPath, clusterKey);
+    context.setAttribute('other', 1);
+    context.getTreatment('exp_sb');
+    expect((await h.publishExposures(context)).single.exposedAt, anchor + 20);
+  });
+
   // Unit experiments keep stamping at enqueue time, and a payload without
   // switchbacks reads the clock exactly as before: once per exposure.
   test('unitExposureTimingIsUnchanged', () async {

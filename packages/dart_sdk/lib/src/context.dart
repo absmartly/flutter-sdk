@@ -366,6 +366,29 @@ class Context {
     }
   }
 
+  // A switchback exposure is stamped with the clock reading of the call that
+  // resolved it, which selected its period (java-sdk). The Collector re-reads
+  // the cluster from the published attributes at exposedAt, so when an
+  // attribute set since the slot read its cluster would resolve another
+  // cluster at that reading, the exposure is stamped when the cluster was
+  // read instead, in the same period: the Collector then attributes it to the
+  // cluster that was served. java-sdk stamps the later reading in that case.
+  int _switchbackExposedAt(final Assignment assignment) {
+    final int resolvedAt = assignment._resolvedAt;
+    final SwitchbackServing? served = assignment._switchbackServing;
+    final ExperimentVariables? entry = index_[assignment.name];
+    if (served == null ||
+        served.status == SwitchbackStatus.absent ||
+        served.readAt == resolvedAt ||
+        entry == null ||
+        !entry._switchback) {
+      return resolvedAt;
+    }
+    return _resolveSwitchbackServing(entry, resolvedAt).servesSameAs(served)
+        ? resolvedAt
+        : served.readAt;
+  }
+
   void queueExposure(final Assignment assignment) {
     if (!assignment.exposed) {
       assignment.exposed = true;
@@ -378,11 +401,9 @@ class Context {
           name: assignment.name,
           unit: assignment.unitType,
           variant: assignment.variant,
-          // A switchback exposure is stamped with the clock reading of the
-          // call that resolved it, which selected its period (java-sdk): a
-          // later reading could attribute it to the next period.
-          exposedAt:
-              assignment._switchback ? assignment._resolvedAt : clock_.millis(),
+          exposedAt: assignment._switchback
+              ? _switchbackExposedAt(assignment)
+              : clock_.millis(),
           assigned: assignment.assigned,
           eligible: assignment.eligible,
           overridden: assignment.overridden,
@@ -863,14 +884,14 @@ class Context {
     ];
     final List<SwitchbackSource>? sources = entry._switchbackSources;
     if (sources == null) {
-      return SwitchbackServing.legacy(entry.data.unitType, units);
+      return SwitchbackServing.legacy(entry.data.unitType, units).at(now);
     }
     return SwitchbackServing.resolve(
         sources, entry.data.switchbackClusterValues, units,
         (SwitchbackAttributePath path) {
       final Attribute? attribute = _latestAttribute(path.rootKey, now);
       return attribute != null ? path.resolveAttribute(attribute.value) : null;
-    });
+    }).at(now);
   }
 
   // The slot's serving resolution: reused when this slot already read it

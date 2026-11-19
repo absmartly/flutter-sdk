@@ -1,48 +1,67 @@
-// Recovers the wire key order of every "switchbackClusters" object in a
+// Recovers the wire key order of the "switchbackClusters" objects in a
 // context payload. On the web, jsonDecode builds JavaScript objects, which
 // enumerate integer-like keys (a unit type named "2") before the others, so
 // the decoded map loses the declared order the serving unit depends on.
-//
-// Returns, per occurrence of an object-valued "switchbackClusters" key in
-// document order, its keys in wire order. A minimal scanner: it only tracks
-// strings and nesting, and gives up (returns null) on input it cannot follow,
-// in which case the decoded order is kept.
-List<List<String>>? switchbackClusterKeyOrders(final String json) {
-  if (!json.contains('"switchbackClusters"')) {
-    return const [];
-  }
-  final List<List<String>> orders = [];
-  int i = 0;
-  final int n = json.length;
 
-  // Reads the string starting at the quote at [i]; returns its decoded value
-  // and leaves [i] after the closing quote.
-  String? readString() {
-    if (i >= n || json.codeUnitAt(i) != 0x22) {
-      return null;
-    }
-    final int start = i;
-    ++i;
-    bool escaped = false;
-    while (i < n) {
-      final int c = json.codeUnitAt(i);
-      if (c == 0x5c) {
-        escaped = true;
-        i += 2;
-        continue;
-      }
-      if (c == 0x22) {
-        ++i;
-        final String raw = json.substring(start, i);
-        return escaped ? _decodeString(raw) : raw.substring(1, raw.length - 1);
-      }
-      ++i;
-    }
+// The path from the payload root to a value: map keys and list indices.
+typedef JsonPath = List<Object>;
+
+// Every object-valued "switchbackClusters" member in [json], with its path
+// and its keys in wire order (first occurrence of a repeated key). Field
+// names are compared decoded, so an escaped spelling counts. Null when [json]
+// is not well-formed enough to follow.
+List<(JsonPath, List<String>)>? switchbackClusterKeyOrders(final String json) {
+  final _Scanner scanner = _Scanner(json);
+  try {
+    scanner.value(const []);
+    return scanner.found;
+  } on FormatException {
     return null;
   }
+}
+
+// Re-keys each "switchbackClusters" map of [decoded] at a recorded path in
+// that path's wire order. A path that does not lead to a map with exactly
+// the recorded keys is left as decoded.
+dynamic withSwitchbackClusterKeyOrder(
+    final dynamic decoded, final List<(JsonPath, List<String>)> orders) {
+  for (final (JsonPath path, List<String> order) in orders) {
+    dynamic node = decoded;
+    for (final Object step in path) {
+      if (step is String && node is Map) {
+        node = node[step];
+      } else if (step is int && node is List && step < node.length) {
+        node = node[step];
+      } else {
+        node = null;
+        break;
+      }
+    }
+    if (node is! Map ||
+        node.length != order.length ||
+        !order.every(node.containsKey)) {
+      continue;
+    }
+    final Map<dynamic, dynamic> copy = Map.of(node);
+    node.clear();
+    for (final String key in order) {
+      node[key] = copy[key];
+    }
+  }
+  return decoded;
+}
+
+class _Scanner {
+  _Scanner(this.json);
+
+  final String json;
+  int i = 0;
+  final List<(JsonPath, List<String>)> found = [];
+
+  Never fail() => throw const FormatException();
 
   void skipWhitespace() {
-    while (i < n) {
+    while (i < json.length) {
       final int c = json.codeUnitAt(i);
       if (c != 0x20 && c != 0x0a && c != 0x0d && c != 0x09) {
         return;
@@ -51,171 +70,149 @@ List<List<String>>? switchbackClusterKeyOrders(final String json) {
     }
   }
 
-  // Skips one JSON value starting at [i]; false on malformed input.
-  bool skipValue() {
+  void expect(final int c) {
     skipWhitespace();
-    if (i >= n) {
-      return false;
+    if (i >= json.length || json.codeUnitAt(i) != c) {
+      fail();
+    }
+    ++i;
+  }
+
+  bool peek(final int c) {
+    skipWhitespace();
+    return i < json.length && json.codeUnitAt(i) == c;
+  }
+
+  String string() {
+    expect(0x22);
+    final StringBuffer out = StringBuffer();
+    while (true) {
+      if (i >= json.length) {
+        fail();
+      }
+      final int c = json.codeUnitAt(i++);
+      if (c == 0x22) {
+        return out.toString();
+      }
+      if (c != 0x5c) {
+        out.writeCharCode(c);
+        continue;
+      }
+      if (i >= json.length) {
+        fail();
+      }
+      final int e = json.codeUnitAt(i++);
+      switch (e) {
+        case 0x6e: // n
+          out.writeCharCode(0x0a);
+        case 0x74: // t
+          out.writeCharCode(0x09);
+        case 0x72: // r
+          out.writeCharCode(0x0d);
+        case 0x62: // b
+          out.writeCharCode(0x08);
+        case 0x66: // f
+          out.writeCharCode(0x0c);
+        case 0x75: // u
+          if (i + 4 > json.length) {
+            fail();
+          }
+          final int? code = int.tryParse(json.substring(i, i + 4), radix: 16);
+          if (code == null) {
+            fail();
+          }
+          out.writeCharCode(code);
+          i += 4;
+        default:
+          out.writeCharCode(e);
+      }
+    }
+  }
+
+  void value(final JsonPath path) {
+    skipWhitespace();
+    if (i >= json.length) {
+      fail();
     }
     final int c = json.codeUnitAt(i);
-    if (c == 0x22) {
-      return readString() != null;
-    }
-    if (c == 0x7b || c == 0x5b) {
-      int depth = 0;
-      while (i < n) {
-        final int d = json.codeUnitAt(i);
-        if (d == 0x22) {
-          if (readString() == null) {
-            return false;
-          }
+    if (c == 0x7b) {
+      ++i;
+      if (peek(0x7d)) {
+        ++i;
+        return;
+      }
+      while (true) {
+        final String key = string();
+        expect(0x3a);
+        final JsonPath child = [...path, key];
+        if (key == 'switchbackClusters' && peek(0x7b)) {
+          found.add((child, clusterKeys()));
+        } else {
+          value(child);
+        }
+        if (peek(0x2c)) {
+          ++i;
           continue;
         }
-        if (d == 0x7b || d == 0x5b) {
-          ++depth;
-        } else if (d == 0x7d || d == 0x5d) {
-          --depth;
-          if (depth == 0) {
-            ++i;
-            return true;
-          }
+        expect(0x7d);
+        return;
+      }
+    }
+    if (c == 0x5b) {
+      ++i;
+      if (peek(0x5d)) {
+        ++i;
+        return;
+      }
+      for (int index = 0;; ++index) {
+        value([...path, index]);
+        if (peek(0x2c)) {
+          ++i;
+          continue;
         }
-        ++i;
+        expect(0x5d);
+        return;
       }
-      return false;
     }
-    while (i < n) {
+    if (c == 0x22) {
+      string();
+      return;
+    }
+    // A number or literal: up to the next delimiter.
+    final int start = i;
+    while (i < json.length) {
       final int d = json.codeUnitAt(i);
-      if (d == 0x2c || d == 0x7d || d == 0x5d) {
-        return true;
-      }
-      ++i;
-    }
-    return true;
-  }
-
-  while (i < n) {
-    final int c = json.codeUnitAt(i);
-    if (c != 0x22) {
-      ++i;
-      continue;
-    }
-    final String? key = readString();
-    if (key == null) {
-      return null;
-    }
-    skipWhitespace();
-    if (key != 'switchbackClusters' || i >= n || json.codeUnitAt(i) != 0x3a) {
-      continue;
-    }
-    ++i;
-    skipWhitespace();
-    if (i >= n || json.codeUnitAt(i) != 0x7b) {
-      continue;
-    }
-    ++i;
-    final List<String> keys = [];
-    while (true) {
-      skipWhitespace();
-      if (i >= n) {
-        return null;
-      }
-      if (json.codeUnitAt(i) == 0x7d) {
-        ++i;
+      if (d == 0x2c || d == 0x7d || d == 0x5d || d <= 0x20) {
         break;
       }
-      final String? name = readString();
-      if (name == null) {
-        return null;
-      }
-      keys.add(name);
-      skipWhitespace();
-      if (i >= n || json.codeUnitAt(i) != 0x3a) {
-        return null;
-      }
       ++i;
-      if (!skipValue()) {
-        return null;
+    }
+    if (i == start) {
+      fail();
+    }
+  }
+
+  // The keys of the object at [i], in wire order, first occurrence kept.
+  List<String> clusterKeys() {
+    expect(0x7b);
+    final List<String> keys = [];
+    if (peek(0x7d)) {
+      ++i;
+      return keys;
+    }
+    while (true) {
+      final String key = string();
+      if (!keys.contains(key)) {
+        keys.add(key);
       }
-      skipWhitespace();
-      if (i < n && json.codeUnitAt(i) == 0x2c) {
+      expect(0x3a);
+      value(const []);
+      if (peek(0x2c)) {
         ++i;
+        continue;
       }
-    }
-    orders.add(keys);
-  }
-  return orders;
-}
-
-String _decodeString(final String quoted) {
-  final StringBuffer out = StringBuffer();
-  for (int i = 1; i < quoted.length - 1; ++i) {
-    final String c = quoted[i];
-    if (c != r'\') {
-      out.write(c);
-      continue;
-    }
-    final String e = quoted[++i];
-    switch (e) {
-      case 'n':
-        out.write('\n');
-      case 't':
-        out.write('\t');
-      case 'r':
-        out.write('\r');
-      case 'b':
-        out.write('\b');
-      case 'f':
-        out.write('\f');
-      case 'u':
-        out.writeCharCode(int.parse(quoted.substring(i + 1, i + 5), radix: 16));
-        i += 4;
-      default:
-        out.write(e);
+      expect(0x7d);
+      return keys;
     }
   }
-  return out.toString();
-}
-
-// Re-keys every object-valued "switchbackClusters" map in [decoded] in the
-// wire order [orders] recorded, visiting maps in document order. Changes
-// nothing when the occurrences do not line up one to one with the same key
-// sets.
-dynamic withSwitchbackClusterKeyOrder(
-    final dynamic decoded, final List<List<String>> orders) {
-  final List<Map> found = [];
-  void visit(dynamic value) {
-    if (value is Map) {
-      value.forEach((key, child) {
-        if (key == 'switchbackClusters' && child is Map) {
-          found.add(child);
-        } else {
-          visit(child);
-        }
-      });
-    } else if (value is List) {
-      value.forEach(visit);
-    }
-  }
-
-  visit(decoded);
-  if (found.length != orders.length) {
-    return decoded;
-  }
-  for (int k = 0; k < found.length; ++k) {
-    final Map map = found[k];
-    final List<String> order = orders[k];
-    if (map.length != order.length || !order.every(map.containsKey)) {
-      return decoded;
-    }
-  }
-  for (int k = 0; k < found.length; ++k) {
-    final Map map = found[k];
-    final Map<dynamic, dynamic> copy = Map.of(map);
-    map.clear();
-    for (final String key in orders[k]) {
-      map[key] = copy[key];
-    }
-  }
-  return decoded;
 }

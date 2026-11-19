@@ -408,7 +408,9 @@ void main() {
     expect(context.getTreatment('exp_sb'), expected('Faro', 0));
     expect(await h.publishExposures(context), [
       clusterExposure(0, anchor + 10, eligible: false),
-      clusterExposure(expected('Faro', 0), anchor + 20),
+      // Stamped when the slot read Faro: at anchor + 20 the Collector would
+      // re-read Lisboa (java-sdk stamps anchor + 20 here).
+      clusterExposure(expected('Faro', 0), anchor + 10),
     ]);
   });
 
@@ -429,7 +431,9 @@ void main() {
 
     expect(await h.publishExposures(context), [
       clusterExposure(expected('Lisboa', 0), anchor + 10),
-      clusterExposure(expected('Lisboa', 0), anchor + 20,
+      // Stamped when the slot read Lisboa: at anchor + 20 the Collector would
+      // re-read Porto (java-sdk stamps anchor + 20 here).
+      clusterExposure(expected('Lisboa', 0), anchor + 10,
           audienceMismatch: true),
     ]);
   });

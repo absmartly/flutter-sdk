@@ -73,12 +73,22 @@ enum SwitchbackStatus { absent, ineligible, eligible }
 // - A missing, empty or unreadable cluster map takes the Collector's legacy
 //   path instead (legacy).
 class SwitchbackServing {
-  const SwitchbackServing._(this.status, this.unit, this.clusterKey);
+  const SwitchbackServing._(this.status, this.unit, this.clusterKey,
+      [this.readAt = 0]);
 
   final SwitchbackStatus status;
   final SwitchbackUnit? unit;
   // The raw normalised cluster key when eligible; never hashed.
   final String? clusterKey;
+  // The clock reading the cluster attributes were read at.
+  final int readAt;
+
+  SwitchbackServing at(final int readAt) =>
+      SwitchbackServing._(status, unit, clusterKey, readAt);
+
+  // The same unit and key: the status follows from them.
+  bool servesSameAs(final SwitchbackServing other) =>
+      unit?.type == other.unit?.type && clusterKey == other.clusterKey;
 
   static const SwitchbackServing _absent =
       SwitchbackServing._(SwitchbackStatus.absent, null, null);
