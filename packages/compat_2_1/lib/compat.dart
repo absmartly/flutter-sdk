@@ -10,6 +10,8 @@ import 'package:absmartly_sdk/audience_deserializer.dart';
 import 'package:absmartly_sdk/audience_matcher.dart';
 import 'package:absmartly_sdk/client_config.dart';
 import 'package:absmartly_sdk/context_config.dart';
+import 'package:absmartly_sdk/context_data_deserializer.dart';
+import 'package:absmartly_sdk/context_event_serializer.dart';
 import 'package:absmartly_sdk/context_event_logger.dart';
 import 'package:absmartly_sdk/default_http_client.dart';
 import 'package:absmartly_sdk/default_http_client_config.dart';
@@ -93,12 +95,66 @@ class MyDeserializer implements AudienceDeserializer {
 
 class MyClient implements Client {
   @override
-  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+  Completer<ContextData> getContextData() => throw UnimplementedError();
+  @override
+  Completer<void> publish(PublishEvent event) => throw UnimplementedError();
+  @override
+  late String url_;
+  @override
+  late Map<String, String> query_;
+  @override
+  late Map<String, String> headers_;
+  @override
+  late HTTPClient httpClient_;
+  @override
+  ContextDataDeserializer? deserializer_;
+  @override
+  ContextEventSerializer? serializer_;
 }
 
 class MyClientConfig implements ClientConfig {
   @override
-  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+  String? endpoint_;
+  @override
+  String? apiKey_;
+  @override
+  String? environment_;
+  @override
+  String? application_;
+  @override
+  ContextDataDeserializer? deserializer_;
+  @override
+  ContextEventSerializer? serializer_;
+  @override
+  String? getEndpoint() => endpoint_;
+  @override
+  ClientConfig setEndpoint(String endpoint) => this..endpoint_ = endpoint;
+  @override
+  String? getAPIKey() => apiKey_;
+  @override
+  ClientConfig setAPIKey(String apiKey) => this..apiKey_ = apiKey;
+  @override
+  String? getEnvironment() => environment_;
+  @override
+  ClientConfig setEnvironment(String environment) =>
+      this..environment_ = environment;
+  @override
+  String? getApplication() => application_;
+  @override
+  ClientConfig setApplication(String application) =>
+      this..application_ = application;
+  @override
+  ContextDataDeserializer getContextDataDeserializer() =>
+      throw UnimplementedError();
+  @override
+  ClientConfig setContextDataDeserializer(ContextDataDeserializer value) =>
+      this..deserializer_ = value;
+  @override
+  ContextEventSerializer getContextEventSerializer() =>
+      throw UnimplementedError();
+  @override
+  ClientConfig setContextEventSerializer(ContextEventSerializer value) =>
+      this..serializer_ = value;
 }
 
 class MyConfig extends ABSmartlyConfig {}
@@ -110,17 +166,75 @@ class MyContext implements Context {
 
 class MyMatcher implements AudienceMatcher {
   @override
-  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+  late final AudienceDeserializer deserializer_;
+  @override
+  late final JsonExpr jsonExpr_;
+  @override
+  Result? evaluate(String audience, Map<String, dynamic>? attributes) => null;
 }
 
+// Public instance members of the published 2.1.2 models. Avoid noSuchMethod:
+// a new interface member must cause a compile error in this fixture.
 class MyExperiment implements Experiment {
   @override
-  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+  late int id;
+  @override
+  late String name;
+  @override
+  late String unitType;
+  @override
+  late int iteration;
+  @override
+  late int seedHi;
+  @override
+  late int seedLo;
+  @override
+  late List<double> split;
+  @override
+  late int trafficSeedHi;
+  @override
+  late int trafficSeedLo;
+  @override
+  late List<double> trafficSplit;
+  @override
+  late int fullOnVariant;
+  @override
+  late List<ExperimentApplication> applications;
+  @override
+  late List<ExperimentVariant> variants;
+  @override
+  late bool audienceStrict;
+  @override
+  late String? audience;
+  @override
+  Map<String, dynamic> toMap() => throw UnimplementedError();
 }
 
 class MyExposure implements Exposure {
   @override
-  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+  late int id;
+  @override
+  late String name;
+  @override
+  late String? unit;
+  @override
+  late int variant;
+  @override
+  late int exposedAt;
+  @override
+  late bool assigned;
+  @override
+  late bool eligible;
+  @override
+  late bool overridden;
+  @override
+  late bool fullOn;
+  @override
+  late bool custom;
+  @override
+  late bool audienceMismatch;
+  @override
+  Map<String, dynamic> toMap() => throw UnimplementedError();
 }
 
 extension Shout on String {
@@ -130,9 +244,70 @@ extension Shout on String {
 class ImplContextConfig implements ContextConfig {
   @override
   Map<String, String> units_ = {};
-
   @override
-  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+  Map<String, dynamic> attributes_ = {};
+  @override
+  Map<String, int> overrides_ = {};
+  @override
+  Map<String, int> cassigmnents_ = {};
+  @override
+  int publishDelay = 100;
+  @override
+  int refreshInterval = 0;
+  @override
+  ContextEventLogger? logger_;
+  @override
+  ContextConfig setUnit(String type, String uid) => this..units_[type] = uid;
+  @override
+  ContextConfig setUnits(Map<String, String> units) =>
+      this..units_.addAll(units);
+  @override
+  String? getUnit(String type) => units_[type];
+  @override
+  Map<String, String> getUnits() => units_;
+  @override
+  ContextConfig setAttribute(String name, Object value) =>
+      this..attributes_[name] = value;
+  @override
+  ContextConfig setAttributes(Map<String, dynamic> attributes) =>
+      this..attributes_.addAll(attributes);
+  @override
+  dynamic getAttribute(String name) => attributes_[name];
+  @override
+  Map<String, dynamic> getAttributes() => attributes_;
+  @override
+  ContextConfig setOverride(String name, int variant) =>
+      this..overrides_[name] = variant;
+  @override
+  ContextConfig setOverrides(Map<String, int> overrides) =>
+      this..overrides_.addAll(overrides);
+  @override
+  dynamic getOverride(String name) => overrides_[name];
+  @override
+  Map<String, int> getOverrides() => overrides_;
+  @override
+  ContextConfig setCustomAssignment(String name, int variant) =>
+      this..cassigmnents_[name] = variant;
+  @override
+  ContextConfig setCustomAssignments(Map<String, int> assignments) =>
+      this..cassigmnents_.addAll(assignments);
+  @override
+  dynamic getCustomAssignment(String name) => cassigmnents_[name];
+  @override
+  Map<String, int> getCustomAssignments() => cassigmnents_;
+  @override
+  ContextConfig setPublishDelay(int delayMs) => this..publishDelay = delayMs;
+  @override
+  int getPublishDelay() => publishDelay;
+  @override
+  ContextConfig setRefreshInterval(int intervalMs) =>
+      this..refreshInterval = intervalMs;
+  @override
+  int getRefreshInterval() => refreshInterval;
+  @override
+  ContextEventLogger? getContextEventLogger() => logger_;
+  @override
+  void setContextEventLogger(ContextEventLogger logger) => logger_ = logger;
 }
 
 class SubContextConfig extends ContextConfig {

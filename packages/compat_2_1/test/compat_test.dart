@@ -8,11 +8,11 @@ void main() {
     expect(r['configUnits'],
         {'session_id': '5ebf06d8cb5d8137290c4abb64155584fbdb64d8'});
     expect(r['uid'], '1000013');
-    expect(r['units'], {
+    // 2.1.2 returned an empty getUnits() map; newer SDKs fix that bug.
+    expect(r['unitsField'], {
       'session_id': '5ebf06d8cb5d8137290c4abb64155584fbdb64d8',
       'db_user_id': '1000013',
     });
-    expect(r['unitsField'], r['units']);
     expect(r['configField'],
         {'session_id': '5ebf06d8cb5d8137290c4abb64155584fbdb64d8'});
     expect(r['shouted'], '1000013');

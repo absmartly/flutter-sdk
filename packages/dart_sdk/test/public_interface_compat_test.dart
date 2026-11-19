@@ -79,14 +79,68 @@ class LegacyClientConfig implements ClientConfig {
   ContextEventSerializer? serializer_;
 }
 
+// Public instance members of the published 2.1.2 models. Avoid noSuchMethod:
+// a new interface member must cause a compile error in this test.
 class LegacyExperiment implements Experiment {
   @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  late int id;
+  @override
+  late String name;
+  @override
+  late String unitType;
+  @override
+  late int iteration;
+  @override
+  late int seedHi;
+  @override
+  late int seedLo;
+  @override
+  late List<double> split;
+  @override
+  late int trafficSeedHi;
+  @override
+  late int trafficSeedLo;
+  @override
+  late List<double> trafficSplit;
+  @override
+  late int fullOnVariant;
+  @override
+  late List<ExperimentApplication> applications;
+  @override
+  late List<ExperimentVariant> variants;
+  @override
+  late bool audienceStrict;
+  @override
+  late String? audience;
+  @override
+  Map<String, dynamic> toMap() => throw UnimplementedError();
 }
 
 class LegacyExposure implements Exposure {
   @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  late int id;
+  @override
+  late String name;
+  @override
+  late String? unit;
+  @override
+  late int variant;
+  @override
+  late int exposedAt;
+  @override
+  late bool assigned;
+  @override
+  late bool eligible;
+  @override
+  late bool overridden;
+  @override
+  late bool fullOn;
+  @override
+  late bool custom;
+  @override
+  late bool audienceMismatch;
+  @override
+  Map<String, dynamic> toMap() => throw UnimplementedError();
 }
 
 class SubclassedClient extends Client {
