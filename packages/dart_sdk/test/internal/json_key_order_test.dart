@@ -37,6 +37,18 @@ void main() {
     ]);
   });
 
+  // Every experiment is checked, not only the first.
+  test('a later experiment with an integer-like key keeps its order', () {
+    final payload = '{"experiments":['
+        '${experiment(1, '{"store_id":"city"}')},'
+        '${experiment(2, '{"store_id":"city","2":"city"}')}'
+        ']}';
+    expect(decodedOrders(payload), [
+      ['store_id'],
+      ['store_id', '2'],
+    ]);
+  });
+
   // The web enumerates an integer-like root key before "experiments", so
   // each order is bound to its own object by path, not by visit order.
   test('each object keeps its own order whatever the root key order', () {
