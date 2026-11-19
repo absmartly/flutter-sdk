@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:absmartly_sdk/absmartly_sdk.dart';
+import 'package:absmartly_sdk/absmartly.dart';
 import 'package:absmartly_sdk/http_client.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';

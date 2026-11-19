@@ -2,6 +2,7 @@
 // keep compiling against the published 2.1.2 package; do not use newer APIs.
 // ignore_for_file: avoid_print, unused_local_variable
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:absmartly_sdk/absmartly_sdk.dart';
 import 'package:absmartly_sdk/ab_smartly.dart';
@@ -22,6 +23,7 @@ import 'package:absmartly_sdk/jsonexpr/json_expr.dart';
 import 'package:absmartly_sdk/jsonexpr/operators/greater_then_operator.dart';
 import 'package:absmartly_sdk/jsonexpr/operators/less_then_or_eqal_operator.dart';
 import 'package:absmartly_sdk/internal/hashing/hashing.dart';
+import 'package:absmartly_sdk/internal/variant_assigner.dart';
 import 'package:absmartly_sdk/json/experiment_application.dart';
 import 'package:http/http.dart' as http;
 
@@ -159,9 +161,215 @@ class MyClientConfig implements ClientConfig {
 
 class MyConfig extends ABSmartlyConfig {}
 
+// Every public member of the released Context, no noSuchMethod: a member
+// added to Context breaks this class.
 class MyContext implements Context {
   @override
-  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+  bool isReady() => throw UnimplementedError();
+  @override
+  bool isFailed() => throw UnimplementedError();
+  @override
+  bool isClosed() => throw UnimplementedError();
+  @override
+  bool isClosing() => throw UnimplementedError();
+  @override
+  Future<Context> waitUntilReady() => throw UnimplementedError();
+  @override
+  List<String> getExperiments() => throw UnimplementedError();
+  @override
+  ContextData getData() => throw UnimplementedError();
+  @override
+  void setOverride(final String experimentName, final int variant) =>
+      throw UnimplementedError();
+  @override
+  int? getOverride(final String experimentName) => throw UnimplementedError();
+  @override
+  void setOverrides(Map<String, int> overrides) => throw UnimplementedError();
+  @override
+  void setCustomAssignment(String experimentName, int variant) =>
+      throw UnimplementedError();
+  @override
+  int? getCustomAssignment(String experimentName) => throw UnimplementedError();
+  @override
+  void setCustomAssignments(Map<String, int> customAssignments) =>
+      throw UnimplementedError();
+  @override
+  String? getUnit(final String unitType) => throw UnimplementedError();
+  @override
+  void setUnit(final String unitType, final String uid) =>
+      throw UnimplementedError();
+  @override
+  Map<String, String> getUnits() => throw UnimplementedError();
+  @override
+  void setUnits(Map<String, String> units) => throw UnimplementedError();
+  @override
+  dynamic getAttribute(final String name) => throw UnimplementedError();
+  @override
+  void setAttribute(String name, dynamic value) => throw UnimplementedError();
+  @override
+  Map<String, dynamic> getAttributes() => throw UnimplementedError();
+  @override
+  void setAttributes(final Map<String, dynamic> attributes) =>
+      throw UnimplementedError();
+  @override
+  int getTreatment(final String experimentName) => throw UnimplementedError();
+  @override
+  void queueExposure(final Assignment assignment) => throw UnimplementedError();
+  @override
+  int peekTreatment(final String experimentName) => throw UnimplementedError();
+  @override
+  Map<String, List<String>> getVariableKeys() => throw UnimplementedError();
+  @override
+  dynamic getVariableValue(final String key, final dynamic defaultValue) =>
+      throw UnimplementedError();
+  @override
+  dynamic peekVariableValue(final String key, final dynamic defaultValue) =>
+      throw UnimplementedError();
+  @override
+  void track(final String goalName, final Map<String, dynamic>? properties) =>
+      throw UnimplementedError();
+  @override
+  Future<void> publish() => throw UnimplementedError();
+  @override
+  int getPendingCount() => throw UnimplementedError();
+  @override
+  Future<void> refresh() => throw UnimplementedError();
+  @override
+  Future<void> close() => throw UnimplementedError();
+  @override
+  Future<void> flush() => throw UnimplementedError();
+  @override
+  void checkNotClosed() => throw UnimplementedError();
+  @override
+  void checkReady(final bool expectNotClosed) => throw UnimplementedError();
+  @override
+  bool experimentMatches(
+          final Experiment experiment, final Assignment assignment) =>
+      throw UnimplementedError();
+  @override
+  Assignment getAssignment(final String experimentName) =>
+      throw UnimplementedError();
+  @override
+  Assignment? getVariableAssignment(final String key) =>
+      throw UnimplementedError();
+  @override
+  ExperimentVariables? getExperiment(final String experimentName) =>
+      throw UnimplementedError();
+  @override
+  List<ExperimentVariables>? getVariableExperiments(final String key) =>
+      throw UnimplementedError();
+  @override
+  Uint8List getUnitHash(final String unitType, final String unitUID) =>
+      throw UnimplementedError();
+  @override
+  VariantAssigner getVariantAssigner(
+          final String unitType, final Uint8List unitHash) =>
+      throw UnimplementedError();
+  @override
+  void setTimeout() => throw UnimplementedError();
+  @override
+  void clearTimeout() => throw UnimplementedError();
+  @override
+  void setRefreshTimer() => throw UnimplementedError();
+  @override
+  void clearRefreshTimer() => throw UnimplementedError();
+  @override
+  void setData(final ContextData data) => throw UnimplementedError();
+  @override
+  void setDataFailed(exception) => throw UnimplementedError();
+  @override
+  void logEvent(EventType event, dynamic data) => throw UnimplementedError();
+  @override
+  void logError(error) => throw UnimplementedError();
+  @override
+  late Clock clock_;
+  @override
+  int publishDelay_ = 100;
+  @override
+  int refreshInterval_ = 0;
+  @override
+  late ContextEventHandler eventHandler_;
+  @override
+  late ContextDataProvider dataProvider_;
+  @override
+  late VariableParser variableParser_;
+  @override
+  late AudienceMatcher audienceMatcher_;
+  @override
+  late ContextEventLogger? eventLogger_;
+  @override
+  final Map<String, String> units_ = {};
+  @override
+  bool failed_ = false;
+  @override
+  ContextData? data_;
+  @override
+  Map<String, ExperimentVariables> index_ = {};
+  @override
+  Map<String, List<ExperimentVariables>> indexVariables_ = {};
+  @override
+  final Map<String, Uint8List> hashedUnits_ = {};
+  @override
+  final Map<String, VariantAssigner> assigners_ = {};
+  @override
+  final Map<String, Assignment> assignmentCache_ = {};
+  @override
+  final List<Exposure> exposures_ = [];
+  @override
+  final List<GoalAchievement> achievements_ = [];
+  @override
+  final List<Attribute> attributes_ = [];
+  @override
+  final Map<String, int> overrides_ = {};
+  @override
+  final Map<String, int> cassignments_ = {};
+  @override
+  int pendingCount_ = 0;
+  @override
+  bool closing_ = false;
+  @override
+  bool closed_ = false;
+  @override
+  bool refreshing_ = false;
+  @override
+  Completer<void>? readyFuture_;
+  @override
+  Completer<void>? closingFuture_;
+  @override
+  Completer<void>? refreshFuture_;
+  @override
+  Timer? timeout_;
+  @override
+  Timer? refreshTimer_;
+}
+
+// Every public member of the released ABSmartlyConfig.
+class ImplABSmartlyConfig implements ABSmartlyConfig {
+  @override
+  ABSmartlyConfig setClient(Client client) => this;
+  @override
+  ABSmartlyConfig setContextDataProvider(ContextDataProvider provider) => this;
+  @override
+  ABSmartlyConfig setContextEventHandler(ContextEventHandler handler) => this;
+  @override
+  ABSmartlyConfig setContextEventLogger(ContextEventLogger logger) => this;
+  @override
+  ABSmartlyConfig setVariableParser(VariableParser parser) => this;
+  @override
+  ABSmartlyConfig setAudienceDeserializer(AudienceDeserializer deserializer) =>
+      this;
+  @override
+  Client getClient() => throw UnimplementedError();
+  @override
+  ContextDataProvider getContextDataProvider() => throw UnimplementedError();
+  @override
+  ContextEventHandler getContextEventHandler() => throw UnimplementedError();
+  @override
+  ContextEventLogger? getContextEventLogger() => null;
+  @override
+  VariableParser getVariableParser() => throw UnimplementedError();
+  @override
+  AudienceDeserializer getAudienceDeserializer() => throw UnimplementedError();
 }
 
 class MyMatcher implements AudienceMatcher {

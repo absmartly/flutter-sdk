@@ -13,7 +13,7 @@ import 'package:absmartly_dart/src/json/experiment.dart';
 import 'package:absmartly_dart/src/json/experiment_variant.dart';
 import 'package:absmartly_dart/src/json/publish_event.dart';
 import 'package:absmartly_dart/src/variable_parser.dart';
-import 'package:absmartly_sdk/absmartly_sdk.dart';
+import 'package:absmartly_sdk/absmartly.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -123,4 +123,17 @@ void main() {
       });
     });
   });
+
+  test('hashes an int above 2^53 from its exact decimal string', () {
+    expect(Hashing.hashInput(9007199254740993), '9007199254740993');
+    expect(Hashing.hashInput(1234567890123456781), '1234567890123456781');
+    expect(Hashing.hashInput(1234567890123456782), '1234567890123456782');
+    expect(Hashing.hashUnitValue(1234567890123456781),
+        Hashing.hashUnit('1234567890123456781'));
+    expect(Hashing.hashUnitValue(1234567890123456781),
+        isNot(Hashing.hashUnitValue(1234567890123456782)));
+    expect(Hashing.hashInput(-0), '0');
+    expect(Hashing.hashInput(-0.0), '0');
+    expect(Hashing.hashInput(125.75), '126');
+  });
 }
