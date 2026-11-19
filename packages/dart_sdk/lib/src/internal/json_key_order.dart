@@ -13,10 +13,6 @@ typedef JsonPath = List<Object>;
 // names are compared decoded, so an escaped spelling counts. Null when [json]
 // is not well-formed enough to follow.
 List<(JsonPath, List<String>)>? switchbackClusterKeyOrders(final String json) {
-  // Only a \u escape can spell the field name other than literally.
-  if (!json.contains('switchbackClusters') && !json.contains(r'\u')) {
-    return const [];
-  }
   ContextCounters.keyOrderScans++;
   final _Scanner scanner = _Scanner(json);
   try {
@@ -27,6 +23,31 @@ List<(JsonPath, List<String>)>? switchbackClusterKeyOrders(final String json) {
     return null;
   }
 }
+
+// Whether a decoded "switchbackClusters" map has an integer-like key, the
+// only kind JavaScript enumerates out of wire order. Field names are already
+// unescaped here.
+bool hasReorderedSwitchbackClusters(final dynamic decoded) {
+  if (decoded is Map) {
+    for (final MapEntry entry in decoded.entries) {
+      final dynamic value = entry.value;
+      if (entry.key == 'switchbackClusters' && value is Map) {
+        if (value.keys.any((k) => _integerLike.hasMatch('$k'))) {
+          return true;
+        }
+      } else if (hasReorderedSwitchbackClusters(value)) {
+        return true;
+      }
+    }
+  } else if (decoded is List) {
+    return decoded.any(hasReorderedSwitchbackClusters);
+  }
+  return false;
+}
+
+// JavaScript's array-index keys: 0 or a positive integer below 2^32 - 1
+// with no leading zero.
+final RegExp _integerLike = RegExp(r'^(0|[1-9][0-9]{0,9})$');
 
 // Re-keys each "switchbackClusters" map of [decoded] at a recorded path in
 // that path's wire order. A path that does not lead to a map with exactly

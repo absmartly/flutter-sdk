@@ -15,7 +15,7 @@ class DefaultContextDataDeserializer implements ContextDataDeserializer {
     try {
       var data = utf8.decode(bytes);
       dynamic decoded = jsonDecode(data);
-      if (_isWeb) {
+      if (_isWeb && hasReorderedSwitchbackClusters(decoded)) {
         // switchbackClusters order is semantic: restore the wire order a
         // unit type with an integer-like name would lose.
         final orders = switchbackClusterKeyOrders(data);

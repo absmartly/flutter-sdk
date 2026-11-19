@@ -89,12 +89,23 @@ void main() {
     ]);
   });
 
-  // A payload that cannot contain the field is never scanned.
-  test('a payload without switchbackClusters is not scanned', () {
-    ContextCounters.reset();
-    decodedOrders('{"experiments":[]}');
-    expect(ContextCounters.keyOrderScans, 0);
-    expect(switchbackClusterKeyOrders('{"experiments":[]}'), isEmpty);
+  // Only a payload whose cluster map has an integer-like unit type name is
+  // scanned: an escaped character elsewhere, or names JavaScript keeps in
+  // wire order, cost nothing.
+  test('only a cluster map with an integer-like key is scanned', () {
+    for (final payload in [
+      '{"experiments":[]}',
+      '{"experiments":[${experiment(1, '{"store_id":"caf\\u00e9"}')}]}',
+      '{"experiments":[${experiment(1, '{"b":"x","a":"y","02":"z"}')}]}',
+    ]) {
+      ContextCounters.reset();
+      decodedOrders(payload);
+      expect(ContextCounters.keyOrderScans, 0, reason: payload);
+    }
+    expect(
+        hasReorderedSwitchbackClusters(jsonDecode(
+            '{"e":[{"switchbackClusters":{"store_id":"c","2":"c"}}]}')),
+        isTrue);
   });
 
   // An unrelated value nested deeper than the scanner can follow keeps the
