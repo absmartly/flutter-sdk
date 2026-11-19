@@ -258,19 +258,17 @@ class Experiment {
     } else {
       customFieldValues = null;
     }
-    final rawHoldoutIds = data["holdoutIds"];
+    final rawHoldoutIds = data['holdoutIds'];
     if (rawHoldoutIds is List) {
       holdoutIds = _parseHoldoutIds(rawHoldoutIds);
     }
-    final rawHoldoutType = data["holdoutType"];
+    final rawHoldoutType = data['holdoutType'];
     if (rawHoldoutType is String) {
       holdoutType = rawHoldoutType;
     }
     _switchbackFields = _SwitchbackFields.fromMap(data);
   }
 
-  // Whole numbers up to 2^53 - 1 only; any other entry can't name a holdout
-  // and is dropped.
   static List<int> _parseHoldoutIds(List value) {
     final List<int> ids = [];
     for (final element in value) {
@@ -338,8 +336,8 @@ class Experiment {
       if (assignmentRules != null) "assignmentRules": assignmentRules,
       if (customFieldValues != null)
         "customFieldValues": customFieldValues!.map((e) => e.toMap()).toList(),
-      if (_holdoutIdList != null) "holdoutIds": _holdoutIdList,
-      if (_holdoutTypeValue != null) "holdoutType": _holdoutTypeValue,
+      if (_holdoutIdList != null) 'holdoutIds': _holdoutIdList,
+      if (_holdoutTypeValue != null) 'holdoutType': _holdoutTypeValue,
       ...?_switchbackFields?.toMap(),
     };
   }

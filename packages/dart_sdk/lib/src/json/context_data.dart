@@ -30,8 +30,8 @@ class ContextData {
   String toString() {
     final List<ContextHoldout>? holdouts = _holdoutList;
     return holdouts == null
-        ? "ContextData{experiments=$experiments}"
-        : "ContextData{experiments=$experiments, holdouts=$holdouts}";
+        ? 'ContextData{experiments=$experiments}'
+        : 'ContextData{experiments=$experiments, holdouts=$holdouts}';
   }
 
   ContextData.fromMap(Map<String, dynamic> data) {
@@ -39,7 +39,7 @@ class ContextData {
     this.experiments = List.generate(
         experiments.length, (index) => Experiment.fromMap(experiments[index]));
 
-    final rawHoldouts = data["holdouts"];
+    final rawHoldouts = data['holdouts'];
     if (rawHoldouts is List) {
       // A malformed entry is dropped on its own, like an entry the SDK cannot
       // serve; it never fails the context.
@@ -64,7 +64,7 @@ class ContextData {
     return {
       "experiments": experiments,
       if (holdouts != null)
-        "holdouts": holdouts.map((holdout) => holdout.toMap()).toList(),
+        'holdouts': holdouts.map((holdout) => holdout.toMap()).toList(),
     };
   }
 }
@@ -84,7 +84,6 @@ extension ContextDataHoldouts on ContextData {
     try {
       return _holdoutList ?? const [];
     } on NoSuchMethodError {
-      // A customer class that implements ContextData has no private field.
       return _foreignHoldouts[this] ?? const [];
     }
   }

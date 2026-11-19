@@ -71,6 +71,13 @@ jobs:
         run: dart test
         working-directory: packages/dart_sdk
 
+      # Flutter web compiles with dart2js, where ints are doubles: assignment
+      # and holdout decisions must match the VM there too. Suites that read
+      # fixtures through dart:io can't run on this platform.
+      - name: Test dart_sdk assignment under dart2js
+        run: dart test -p node test/internal test/context_holdout_test.dart
+        working-directory: packages/dart_sdk
+
       - name: Validate dart_sdk package
         run: dart pub publish --dry-run
         working-directory: packages/dart_sdk

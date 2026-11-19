@@ -357,12 +357,7 @@ class Context {
           audienceMismatch: false,
           ruleOverride: false);
 
-      pendingCount_++;
-      exposures_.add(exposure);
-
-      logEvent(EventType.exposure, exposure);
-
-      setTimeout();
+      _queue(exposure);
     }
   }
 
@@ -388,6 +383,15 @@ class Context {
         : resolvedAt;
   }
 
+  void _queue(final Exposure exposure) {
+    pendingCount_++;
+    exposures_.add(exposure);
+
+    logEvent(EventType.exposure, exposure);
+
+    setTimeout();
+  }
+
   void queueExposure(final Assignment assignment) {
     if (!assignment.exposed) {
       assignment.exposed = true;
@@ -411,12 +415,7 @@ class Context {
           audienceMismatch: assignment.audienceMismatch,
           ruleOverride: assignment._ruleOverride);
 
-      pendingCount_++;
-      exposures_.add(exposure);
-
-      logEvent(EventType.exposure, exposure);
-
-      setTimeout();
+      _queue(exposure);
     }
   }
 
@@ -639,7 +638,7 @@ class Context {
 
     // A flush may be in flight with the queue already drained, so only take
     // the fast path when nothing is pending and nothing is being published.
-    if (pendingCount_ == 0 && flushFuture_ == null) {
+    if (pendingCount_ == 0 && flushFuture_ == null && !_publisherRunning) {
       closed_ = true;
       logEvent(EventType.finalize, null);
       return Future.value();
@@ -650,9 +649,13 @@ class Context {
     closing_ = true;
 
     // Events queued while the final publish runs (by an exposure logger, or a
-    // read still in progress) are published before close completes.
-    Future<void> drain() =>
-        flush().then((_) => pendingCount_ > 0 ? drain() : null);
+    // read still in progress) are published before close completes. Called
+    // from inside the publisher, close() does not wait for that publish,
+    // which may itself wait for close() (JS context.ts _flush). It settles one
+    // microtask later than JS, so a read still in progress is drained too.
+    final bool fromPublisher = _publisherRunning;
+    Future<void> drain() => (fromPublisher ? _flushBatch() : flush())
+        .then((_) => pendingCount_ > 0 ? drain() : null);
 
     drain().then((_) {
       closing_ = false;
@@ -681,7 +684,10 @@ class Context {
     if (inFlight != null) {
       return inFlight.then((_) => flush(), onError: (_) => flush());
     }
+    return _flushBatch();
+  }
 
+  Future<void> _flushBatch() {
     if (pendingCount_ == 0) {
       return Future.value();
     }
@@ -732,14 +738,24 @@ class Context {
         attributes: attributes_.toList(),
       );
 
-      eventHandler_.publish(this, event).future.then((_) {
-        result.complete();
-        logEvent(EventType.publish, event);
-      }, onError: restore);
+      // Restored rather than cleared, so a nested publish() does not hide
+      // the outer publisher from a close() it makes afterwards.
+      final bool wasPublisherRunning = _publisherRunning;
+      _publisherRunning = true;
+      try {
+        eventHandler_.publish(this, event).future.then((_) {
+          result.complete();
+          logEvent(EventType.publish, event);
+        }, onError: restore);
+      } finally {
+        _publisherRunning = wasPublisherRunning;
+      }
     } catch (error) {
       restore(error);
     }
 
+    // Marked in flight only once the publisher returns, as JS does, so a
+    // publisher awaiting its own re-entrant publish() or close() completes.
     final Future<void> future = result.future;
     flushFuture_ = future;
     future.then((_) {}, onError: (_) {}).whenComplete(() {
@@ -1217,6 +1233,7 @@ class Context {
   // is still seen as changed.
   static bool _holdoutSetMatches(
       final ExperimentVariables experiment, final Assignment assignment) {
+    ContextCounters.holdoutSetComparisons++;
     final List<ContextHoldout>? fresh = experiment._holdouts;
     final List<int>? pinned = assignment._holdoutIdentity;
     if (fresh == null || pinned == null || fresh.length * 2 != pinned.length) {
@@ -1231,9 +1248,7 @@ class Context {
     return true;
   }
 
-  // Arm 0 always holds the experiment out; in a 3-arm holdout, arm 1 holds out
-  // experiments that are not full-on. The arm count is the holdout's split
-  // length (JS context.ts isHeldOutBy).
+  // JS context.ts isHeldOutBy.
   static bool _isHeldOutBy(
       final int holdoutVariant, final int armCount, final int fullOnVariant) {
     if (holdoutVariant == 0) {
@@ -1496,8 +1511,6 @@ class Context {
           assignment.variant = rule.variant;
           assignment._ruleOverride = true;
         } else if (assignment._suppressed) {
-          // A holdout wins over audience, traffic, full-on and custom
-          // assignments; only an override or a matching rule beats it.
           assignment.variant = 0;
         } else if (experiment.data.audienceStrict &&
             assignment.audienceMismatch) {
@@ -1649,7 +1662,7 @@ class Context {
   }
 
   bool _isHoldoutKey(final String key) {
-    if (_holdoutKeys.isEmpty) {
+    if (!_hasHoldoutKeys) {
       return false;
     }
     ContextCounters.holdoutKeyLookups++;
@@ -1759,7 +1772,7 @@ class Context {
     final Map<String, List<ExperimentVariables>> indexVariables = {};
     final Set<String> holdoutKeys = {};
 
-    // Only holdouts with a split can be served (JS context.ts _init).
+    // JS context.ts _init.
     final Map<int, ContextHoldout> holdoutsById = {};
     for (final ContextHoldout holdout in data.holdouts) {
       if (holdout.split.isNotEmpty) {
@@ -1843,6 +1856,7 @@ class Context {
     index_ = index;
     indexVariables_ = indexVariables;
     _holdoutKeys = holdoutKeys;
+    _hasHoldoutKeys = holdoutKeys.isNotEmpty;
     data_ = data;
     _hasSwitchbacks = index.values.any((entry) => entry._switchback);
 
@@ -1878,6 +1892,7 @@ class Context {
     index_ = {};
     indexVariables_ = {};
     _holdoutKeys = {};
+    _hasHoldoutKeys = false;
     data_ = ContextData();
     failed_ = true;
     failedError_ = exception;
@@ -1911,6 +1926,7 @@ class Context {
   Map<String, ExperimentVariables> index_ = {};
   Map<String, List<ExperimentVariables>> indexVariables_ = {};
   Set<String> _holdoutKeys = {};
+  bool _hasHoldoutKeys = false;
 
   final Map<String, Uint8List> hashedUnits_ = {};
   final Map<String, VariantAssigner> assigners_ = {};
@@ -1942,6 +1958,7 @@ class Context {
   bool closing_ = false;
   bool closed_ = false;
   bool refreshing_ = false;
+  bool _publisherRunning = false;
   Completer<void>? readyFuture_;
   Completer<void>? closingFuture_;
   Completer<void>? refreshFuture_;
@@ -1999,7 +2016,6 @@ class Assignment {
   int? _ruleVariant;
   String? _ruleKey;
   bool _isRuleMissingUnit = false;
-  // Held out by a covering holdout: variant 0, no exposure of its own.
   bool _suppressed = false;
   // The covering holdouts and their arms when this was resolved; an arm is
   // null when the unit was not set.
@@ -2007,7 +2023,6 @@ class Assignment {
   List<int>? _holdoutIdentity;
   List<_HoldoutAssignment?>? _holdoutAssignments;
   Map<String, dynamic> variables = {};
-  // Whether [variables] was resolved from the experiment's variant.
   bool _hasVariables = false;
   bool exposed = false;
   int attrsSeq = 0;

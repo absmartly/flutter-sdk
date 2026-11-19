@@ -53,11 +53,87 @@ const int now = 1620000000000;
 
 class RecordingPublisher implements ContextPublisher {
   final List<PublishEvent> events = [];
+  void Function()? onPublish;
 
   @override
   Completer<void> publish(Context context, PublishEvent event) {
     events.add(event);
+    onPublish?.call();
     return Completer<void>()..complete();
+  }
+}
+
+// Holds the first publish open until [release]; later ones complete at once.
+class HeldPublisher extends RecordingPublisher {
+  final Completer<void> held = Completer<void>();
+  void Function()? onFirstPublish;
+
+  void release() => held.complete();
+
+  @override
+  Completer<void> publish(Context context, PublishEvent event) {
+    events.add(event);
+    if (events.length == 1) {
+      onFirstPublish?.call();
+      return held;
+    }
+    return Completer<void>()..complete();
+  }
+}
+
+// Completes its first publish only once [reenter], called from inside it,
+// completes.
+class AwaitingPublisher extends RecordingPublisher {
+  AwaitingPublisher(this.reenter);
+
+  final Future<void> Function() reenter;
+
+  @override
+  Completer<void> publish(Context context, PublishEvent event) {
+    events.add(event);
+    final Completer<void> done = Completer<void>();
+    if (events.length == 1) {
+      reenter().then((_) => done.complete());
+    } else {
+      done.complete();
+    }
+    return done;
+  }
+}
+
+class ThrowingOncePublisher extends RecordingPublisher {
+  int calls = 0;
+
+  @override
+  Completer<void> publish(Context context, PublishEvent event) {
+    calls++;
+    if (calls == 1) {
+      throw Exception('publisher down');
+    }
+    return super.publish(context, event);
+  }
+}
+
+// On its first publish, queues and publishes one more exposure (a nested
+// publish), then waits for close().
+class NestedPublisher extends RecordingPublisher {
+  NestedPublisher(this.context);
+
+  final Context Function() context;
+
+  @override
+  Completer<void> publish(Context context, PublishEvent event) {
+    events.add(event);
+    final Completer<void> done = Completer<void>();
+    if (events.length == 1) {
+      final Context outer = this.context();
+      outer.getTreatment('exp_two');
+      outer.publish();
+      outer.close().then((_) => done.complete());
+    } else {
+      done.complete();
+    }
+    return done;
   }
 }
 
@@ -1860,6 +1936,23 @@ void main() {
       expect(context.getVariableValue('shared', 'default'), 'first_control');
     });
 
+    test(
+        'the first held-out candidate lacking the key still blocks a later one',
+        () async {
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_a', holdoutASeedHi, holdoutASeedLo)
+      ], [
+        newExperiment(1, 'exp_held_first', holdoutIds: [11])
+          ..variants[0].config = '{}'
+          ..variants[1].config = '{"shared":"first_treatment"}',
+        newExperiment(2, 'exp_held_second', holdoutIds: [11])
+          ..variants[0].config = '{"shared":"second_control"}',
+      ]));
+
+      expect(context.peekVariableValue('shared', 'default'), 'default');
+      expect(context.getVariableValue('shared', 'default'), 'default');
+    });
+
     test('an overridden held-out candidate lacking the key is no fallback',
         () async {
       final context = await ready(contextDataOf([
@@ -1933,6 +2026,57 @@ void main() {
       expect(context.timeout_, isNotNull);
       context.clearTimeout();
     });
+
+    test('a holdout exposure is queued before the logger sees it', () async {
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+      ], [
+        newExperiment(1, 'exp_logged', holdoutIds: [11])
+      ]));
+      final List<int> pendingAtHoldout = [];
+      logger.onExposure = (exposure) {
+        if (exposure.id == 11) {
+          pendingAtHoldout.add(context.getPendingCount());
+        }
+      };
+
+      context.getTreatment('exp_logged');
+
+      expect(pendingAtHoldout, [2]);
+    });
+  });
+
+  test('cached covered reads use the holdout identity fast path', () async {
+    final context = await ready(contextDataOf([
+      newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+    ], [
+      newExperiment(1, 'exp_cached', holdoutIds: [11])
+    ]));
+    context.peekTreatment('exp_cached');
+    ContextCounters.reset();
+    for (int i = 0; i < 10; i++) {
+      expect(context.peekTreatment('exp_cached'), normalVariant);
+    }
+    expect(ContextCounters.holdoutSetComparisons, 0);
+  });
+
+  test('close drains more than two batches queued by publish callbacks',
+      () async {
+    final context = await ready(contextDataOf([], [
+      newExperiment(1, 'exp_one'),
+      newExperiment(2, 'exp_two'),
+      newExperiment(3, 'exp_three'),
+    ]));
+    context.getTreatment('exp_one');
+    publisher.onPublish = () {
+      if (publisher.events.length < 3) {
+        context.queueExposure(context.getAssignment(
+            publisher.events.length == 1 ? 'exp_two' : 'exp_three'));
+      }
+    };
+    await context.close();
+    expect(publisher.events, hasLength(3));
+    expect(context.getPendingCount(), 0);
   });
 
   group('malformed holdouts', () {
@@ -2025,14 +2169,21 @@ void main() {
       for (final id in [
         9007199254740992,
         9007199254740992.0,
-        -9007199254740992
+        -9007199254740992,
+        // The VM's minimum int, whose abs() overflows to itself.
+        int.parse('-9223372036854775808'),
       ]) {
         holdout['id'] = id;
         expect(() => ContextHoldout.fromMap(holdout), throwsFormatException);
       }
-      for (final id in [9007199254740991, 9007199254740991.0]) {
+      for (final id in [
+        9007199254740991,
+        9007199254740991.0,
+        -9007199254740991,
+        -9007199254740991.0,
+      ]) {
         holdout['id'] = id;
-        expect(ContextHoldout.fromMap(holdout).id, 9007199254740991);
+        expect(ContextHoldout.fromMap(holdout).id, id.toInt());
       }
 
       final experiment = Experiment.fromMap(newExperiment(1, 'exp_huge').toMap()
@@ -2135,6 +2286,93 @@ void main() {
       ]);
       expect(context.getPendingCount(), 0);
       expect(context.isClosed(), isTrue);
+    });
+
+    test('close from inside a publish still drains the read in progress',
+        () async {
+      final held = HeldPublisher();
+      publisher = held;
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_b', holdoutBSeedHi, holdoutBSeedLo)
+      ], [
+        withVariables(newExperiment(1, 'exp_winner', holdoutIds: [11]), 'k'),
+      ]));
+      Future<void>? closing;
+      held.onFirstPublish = () => closing = context.close();
+      logger.onExposure = (exposure) {
+        if (exposure.id == 1) {
+          context.publish();
+        }
+      };
+
+      expect(context.getVariableValue('k', 'default'), 'treatment');
+      // Like JS, it does not wait for the publish that called it.
+      await closing!.timeout(const Duration(seconds: 2));
+
+      expect(held.events.map((event) => event.exposures), [
+        [exposure(1, 'exp_winner', normalVariant)],
+        [holdoutExposure(11, 'holdout_b', 1)],
+      ]);
+      expect(context.getPendingCount(), 0);
+      expect(context.isClosed(), isTrue);
+      held.release();
+    });
+
+    for (final reentrant in ['publish', 'close']) {
+      test('a publisher awaiting a re-entrant $reentrant completes', () async {
+        final context = await ready(contextDataOf([], [
+          newExperiment(1, 'exp_one'),
+        ]));
+        final awaiting = AwaitingPublisher(
+            () => reentrant == 'publish' ? context.publish() : context.close());
+        publisher = awaiting;
+        context.eventHandler_ = awaiting;
+        context.getTreatment('exp_one');
+
+        await context.publish().timeout(const Duration(seconds: 2));
+        await context.close().timeout(const Duration(seconds: 2));
+
+        expect(awaiting.events, hasLength(1));
+        expect(context.isClosed(), isTrue);
+      });
+    }
+
+    test('a publisher that throws once does not hold close()', () async {
+      final throwing = ThrowingOncePublisher();
+      publisher = throwing;
+      final context = await ready(contextDataOf([], [
+        newExperiment(1, 'exp_one'),
+      ]));
+      context.getTreatment('exp_one');
+
+      final failed = context.publish();
+      expect(throwing.calls, 1);
+      // close() waits for the failed publish instead of acting as if it ran
+      // inside the publisher.
+      final closing = context.close();
+      expect(throwing.calls, 1);
+      await expectLater(failed, throwsException);
+      await closing.timeout(const Duration(seconds: 2));
+
+      expect(throwing.calls, 2);
+      expect(context.isClosed(), isTrue);
+    });
+
+    test('a nested publish leaves the outer publisher able to close', () async {
+      late Context context;
+      final nested = NestedPublisher(() => context);
+      publisher = nested;
+      context = await ready(contextDataOf([], [
+        newExperiment(1, 'exp_one'),
+        newExperiment(2, 'exp_two'),
+      ]));
+      context.getTreatment('exp_one');
+
+      await context.publish().timeout(const Duration(seconds: 2));
+
+      expect(context.isClosed(), isTrue);
+      expect(nested.events.expand((event) => event.exposures).map((e) => e.id),
+          [1, 2]);
     });
 
     test('a candidate removed during a variable read is not exposed', () async {
