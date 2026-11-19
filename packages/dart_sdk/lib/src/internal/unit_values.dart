@@ -92,15 +92,6 @@ Object? unitValue(Map<String, String> units, String unitType) {
   if (values == null || values.isEmpty) {
     return uid;
   }
-  String? storedUnder = values.containsKey(unitType) ? unitType : null;
-  if (storedUnder == null && units is SplayTreeMap<String, String>) {
-    for (final String key in values.keys) {
-      if (_sameEntry(units, key, unitType)) {
-        storedUnder = key;
-        break;
-      }
-    }
-  }
   if (uid == null) {
     // Seen missing. On a SplayTreeMap the number may sit under an equal key
     // that is gone too, so drop every number whose key left the map.
@@ -111,20 +102,26 @@ Object? unitValue(Map<String, String> units, String unitType) {
     }
     return null;
   }
+  String? storedUnder = values.containsKey(unitType) ? unitType : null;
+  if (storedUnder == null && units is SplayTreeMap<String, String>) {
+    for (final String key in values.keys) {
+      if (_sameEntry(units, key, unitType)) {
+        storedUnder = key;
+        break;
+      }
+    }
+  }
   if (storedUnder == null) {
     return uid;
   }
   final num value = values[storedUnder]!;
   if (value.toString() != uid) {
-    // Seen replaced by another UID: the number is superseded for good.
     values.remove(storedUnder);
     return uid;
   }
   return value;
 }
 
-// Whether [a] and [b] address the same entry of [units]: equal keys, or keys
-// the map itself treats as equal (e.g. a case-insensitive SplayTreeMap).
 bool _sameEntry(Map<String, String> units, String a, String b) {
   if (a == b) {
     return true;

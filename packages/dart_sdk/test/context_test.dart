@@ -1550,7 +1550,6 @@ void main() {
       expect(context.seen, equals({}));
       expect(context.getUnit('user_id'), equals('42'));
 
-      // Numbers go through setUnitValues.
       final numeric = ContextConfig.create()
         ..setUnitValues({'session_id': 5.0, 'user_id': 'u'});
       expect(
@@ -3920,7 +3919,6 @@ class _OtherUnitContext extends Context {
       super.getUnits().map((key, _) => MapEntry(key, 'other'));
 }
 
-// A 2.1-style config that overrides setUnits with the released String types.
 class _StringUnitsConfig extends ContextConfig {
   final List<Map<String, String>> seen = [];
 
