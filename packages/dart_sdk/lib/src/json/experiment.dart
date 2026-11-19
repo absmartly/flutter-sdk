@@ -162,11 +162,11 @@ class Experiment {
     } else {
       customFieldValues = null;
     }
-    final rawHoldoutIds = data["holdoutIds"];
+    final rawHoldoutIds = data['holdoutIds'];
     if (rawHoldoutIds is List) {
       holdoutIds = _parseHoldoutIds(rawHoldoutIds);
     }
-    final rawHoldoutType = data["holdoutType"];
+    final rawHoldoutType = data['holdoutType'];
     if (rawHoldoutType is String) {
       holdoutType = rawHoldoutType;
     }
@@ -239,8 +239,8 @@ class Experiment {
       if (assignmentRules != null) "assignmentRules": assignmentRules,
       if (customFieldValues != null)
         "customFieldValues": customFieldValues!.map((e) => e.toMap()).toList(),
-      if (_holdoutIdList != null) "holdoutIds": _holdoutIdList,
-      if (_holdoutTypeValue != null) "holdoutType": _holdoutTypeValue,
+      if (_holdoutIdList != null) 'holdoutIds': _holdoutIdList,
+      if (_holdoutTypeValue != null) 'holdoutType': _holdoutTypeValue,
     };
   }
 }

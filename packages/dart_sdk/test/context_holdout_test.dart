@@ -1936,6 +1936,23 @@ void main() {
       expect(context.getVariableValue('shared', 'default'), 'first_control');
     });
 
+    test(
+        'the first held-out candidate lacking the key still blocks a later one',
+        () async {
+      final context = await ready(contextDataOf([
+        newHoldout(11, 'holdout_a', holdoutASeedHi, holdoutASeedLo)
+      ], [
+        newExperiment(1, 'exp_held_first', holdoutIds: [11])
+          ..variants[0].config = '{}'
+          ..variants[1].config = '{"shared":"first_treatment"}',
+        newExperiment(2, 'exp_held_second', holdoutIds: [11])
+          ..variants[0].config = '{"shared":"second_control"}',
+      ]));
+
+      expect(context.peekVariableValue('shared', 'default'), 'default');
+      expect(context.getVariableValue('shared', 'default'), 'default');
+    });
+
     test('an overridden held-out candidate lacking the key is no fallback',
         () async {
       final context = await ready(contextDataOf([
