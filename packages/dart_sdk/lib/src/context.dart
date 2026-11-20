@@ -217,7 +217,7 @@ class Context {
     }
 
     // Mixed numeric equality can hide a rounded identity change.
-    _setUnitValue(unitType, previous ?? value);
+    _setUnitValue(unitType, previous is num ? previous : value);
 
     _invalidateAssignmentsPinnedWithMissingUnit(unitType);
   }

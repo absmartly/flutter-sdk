@@ -1419,8 +1419,10 @@ void main() {
 
       final int treatment = context.getTreatment('exp_test_ab');
       context.track('goal1', null);
+      final callsBeforePublish = context.hashedUids.length;
       await context.publish();
       expect(context.getPendingCount(), equals(0));
+      expect(context.hashedUids.length, greaterThan(callsBeforePublish));
       expect(context.hashedUids, everyElement('126'));
       final PublishEvent event =
           verify(eventHandler.publish(context, captureAny)).captured.single
@@ -1787,6 +1789,32 @@ void main() {
           () => context.setUnit('padded', ' abc '),
           throwsA(predicate(
               (e) => e.toString() == 'Exception: Unit padded already set.')));
+    });
+
+    test('acceptedStringRepeatTrimsWithoutReplacingACachedHash', () async {
+      for (final cacheFirst in [false, true]) {
+        when(eventHandler.publish(any, any))
+            .thenAnswer((_) => createCompleteVoidCompleter());
+        final config = ContextConfig.create();
+        final context = _StringHashContext(clock, config, dataFutureReady,
+            dataProvider, eventHandler, variableParser, audienceMatcher);
+        await context.waitUntilReady();
+        context.units_['session_id'] = ' abc ';
+        if (cacheFirst) {
+          context.getUnitHash('session_id', ' abc ');
+        }
+        context.setUnit('session_id', ' abc ');
+        expect(context.getUnit('session_id'), 'abc');
+        expect(context.getUnitValue('session_id'), 'abc');
+        expect(() => context.setUnit('session_id', ' abc '), throwsException);
+        context.track('goal', null);
+        await context.close();
+        final event = verify(eventHandler.publish(context, captureAny))
+            .captured
+            .single as PublishEvent;
+        expect(event.units.single.uid,
+            utf8.decode(Hashing.hashUnit(cacheFirst ? ' abc ' : 'abc')));
+      }
     });
 
     test('numericRepeatKeepsFirstIdentityThroughClose', () async {
