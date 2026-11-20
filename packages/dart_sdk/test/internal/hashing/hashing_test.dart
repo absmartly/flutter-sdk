@@ -1,3 +1,7 @@
+// Native-only: 2^53+1 and 19-digit int literals cannot be compiled to JS.
+@TestOn('vm')
+library hashing_test;
+
 import 'dart:typed_data';
 import 'dart:convert';
 

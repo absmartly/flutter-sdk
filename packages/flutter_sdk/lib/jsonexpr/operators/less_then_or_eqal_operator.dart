@@ -2,6 +2,4 @@
 // compiles.
 import 'package:absmartly_dart/src/jsonexpr/operators/less_than_or_equal_operator.dart';
 
-export 'package:absmartly_dart/src/jsonexpr/operators/less_than_or_equal_operator.dart';
-
 typedef LessThenOrEqualOperator = LessThanOrEqualOperator;

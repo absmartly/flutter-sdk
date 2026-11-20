@@ -25,9 +25,7 @@ class Exposure {
     required this.custom,
     required this.audienceMismatch,
     bool ruleOverride = false,
-  }) {
-    this.ruleOverride = ruleOverride;
-  }
+  }) : _ruleOverride = ruleOverride;
 
   @override
   bool operator ==(Object other) {
@@ -68,7 +66,7 @@ class Exposure {
     fullOn = data["fullOn"];
     custom = data["custom"];
     audienceMismatch = data["audienceMismatch"];
-    ruleOverride = data["ruleOverride"] ?? false;
+    _ruleOverride = data["ruleOverride"] ?? false;
   }
 
   Map<String, dynamic> toMap() {

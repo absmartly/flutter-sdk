@@ -67,10 +67,8 @@ class Experiment {
     required this.audience,
     String? assignmentRules,
     List<CustomFieldValue>? customFieldValues,
-  }) {
-    this.assignmentRules = assignmentRules;
-    this.customFieldValues = customFieldValues;
-  }
+  })  : _assignmentRules = assignmentRules,
+        _customFieldValues = customFieldValues;
 
   @override
   bool operator ==(Object other) {
@@ -144,8 +142,8 @@ class Experiment {
 
     audienceStrict = data["audienceStrict"] ?? false;
     audience = data["audience"];
-    assignmentRules = _parseAssignmentRules(data["assignmentRules"]);
-    customFieldValues = _parseCustomFieldValues(data["customFieldValues"]);
+    _assignmentRules = _parseAssignmentRules(data["assignmentRules"]);
+    _customFieldValues = _parseCustomFieldValues(data["customFieldValues"]);
   }
 
   // 2.1 ignored customFieldValues, so a malformed field or entry must not fail

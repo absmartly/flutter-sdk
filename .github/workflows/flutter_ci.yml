@@ -74,6 +74,12 @@ jobs:
         run: dart test
         working-directory: packages/dart_sdk
 
+      # Unit UID hashing differs between the VM and JavaScript (every number
+      # is a double there), so the web path is tested compiled to JS too.
+      - name: Test dart_sdk hashing compiled to JavaScript
+        run: dart test -p node test/internal/hashing/hashing_platform_test.dart
+        working-directory: packages/dart_sdk
+
       - name: Validate dart_sdk package
         run: dart pub publish --dry-run
         working-directory: packages/dart_sdk

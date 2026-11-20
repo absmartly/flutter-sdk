@@ -1157,54 +1157,50 @@ extension ContextExtensions on Context {
   dynamic getCustomFieldValue(final String experimentName, final String key) {
     checkReady(true);
 
-    final experiment = index_[experimentName];
-    if (experiment != null) {
-      final fields = experiment.data.customFieldValues;
-      if (fields != null) {
-        for (final field in fields) {
-          if (field.name == key) {
-            switch (field.type) {
-              case 'text':
-              case 'string':
-                return field.value;
-              case 'number':
-                return num.tryParse(field.value);
-              case 'json':
-                try {
-                  if (field.value == 'null') return null;
-                  if (field.value == '') return '';
-                  return jsonDecode(field.value);
-                } catch (e) {
-                  logError(e);
-                  return null;
-                }
-              case 'boolean':
-                return field.value == 'true';
-              default:
-                logError(Exception(
-                    "Unknown custom field type '${field.type}' for experiment '$experimentName' and key '$key' - you may need to upgrade to the latest SDK version"));
-                return null;
-            }
-          }
-        }
-      }
+    final field = _customField(experimentName, key);
+    if (field == null) {
+      return null;
     }
-    return null;
+    switch (field.type) {
+      case 'text':
+      case 'string':
+        return field.value;
+      case 'number':
+        return num.tryParse(field.value);
+      case 'json':
+        try {
+          if (field.value == '') return '';
+          return jsonDecode(field.value);
+        } catch (e) {
+          logError(e);
+          return null;
+        }
+      case 'boolean':
+        return field.value == 'true';
+      default:
+        logError(Exception(
+            "Unknown custom field type '${field.type}' for experiment '$experimentName' and key '$key' - you may need to upgrade to the latest SDK version"));
+        return null;
+    }
   }
 
   String? getCustomFieldValueType(
       final String experimentName, final String key) {
     checkReady(true);
 
-    final experiment = index_[experimentName];
-    if (experiment != null) {
-      final fields = experiment.data.customFieldValues;
-      if (fields != null) {
-        for (final field in fields) {
-          if (field.name == key) {
-            return field.type;
-          }
-        }
+    return _customField(experimentName, key)?.type;
+  }
+
+  // The first custom field of the experiment named [key], if any.
+  CustomFieldValue? _customField(
+      final String experimentName, final String key) {
+    final fields = index_[experimentName]?.data.customFieldValues;
+    if (fields == null) {
+      return null;
+    }
+    for (final field in fields) {
+      if (field.name == key) {
+        return field;
       }
     }
     return null;
