@@ -1789,6 +1789,33 @@ void main() {
               (e) => e.toString() == 'Exception: Unit padded already set.')));
     });
 
+    test('numericRepeatKeepsFirstIdentityThroughClose', () async {
+      for (final pair in <List<num>>[
+        [9007199254740993, 9007199254740992.0],
+        [9007199254740992.0, 9007199254740993],
+        [125, 125.0],
+        [125.0, 125],
+      ]) {
+        when(eventHandler.publish(any, any))
+            .thenAnswer((_) => createCompleteVoidCompleter());
+        final config = ContextConfig.create()..setUnit('numeric_id', pair[0]);
+        final context = _StringHashContext(clock, config, dataFutureReady,
+            dataProvider, eventHandler, variableParser, audienceMatcher);
+        await context.waitUntilReady();
+        context.setUnit('numeric_id', pair[1]);
+        context.track('goal', null);
+        await context.close();
+        final event = verify(eventHandler.publish(context, captureAny))
+            .captured
+            .single as PublishEvent;
+        final expected = Hashing.hashInput(pair[0]);
+        expect(event.units.single.uid, utf8.decode(Hashing.hashUnit(expected)));
+        expect(context.hashedUids, contains(expected));
+        expect(context.getUnitValue('numeric_id').runtimeType,
+            pair[0].runtimeType);
+      }
+    });
+
     test('numericUnitIsPublishedWithItsNumericHash', () async {
       when(eventHandler.publish(any, any))
           .thenAnswer((_) => createCompleteVoidCompleter());

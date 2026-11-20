@@ -1,6 +1,13 @@
 // Types an app could declare with the names of SDK types that 2.1's
 // absmartly_sdk.dart did not export.
-import 'package:absmartly_sdk/absmartly_sdk.dart';
+export 'deep_import_app_types.dart'
+    show
+        CustomFieldValue,
+        ContextExtensions,
+        ClientMetadata,
+        ABSmartlyConfigContextPublisher,
+        ExperimentFields,
+        ExposureRuleOverride;
 
 class Treatment {}
 
@@ -11,25 +18,3 @@ class ClientConfig {}
 class ABSmartly {}
 
 class SdkVersion {}
-
-class CustomFieldValue {}
-
-extension ContextExtensions on Context {
-  bool get appHelper => true;
-}
-
-extension ClientMetadata on Client {
-  bool get appHelper => true;
-}
-
-extension ABSmartlyConfigContextPublisher on ABSmartlyConfig {
-  bool get appHelper => true;
-}
-
-extension ExperimentFields on Experiment {
-  bool get appHelper => true;
-}
-
-extension ExposureRuleOverride on Exposure {
-  bool get appHelper => true;
-}

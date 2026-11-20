@@ -216,7 +216,8 @@ class Context {
       throw Exception("Unit $unitType UID must not be blank.");
     }
 
-    _setUnitValue(unitType, value);
+    // Mixed numeric equality can hide a rounded identity change.
+    _setUnitValue(unitType, previous ?? value);
 
     _invalidateAssignmentsPinnedWithMissingUnit(unitType);
   }
@@ -1142,16 +1143,10 @@ extension ContextExtensions on Context {
   Set<String> getCustomFieldKeys() {
     checkReady(true);
 
-    final keys = <String>{};
-    for (final experiment in data_!.experiments) {
-      final fields = experiment.customFieldValues;
-      if (fields != null) {
-        for (final field in fields) {
-          keys.add(field.name);
-        }
-      }
-    }
-    return keys;
+    return {
+      for (final experiment in data_!.experiments)
+        for (final field in experiment.customFieldValues ?? []) field.name,
+    };
   }
 
   dynamic getCustomFieldValue(final String experimentName, final String key) {

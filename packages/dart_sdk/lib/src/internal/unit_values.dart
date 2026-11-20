@@ -126,17 +126,9 @@ Object? unitValue(Map<String, String> units, String unitType) {
   return value;
 }
 
-bool _sameEntry(Map<String, String> units, String a, String b) {
-  if (a == b) {
-    return true;
-  }
-  if (units is SplayTreeMap<String, String>) {
-    // A SplayTreeMap finds a key through its comparator: a and b address the
-    // same entry when looking either up lands on the other's position.
-    // [b] is in the map; [a] must be too, or a stale key would match the
-    // unit now at its position.
-    return units.lastKeyBefore(a) == units.lastKeyBefore(b) &&
-        units.containsKey(a);
-  }
-  return false;
+bool _sameEntry(SplayTreeMap<String, String> units, String a, String b) {
+  if (a == b) return true;
+  // Both keys must address the same comparator position, and a must not be stale.
+  return units.lastKeyBefore(a) == units.lastKeyBefore(b) &&
+      units.containsKey(a);
 }

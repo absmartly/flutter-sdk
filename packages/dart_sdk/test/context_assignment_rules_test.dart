@@ -176,12 +176,32 @@ void main() {
   // Isolate.spawn rather than Isolate.run, which needs Dart 2.19.
   Future<T> inIsolate<T>(T Function() compute) async {
     final port = ReceivePort();
-    await Isolate.spawn(
-        (SendPort reply) => reply.send(compute()), port.sendPort);
-    return await port.first as T;
+    final errors = ReceivePort();
+    try {
+      await Isolate.spawn(
+          (SendPort reply) => reply.send(compute()), port.sendPort,
+          onError: errors.sendPort);
+      return await Future.any<T>([
+        port.first.then((value) => value as T),
+        errors.first.then((error) {
+          final details = error as List<dynamic>;
+          throw RemoteError(details[0] as String, details[1] as String);
+        }),
+      ]);
+    } finally {
+      port.close();
+      errors.close();
+    }
   }
 
   group('data from another isolate', () {
+    test('worker errors are reported directly', () async {
+      await expectLater(
+          inIsolate<int>(() => throw StateError('worker failed')),
+          throwsA(isA<RemoteError>().having((error) => error.toString(),
+              'message', contains('worker failed'))));
+    });
+
     test('keeps assignment rules and custom fields', () async {
       final bytes = contextBytes;
       const fieldsJson = '[{"name":"region","value":"EU","type":"string"}]';
