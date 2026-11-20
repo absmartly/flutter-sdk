@@ -1191,20 +1191,12 @@ extension ContextExtensions on Context {
     return _customField(experimentName, key)?.type;
   }
 
-  // The first custom field of the experiment named [key], if any.
   CustomFieldValue? _customField(
-      final String experimentName, final String key) {
-    final fields = index_[experimentName]?.data.customFieldValues;
-    if (fields == null) {
-      return null;
-    }
-    for (final field in fields) {
-      if (field.name == key) {
-        return field;
-      }
-    }
-    return null;
-  }
+          final String experimentName, final String key) =>
+      index_[experimentName]
+          ?.data
+          .customFieldValues
+          ?.firstWhereOrNull((field) => field.name == key);
 
   Set<String> customFieldKeys() => getCustomFieldKeys();
 

@@ -554,7 +554,7 @@ class SubContext extends Context {
 class Holder {
   late ContextEventHandler h;
   late ABSmartly sdk;
-  late http.Response r; // package:http's Response alongside the barrel
+  late http.Response r;
 }
 
 Future<Map<String, Object?>> run() async {
