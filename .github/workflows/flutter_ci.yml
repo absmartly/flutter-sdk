@@ -74,10 +74,12 @@ jobs:
         run: dart test
         working-directory: packages/dart_sdk
 
-      # Unit UID hashing differs between the VM and JavaScript (every number
-      # is a double there), so the web path is tested compiled to JS too.
-      - name: Test dart_sdk hashing compiled to JavaScript
-        run: dart test -p node test/internal/hashing/hashing_platform_test.dart
+      # Every number is a double in JavaScript, so the numeric UID hash input
+      # and assign-rule variants are also tested compiled to JS. Only these
+      # platform tests run there; the variant assigner's murmur3 is not
+      # JS-safe yet (as in 2.1.2), so assignment itself is not checked on JS.
+      - name: Test dart_sdk number handling compiled to JavaScript
+        run: dart test -p node test/internal/hashing/hashing_platform_test.dart test/assignment_rules_platform_test.dart
         working-directory: packages/dart_sdk
 
       - name: Validate dart_sdk package

@@ -1613,6 +1613,23 @@ void main() {
       expect(context.getCustomFieldValue('exp_test_abc', 'country'), 'US');
     });
 
+    test('customFieldLookupTakesTheFirstMatchAndKeepsEmptyJson', () async {
+      final parsed = ContextData.fromMap(data.toMap());
+      final experiment =
+          parsed.experiments.firstWhere((e) => e.name == 'exp_test_ab');
+      experiment.customFieldValues = [
+        CustomFieldValue(name: 'k', value: 'first', type: 'string'),
+        CustomFieldValue(name: 'k', value: '42', type: 'number'),
+        CustomFieldValue(name: 'j', value: '', type: 'json'),
+      ];
+      final context = createReadyContextWithData(parsed);
+      await context.waitUntilReady();
+
+      expect(context.getCustomFieldValue('exp_test_ab', 'k'), 'first');
+      expect(context.getCustomFieldValueType('exp_test_ab', 'k'), 'string');
+      expect(context.getCustomFieldValue('exp_test_ab', 'j'), '');
+    });
+
     test('creatingAContextReadsTheConfigUnitsOnce', () {
       final config = _CountingUnitsConfig()..setUnit('session_id', 'abc');
       Context.create(clock, config, dataFutureReady, dataProvider, eventHandler,

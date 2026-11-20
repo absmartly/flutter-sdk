@@ -114,15 +114,14 @@ extension AssignmentRulesMatcher on AudienceMatcher {
     switch (rule['type']) {
       case 'assign':
         final variant = rule['variant'];
-        if (variant is int) {
-          return RuleAction.assign(variant);
-        }
         // JSON has a single number type, so 1.0 is the integer 1
         // (JS Number.isInteger). An integral value beyond the int range (1e20)
         // is still selected: toInt() saturates, so it stays out of bounds and
         // the caller falls back to normal assignment instead of trying later
-        // rules, as JS does.
-        if (variant is double &&
+        // rules, as JS does. Compiled to JS, Infinity and -0 also pass
+        // `is int`, so every number goes through the finite check and toInt(),
+        // which turns -0 into 0.
+        if (variant is num &&
             variant.isFinite &&
             variant == variant.truncateToDouble()) {
           return RuleAction.assign(variant.toInt());
