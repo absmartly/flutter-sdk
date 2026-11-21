@@ -363,6 +363,24 @@ void main() {
       expect(other, isNot(experiment));
     });
 
+    test('emptyOrAllMalformedCustomFieldValuesGiveAnEmptyList', () {
+      for (final fields in <dynamic>[
+        [],
+        ['bad']
+      ]) {
+        final data = deserializeJson({
+          'experiments': [
+            {
+              ...experimentJson(split: [0.5, 0.5], trafficSplit: [0, 1]),
+              'customFieldValues': fields,
+            }
+          ]
+        });
+        expect(data!.experiments.single.customFieldValues, isEmpty);
+        expect(data.experiments.single.customFieldValues, isNotNull);
+      }
+    });
+
     test('modelConstructorsKeepThe22Fields', () {
       final field =
           CustomFieldValue(name: 'region', value: 'EU', type: 'string');

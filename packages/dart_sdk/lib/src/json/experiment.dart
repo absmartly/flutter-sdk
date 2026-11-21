@@ -234,38 +234,45 @@ final Expando<String> _implAssignmentRules = Expando<String>();
 final Expando<List<CustomFieldValue>> _implCustomFieldValues =
     Expando<List<CustomFieldValue>>();
 
+// Whether objects of a runtime type carry the private fields: true for the
+// SDK class and its subclasses, false for a class from another library that
+// implements Experiment. Probed once per type, so reads do not throw.
+final Map<Type, bool> _hasExperimentFields = {};
+
+bool _ownsExperimentFields(Experiment experiment) =>
+    _hasExperimentFields[experiment.runtimeType] ??= () {
+      try {
+        experiment._assignmentRules;
+        return true;
+      } on NoSuchMethodError {
+        return false;
+      }
+    }();
+
 /// The experiment's assignment rules (a JSON string) and custom field values.
 /// An extension rather than fields of [Experiment], so existing
 /// `implements Experiment` classes keep compiling.
 extension ExperimentFields on Experiment {
-  String? get assignmentRules {
-    try {
-      return _assignmentRules;
-    } on NoSuchMethodError {
-      return _implAssignmentRules[this];
-    }
-  }
+  String? get assignmentRules => _ownsExperimentFields(this)
+      ? _assignmentRules
+      : _implAssignmentRules[this];
 
   set assignmentRules(String? value) {
-    try {
+    if (_ownsExperimentFields(this)) {
       _assignmentRules = value;
-    } on NoSuchMethodError {
+    } else {
       _implAssignmentRules[this] = value;
     }
   }
 
-  List<CustomFieldValue>? get customFieldValues {
-    try {
-      return _customFieldValues;
-    } on NoSuchMethodError {
-      return _implCustomFieldValues[this];
-    }
-  }
+  List<CustomFieldValue>? get customFieldValues => _ownsExperimentFields(this)
+      ? _customFieldValues
+      : _implCustomFieldValues[this];
 
   set customFieldValues(List<CustomFieldValue>? value) {
-    try {
+    if (_ownsExperimentFields(this)) {
       _customFieldValues = value;
-    } on NoSuchMethodError {
+    } else {
       _implCustomFieldValues[this] = value;
     }
   }

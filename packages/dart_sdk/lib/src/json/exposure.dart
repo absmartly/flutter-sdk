@@ -93,22 +93,33 @@ class Exposure {
 // implements Exposure has no such field; its value lives in an Expando.
 final Expando<bool> _implRuleOverrides = Expando<bool>();
 
+// Whether objects of a runtime type carry the private field: true for the
+// SDK class and its subclasses, false for a class from another library that
+// implements Exposure. Probed once per type, so reads do not throw.
+final Map<Type, bool> _hasExposureFields = {};
+
+bool _ownsExposureFields(Exposure exposure) =>
+    _hasExposureFields[exposure.runtimeType] ??= () {
+      try {
+        exposure._ruleOverride;
+        return true;
+      } on NoSuchMethodError {
+        return false;
+      }
+    }();
+
 /// Whether an assignment rule chose the variant. An extension rather than a
 /// field of [Exposure], so existing `implements Exposure` classes keep
 /// compiling.
 extension ExposureRuleOverride on Exposure {
-  bool get ruleOverride {
-    try {
-      return _ruleOverride;
-    } on NoSuchMethodError {
-      return _implRuleOverrides[this] ?? false;
-    }
-  }
+  bool get ruleOverride => _ownsExposureFields(this)
+      ? _ruleOverride
+      : _implRuleOverrides[this] ?? false;
 
   set ruleOverride(bool value) {
-    try {
+    if (_ownsExposureFields(this)) {
       _ruleOverride = value;
-    } on NoSuchMethodError {
+    } else {
       _implRuleOverrides[this] = value;
     }
   }
