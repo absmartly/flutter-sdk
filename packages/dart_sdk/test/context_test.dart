@@ -2765,6 +2765,25 @@ void main() {
           equals(refreshData.experiments.map((e) => e.name).toList()));
     });
 
+    test('aFailedCloseBeforeReadyDoesNotStartRefresh', () async {
+      final initial = Completer<ContextData>();
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setPublishDelay(-1)
+        ..setRefreshInterval(5);
+      final context = createContext(config, initial);
+      context.track('goal1', null);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      verifyNever(dataProvider.getContextData());
+      expect(context.isReady(), isFalse);
+      initial.completeError(Exception('initial load failed'));
+      await context.waitUntilReady();
+      expect(context.isFailed(), isTrue);
+    });
+
     test('restoresRefreshTimerWhenCloseFails', () async {
       final config = ContextConfig.create()
         ..setUnits(units)

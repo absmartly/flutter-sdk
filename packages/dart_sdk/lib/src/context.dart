@@ -492,7 +492,9 @@ class Context {
       // queued, so close() can be retried (JS context.ts _finalize).
       closing_ = false;
       closingFuture_ = null;
-      setRefreshTimer();
+      if (isReady() && !failed_) {
+        setRefreshTimer();
+      }
       closing.completeError(exception);
     });
 

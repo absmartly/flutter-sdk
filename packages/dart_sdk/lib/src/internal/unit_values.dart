@@ -22,13 +22,7 @@ class UnitsMap extends MapBase<String, String>
   }
 
   /// The UID of [unitType] as set, or its string when written to the map.
-  Object? value(String unitType) {
-    final String? uid = _strings[unitType];
-    if (uid == null) {
-      return null;
-    }
-    return _numbers[unitType] ?? uid;
-  }
+  Object? value(String unitType) => _numbers[unitType] ?? _strings[unitType];
 
   @override
   String? operator [](Object? key) => _strings[key];

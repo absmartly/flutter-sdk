@@ -29,16 +29,12 @@ jobs:
         run: flutter pub get
         working-directory: packages/flutter_sdk
 
-      - name: Install dependencies (compat_2_1)
-        run: flutter pub get
-        working-directory: packages/compat_2_1
-
       - name: Generate mocks (dart_sdk)
         run: dart run build_runner build --delete-conflicting-outputs
         working-directory: packages/dart_sdk
 
       - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed packages/dart_sdk/lib packages/dart_sdk/test packages/flutter_sdk/lib packages/flutter_sdk/test packages/compat_2_1/lib packages/compat_2_1/test
+        run: dart format --output=none --set-exit-if-changed packages/dart_sdk/lib packages/dart_sdk/test packages/flutter_sdk/lib packages/flutter_sdk/test
 
       - name: Analyze dart_sdk
         run: dart analyze --no-fatal-warnings
@@ -101,7 +97,7 @@ jobs:
       # Code written against the published 2.1.2 API must compile and keep its
       # released behaviour.
       - name: 2.1.2 source compatibility
-        run: flutter pub get && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test
+        run: flutter pub get && dart format --output=none --set-exit-if-changed lib test && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test
         working-directory: packages/compat_2_1
 
   test_min_sdk:
