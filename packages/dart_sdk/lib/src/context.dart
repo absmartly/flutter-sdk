@@ -489,12 +489,10 @@ class Context {
       logEvent(EventType.close, null);
     }).catchError((exception) {
       // A failed final publish leaves the context open with its events
-      // queued, so close() can be retried (JS context.ts _finalize).
+      // queued, so close() can be retried. Automatic refresh stays stopped,
+      // as in 2.1 and JS context.ts _finalize.
       closing_ = false;
       closingFuture_ = null;
-      if (isReady() && !failed_) {
-        setRefreshTimer();
-      }
       closing.completeError(exception);
     });
 

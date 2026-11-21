@@ -2765,7 +2765,8 @@ void main() {
           equals(refreshData.experiments.map((e) => e.name).toList()));
     });
 
-    test('aFailedCloseBeforeReadyDoesNotStartRefresh', () async {
+    test('aFailedCloseBeforeReadyDoesNotRefreshWhenTheInitialLoadFails',
+        () async {
       final initial = Completer<ContextData>();
       final config = ContextConfig.create()
         ..setUnits(units)
@@ -2784,10 +2785,10 @@ void main() {
       expect(context.isFailed(), isTrue);
     });
 
-    test('restoresRefreshTimerWhenCloseFails', () async {
+    test('aFailedCloseStopsAutomaticRefresh', () async {
       final config = ContextConfig.create()
         ..setUnits(units)
-        ..setRefreshInterval(50);
+        ..setRefreshInterval(5);
       final context = createContext(config, dataFutureReady);
       await context.waitUntilReady();
 
@@ -2797,13 +2798,13 @@ void main() {
       await expectLater(context.close(), throwsException);
       expect(context.isClosed(), isFalse);
 
-      final refreshed = Completer<void>();
-      when(dataProvider.getContextData()).thenAnswer((_) {
-        if (!refreshed.isCompleted) refreshed.complete();
-        return refreshDataFutureReady;
-      });
-      await refreshed.future.timeout(const Duration(seconds: 2));
-      verify(dataProvider.getContextData()).called(greaterThan(0));
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      verifyNever(dataProvider.getContextData());
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      await context.close();
+      expect(context.isClosed(), isTrue);
     });
 
     test('refreshKeepsAssignmentCacheWhenNotChanged', () async {
