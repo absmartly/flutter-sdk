@@ -235,21 +235,24 @@ final Expando<String> _implAssignmentRules = Expando<String>();
 final Expando<List<CustomFieldValue>> _implCustomFieldValues =
     Expando<List<CustomFieldValue>>();
 
-// Whether objects of a runtime type carry the private fields: true for the
-// SDK class and its subclasses, false for a class from another library that
-// implements Experiment. Probed once per type, so reads do not throw.
-final Map<Type, bool> _hasExperimentFields = {};
+// Objects from another library that implements Experiment, which have no
+// private fields. Remembered per object (a type could be faked through an
+// overridden runtimeType), so each such object throws at most once.
+final Expando<bool> _foreignExperiments = Expando<bool>();
 
-bool _ownsExperimentFields(Experiment experiment) =>
-    _hasExperimentFields[experiment.runtimeType] ??= () {
-      ContextCounters.modelFieldProbes++;
-      try {
-        experiment._assignmentRules;
-        return true;
-      } on NoSuchMethodError {
-        return false;
-      }
-    }();
+bool _ownsExperimentFields(Experiment experiment) {
+  if (_foreignExperiments[experiment] == true) {
+    return false;
+  }
+  try {
+    experiment._assignmentRules;
+    return true;
+  } on NoSuchMethodError {
+    ContextCounters.modelFieldProbes++;
+    _foreignExperiments[experiment] = true;
+    return false;
+  }
+}
 
 /// The experiment's assignment rules (a JSON string) and custom field values.
 /// An extension rather than fields of [Experiment], so existing

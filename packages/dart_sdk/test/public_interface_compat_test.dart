@@ -148,6 +148,38 @@ class SubclassedClient extends Client {
   SubclassedClient(ClientConfig config) : super(config, MockHTTPClient());
 }
 
+final Map<String, dynamic> experimentMap = {
+  'id': 1,
+  'name': 'exp',
+  'unitType': 'session_id',
+  'iteration': 1,
+  'seedHi': 0,
+  'seedLo': 0,
+  'split': [0.5, 0.5],
+  'trafficSeedHi': 0,
+  'trafficSeedLo': 0,
+  'trafficSplit': [0.0, 1.0],
+  'fullOnVariant': 0,
+  'applications': [],
+  'variants': [],
+  'audienceStrict': false,
+  'audience': null,
+};
+
+final Map<String, dynamic> exposureMap = {
+  'id': 1,
+  'name': 'exp',
+  'unit': 'session_id',
+  'variant': 1,
+  'exposedAt': 1,
+  'assigned': true,
+  'eligible': true,
+  'overridden': false,
+  'fullOn': false,
+  'custom': false,
+  'audienceMismatch': false,
+};
+
 void main() {
   ClientConfig config() => ClientConfig()
       .setEndpoint('https://example.com')
@@ -233,22 +265,48 @@ void main() {
     expect(prefetched.isFailed(), isFalse);
   });
 
-  test('the private-field probe runs once per implementing type', () {
+  test('a customer model throws at most once, however often it is read', () {
     ContextCounters.reset();
-    final first = _ProbedExposure();
-    first.ruleOverride = true;
-    expect(first.ruleOverride, isTrue);
-    expect(_ProbedExposure().ruleOverride, isFalse);
-    final experiment = _ProbedExperiment();
+    final exposure = LegacyExposure();
+    exposure.ruleOverride = true;
+    expect(exposure.ruleOverride, isTrue);
+    expect(exposure.ruleOverride, isTrue);
+    final experiment = LegacyExperiment();
     experiment.assignmentRules = '{}';
     expect(experiment.assignmentRules, '{}');
     expect(experiment.customFieldValues, isNull);
-    expect(_ProbedExperiment().assignmentRules, isNull);
     expect(ContextCounters.modelFieldProbes, 2);
+  });
+
+  test('a model that fakes the SDK runtimeType cannot affect SDK models', () {
+    for (final customerFirst in [true, false]) {
+      final masquerading = _MasqueradingExperiment();
+      final sdk = Experiment.fromMap({
+        ...experimentMap,
+        'assignmentRules': '{"rules":[]}',
+      });
+      if (customerFirst) {
+        expect(masquerading.assignmentRules, isNull);
+        expect(sdk.assignmentRules, '{"rules":[]}');
+      } else {
+        expect(sdk.assignmentRules, '{"rules":[]}');
+        expect(masquerading.assignmentRules, isNull);
+      }
+      final exposure = _MasqueradingExposure();
+      expect(exposure.ruleOverride, isFalse);
+      expect(
+          Exposure.fromMap({...exposureMap, 'ruleOverride': true}).ruleOverride,
+          isTrue);
+    }
   });
 }
 
-// Fresh implementing types, so earlier tests have not cached their probe.
-class _ProbedExposure extends LegacyExposure {}
+class _MasqueradingExperiment extends LegacyExperiment {
+  @override
+  Type get runtimeType => Experiment;
+}
 
-class _ProbedExperiment extends LegacyExperiment {}
+class _MasqueradingExposure extends LegacyExposure {
+  @override
+  Type get runtimeType => Exposure;
+}
