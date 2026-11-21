@@ -42,18 +42,18 @@ class Exposure {
             fullOn == other.fullOn &&
             custom == other.custom &&
             audienceMismatch == other.audienceMismatch &&
-            ruleOverride == other.ruleOverride &&
+            _ruleOverride == other.ruleOverride &&
             name == other.name &&
             unit == other.unit;
   }
 
   @override
   int get hashCode => Object.hash(id, name, unit, variant, exposedAt, assigned,
-      eligible, overridden, fullOn, custom, audienceMismatch, ruleOverride);
+      eligible, overridden, fullOn, custom, audienceMismatch, _ruleOverride);
 
   @override
   String toString() {
-    return 'Exposure{id: $id, name: $name, unit: $unit, variant: $variant, exposedAt: $exposedAt, assigned: $assigned, eligible: $eligible, overridden: $overridden, fullOn: $fullOn, custom: $custom, audienceMismatch: $audienceMismatch, ruleOverride: $ruleOverride}';
+    return 'Exposure{id: $id, name: $name, unit: $unit, variant: $variant, exposedAt: $exposedAt, assigned: $assigned, eligible: $eligible, overridden: $overridden, fullOn: $fullOn, custom: $custom, audienceMismatch: $audienceMismatch, ruleOverride: $_ruleOverride}';
   }
 
   Exposure.fromMap(Map<String, dynamic> data) {

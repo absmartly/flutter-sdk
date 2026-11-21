@@ -446,6 +446,87 @@ void main() {
       expect(context.getData(), same(data));
     });
 
+    test('ignoredEarlyRefreshDoesNotSuppressInitialSuccess', () async {
+      final context = _IgnoringDataContext(
+          refreshData,
+          clock,
+          ContextConfig.create()..setUnits(units),
+          dataFuture,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          eventLogger);
+      final ready = context.waitUntilReady();
+      var readyCompleted = false;
+      ready.then((_) => readyCompleted = true);
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+
+      final refreshing = context.refresh();
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+      expect(context.isReady(), isFalse);
+      expect(context.isFailed(), isFalse);
+      expect(readyCompleted, isFalse);
+      verifyNever(eventLogger.handleEvent(context, EventType.ready, any));
+      verifyNever(eventLogger.handleEvent(context, EventType.error, any));
+
+      dataFuture.complete(data);
+      expect(await ready, same(context));
+      expect(context.isReady(), isTrue);
+      expect(context.isFailed(), isFalse);
+      expect(context.readyError(), isNull);
+      expect(context.getData(), same(data));
+      expect(context.peekTreatment('exp_test_ab'), equals(1));
+      verifyInOrder([
+        eventLogger.handleEvent(context, EventType.refresh, refreshData),
+        eventLogger.handleEvent(context, EventType.ready, data),
+      ]);
+      verifyNever(eventLogger.handleEvent(context, EventType.error, any));
+      verifyNoMoreInteractions(eventLogger);
+    });
+
+    test('ignoredEarlyRefreshDoesNotSuppressInitialFailure', () async {
+      final context = _IgnoringDataContext(
+          refreshData,
+          clock,
+          ContextConfig.create()..setUnits(units),
+          dataFuture,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          eventLogger);
+      final ready = context.waitUntilReady();
+      var readyCompleted = false;
+      ready.then((_) => readyCompleted = true);
+      final error = Exception('initial load failed');
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+
+      final refreshing = context.refresh();
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+      expect(context.isReady(), isFalse);
+      expect(context.isFailed(), isFalse);
+      expect(readyCompleted, isFalse);
+      verifyNever(eventLogger.handleEvent(context, EventType.ready, any));
+      verifyNever(eventLogger.handleEvent(context, EventType.error, any));
+
+      dataFuture.completeError(error);
+      expect(await ready, same(context));
+      expect(context.isReady(), isTrue);
+      expect(context.isFailed(), isTrue);
+      expect(context.readyError(), same(error));
+      expect(context.getExperiments(), isEmpty);
+      expect(context.peekTreatment('exp_test_ab'), equals(0));
+      verifyInOrder([
+        eventLogger.handleEvent(context, EventType.refresh, refreshData),
+        eventLogger.handleEvent(context, EventType.error, error),
+      ]);
+      verifyNever(eventLogger.handleEvent(context, EventType.ready, any));
+      verifyNoMoreInteractions(eventLogger);
+    });
+
     test('initialFailureAfterOverlappingRefreshKeepsRefresh', () async {
       final context = createContextWithDefaultConfig(dataFuture);
       final ready = context.waitUntilReady();
@@ -4057,7 +4138,30 @@ class _RewritingUnitsContext extends Context {
   }
 }
 
-// Installs fixed data instead of what was fetched, as a 2.1 subclass could.
+class _IgnoringDataContext extends Context {
+  _IgnoringDataContext(
+      this.ignored,
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher,
+      ContextEventLogger eventLogger)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, eventLogger);
+
+  final ContextData ignored;
+
+  @override
+  void setData(ContextData data) {
+    if (!identical(data, ignored)) {
+      super.setData(data);
+    }
+  }
+}
+
 class _InstallingContext extends Context {
   _InstallingContext(
       this.installed,

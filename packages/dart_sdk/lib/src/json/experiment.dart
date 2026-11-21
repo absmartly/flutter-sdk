@@ -90,7 +90,7 @@ class Experiment {
             const ListEquality().equals(variants, other.variants) &&
             audienceStrict == other.audienceStrict &&
             audience == other.audience &&
-            assignmentRules == other.assignmentRules;
+            _assignmentRules == other.assignmentRules;
   }
 
   @override
@@ -108,7 +108,7 @@ class Experiment {
       fullOnVariant,
       audienceStrict,
       audience,
-      assignmentRules,
+      _assignmentRules,
       listEquality.hash(split),
       listEquality.hash(trafficSplit),
       listEquality.hash(applications),
@@ -118,7 +118,7 @@ class Experiment {
 
   @override
   String toString() {
-    return "ContextExperiment{id=$id, name='$name', unitType='$unitType', iteration=$iteration, seedHi=$seedHi, seedLo=$seedLo, split=$split, trafficSeedHi=$trafficSeedHi, trafficSeedLo=$trafficSeedLo, trafficSplit=$trafficSplit, fullOnVariant=$fullOnVariant, applications=$applications, variants=$variants, audienceStrict=$audienceStrict, audience='$audience', assignmentRules='$assignmentRules'}";
+    return "ContextExperiment{id=$id, name='$name', unitType='$unitType', iteration=$iteration, seedHi=$seedHi, seedLo=$seedLo, split=$split, trafficSeedHi=$trafficSeedHi, trafficSeedLo=$trafficSeedLo, trafficSplit=$trafficSplit, fullOnVariant=$fullOnVariant, applications=$applications, variants=$variants, audienceStrict=$audienceStrict, audience='$audience', assignmentRules='$_assignmentRules'}";
   }
 
   Experiment.fromMap(Map<String, dynamic> data) {

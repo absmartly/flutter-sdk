@@ -432,7 +432,8 @@ class Context {
           final bool wasReady = isReady();
           try {
             setData(data);
-            _refreshInstalled = true;
+            // An override may ignore the payload without installing data.
+            _refreshInstalled = isReady();
           } catch (error) {
             fail(error);
             return;
