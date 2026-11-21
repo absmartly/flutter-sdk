@@ -1,6 +1,6 @@
 name: Publish to pub.dev
 
-# Pushing a tag v<version> (e.g. v3.0.0) publishes absmartly_dart, waits for it
+# Pushing a tag v<version> (e.g. v2.2.0) publishes absmartly_dart, waits for it
 # to be available on pub.dev, then publishes absmartly_sdk, which depends on it.
 # Both packages must carry the tag's version. Both are tested and dry-run
 # before either is published; if a publish still fails afterwards, re-run the
@@ -9,6 +9,18 @@ name: Publish to pub.dev
 # Uses pub.dev automated publishing (OIDC): enable it for each package on
 # pub.dev (Admin > Automated publishing) for this repository, tag pattern
 # "v{{version}}" and environment "pub.dev".
+#
+# pub.dev only accepts the first version of a new package from a user, and
+# automated publishing can only be enabled once the package exists.
+# Before the first manual upload, check out the exact intended tag SHA and
+# run the validate job's version checks, tests and publish dry-runs for BOTH
+# packages there. The Flutter dry-run uses the sibling path dependency as in
+# validate; after core is available, repeat it against hosted resolution.
+# These checks must precede the manual upload: a later tag workflow cannot
+# gate it, and pub.dev versions are immutable.
+# An uploader must publish absmartly_dart's first version by hand
+# (`cd packages/dart_sdk && dart pub publish`) and then enable automated
+# publishing for it. The workflow skips a version already on pub.dev.
 on:
   push:
     tags:

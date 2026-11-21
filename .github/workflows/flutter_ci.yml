@@ -70,6 +70,14 @@ jobs:
         run: dart test
         working-directory: packages/dart_sdk
 
+      # Every number is a double in JavaScript, so the numeric UID hash input
+      # and assign-rule variants are also tested compiled to JS. Only these
+      # platform tests run there; the variant assigner's murmur3 is not
+      # JS-safe yet (as in 2.1.2), so assignment itself is not checked on JS.
+      - name: Test dart_sdk number handling compiled to JavaScript
+        run: dart test -p node test/internal/hashing/hashing_platform_test.dart test/assignment_rules_platform_test.dart
+        working-directory: packages/dart_sdk
+
       - name: Validate dart_sdk package
         run: dart pub publish --dry-run
         working-directory: packages/dart_sdk
@@ -86,6 +94,12 @@ jobs:
         run: flutter pub publish --dry-run
         working-directory: packages/flutter_sdk
 
+      # Code written against the published 2.1.2 API must compile and keep its
+      # released behaviour.
+      - name: 2.1.2 source compatibility
+        run: flutter pub get && dart format --output=none --set-exit-if-changed lib test && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test
+        working-directory: packages/compat_2_1
+
   test_min_sdk:
     name: Test dart_sdk on the minimum Dart SDK
     runs-on: ubuntu-latest
@@ -93,8 +107,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Keep in sync with the lower bound of environment.sdk in
-      # packages/dart_sdk/pubspec.yaml.
+      # The oldest Dart SDK the dependencies resolve on (crypto ^3.0.6 needs
+      # 3.4; environment.sdk keeps 2.x's '>=2.18.6' so the release is not a
+      # constraint change).
       - name: Setup Dart
         uses: dart-lang/setup-dart@v1
         with:
@@ -121,7 +136,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Keep in sync with environment.flutter in packages/flutter_sdk/pubspec.yaml.
+      # The oldest Flutter whose Dart SDK (3.4) the dependencies resolve on.
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:

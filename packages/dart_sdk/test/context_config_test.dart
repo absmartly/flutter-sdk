@@ -9,6 +9,22 @@ void main() {
       expect(config.getUnit('session_id'), equals('0ab1e23f4eee'));
     });
 
+    test('setUnit rejects unsupported types before string conversion', () {
+      final config = ContextConfig.create();
+      for (final uid in <Object>[true, <String>[], <String, String>{}]) {
+        expect(
+            () => config.setUnit('u', uid),
+            throwsA(predicate((e) =>
+                e.toString() ==
+                "Exception: Unit 'u' must be a string or a number.")));
+        expect(config.getUnit('u'), isNull);
+        expect(config.getUnitValue('u'), isNull);
+      }
+      config.setUnit('u', 125.75);
+      expect(config.getUnit('u'), '125.75');
+      expect(config.getUnitValue('u'), 125.75);
+    });
+
     test('setAttribute', () {
       final config = ContextConfig.create()
           .setAttribute('user_agent', 'Chrome')

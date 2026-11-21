@@ -15,26 +15,27 @@ import 'client.dart';
 import 'json/context_data.dart';
 
 class ABSmartly {
-  ABSmartly(ABSmartlyConfig config)
-      : client_ = config.getClient(),
-        contextDataProvider_ = config.getContextDataProvider(),
-        contextEventHandler_ = config.getContextEventHandler(),
-        contextEventLogger_ = config.getContextEventLogger(),
-        variableParser_ = config.getVariableParser(),
-        audienceDeserializer_ = config.getAudienceDeserializer();
+  ABSmartly(ABSmartlyConfig config) {
+    contextDataProvider_ = config.getContextDataProvider();
+    contextEventHandler_ = config.getContextEventHandler();
+    contextEventLogger_ = config.getContextEventLogger();
+    variableParser_ = config.getVariableParser();
+    audienceDeserializer_ = config.getAudienceDeserializer();
+    client_ = config.getClient();
+  }
 
   Context createContext(ContextConfig config) {
     return Context.create(
         Clock.systemUTC(),
         config,
-        contextDataProvider_.getContextData(),
-        contextDataProvider_,
-        contextEventHandler_,
-        variableParser_,
-        AudienceMatcher(audienceDeserializer_),
+        contextDataProvider_!.getContextData(),
+        contextDataProvider_!,
+        contextEventHandler_!,
+        variableParser_!,
+        AudienceMatcher(audienceDeserializer_!),
         contextEventLogger_,
-        application: client_.getApplication(),
-        environment: client_.getEnvironment());
+        application: client_?.getApplication(),
+        environment: client_?.getEnvironment());
   }
 
   Context createContextWith(ContextConfig config, ContextData data) {
@@ -42,23 +43,23 @@ class ABSmartly {
         Clock.systemUTC(),
         config,
         Completer<ContextData>()..complete(data),
-        contextDataProvider_,
-        contextEventHandler_,
-        variableParser_,
-        AudienceMatcher(audienceDeserializer_),
+        contextDataProvider_!,
+        contextEventHandler_!,
+        variableParser_!,
+        AudienceMatcher(audienceDeserializer_!),
         contextEventLogger_,
-        application: client_.getApplication(),
-        environment: client_.getEnvironment());
+        application: client_?.getApplication(),
+        environment: client_?.getEnvironment());
   }
 
   Future<ContextData> getContextData() {
-    return contextDataProvider_.getContextData().future;
+    return contextDataProvider_!.getContextData().future;
   }
 
-  Client client_;
-  ContextDataProvider contextDataProvider_;
-  ContextPublisher contextEventHandler_;
-  ContextEventLogger? contextEventLogger_;
-  VariableParser variableParser_;
-  AudienceDeserializer audienceDeserializer_;
+  Client? client_;
+  late ContextDataProvider? contextDataProvider_;
+  late ContextPublisher? contextEventHandler_;
+  late ContextEventLogger? contextEventLogger_;
+  late VariableParser? variableParser_;
+  late AudienceDeserializer? audienceDeserializer_;
 }

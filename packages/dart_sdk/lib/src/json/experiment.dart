@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 
 import 'experiment_variant.dart';
 import 'experiment_application.dart';
+import '../internal/context_counters.dart';
 
 class CustomFieldValue {
   final String name;
@@ -46,8 +47,8 @@ class Experiment {
   late List<ExperimentVariant> variants;
   late bool audienceStrict;
   late String? audience;
-  late String? assignmentRules;
-  late List<CustomFieldValue>? customFieldValues;
+  String? _assignmentRules;
+  List<CustomFieldValue>? _customFieldValues;
 
   Experiment({
     required this.id,
@@ -65,9 +66,10 @@ class Experiment {
     required this.variants,
     required this.audienceStrict,
     required this.audience,
-    this.assignmentRules,
-    this.customFieldValues,
-  });
+    String? assignmentRules,
+    List<CustomFieldValue>? customFieldValues,
+  })  : _assignmentRules = assignmentRules,
+        _customFieldValues = customFieldValues;
 
   @override
   bool operator ==(Object other) {
@@ -88,7 +90,7 @@ class Experiment {
             const ListEquality().equals(variants, other.variants) &&
             audienceStrict == other.audienceStrict &&
             audience == other.audience &&
-            assignmentRules == other.assignmentRules;
+            _assignmentRules == other.assignmentRules;
   }
 
   @override
@@ -106,7 +108,7 @@ class Experiment {
       fullOnVariant,
       audienceStrict,
       audience,
-      assignmentRules,
+      _assignmentRules,
       listEquality.hash(split),
       listEquality.hash(trafficSplit),
       listEquality.hash(applications),
@@ -116,7 +118,7 @@ class Experiment {
 
   @override
   String toString() {
-    return "ContextExperiment{id=$id, name='$name', unitType='$unitType', iteration=$iteration, seedHi=$seedHi, seedLo=$seedLo, split=$split, trafficSeedHi=$trafficSeedHi, trafficSeedLo=$trafficSeedLo, trafficSplit=$trafficSplit, fullOnVariant=$fullOnVariant, applications=$applications, variants=$variants, audienceStrict=$audienceStrict, audience='$audience', assignmentRules='$assignmentRules'}";
+    return "ContextExperiment{id=$id, name='$name', unitType='$unitType', iteration=$iteration, seedHi=$seedHi, seedLo=$seedLo, split=$split, trafficSeedHi=$trafficSeedHi, trafficSeedLo=$trafficSeedLo, trafficSplit=$trafficSplit, fullOnVariant=$fullOnVariant, applications=$applications, variants=$variants, audienceStrict=$audienceStrict, audience='$audience', assignmentRules='$_assignmentRules'}";
   }
 
   Experiment.fromMap(Map<String, dynamic> data) {
@@ -141,15 +143,27 @@ class Experiment {
 
     audienceStrict = data["audienceStrict"] ?? false;
     audience = data["audience"];
-    assignmentRules = _parseAssignmentRules(data["assignmentRules"]);
-    final rawCustomFields = data["customFieldValues"];
-    if (rawCustomFields != null) {
-      customFieldValues = (rawCustomFields as List)
-          .map((e) => CustomFieldValue.fromMap(e as Map<String, dynamic>))
-          .toList();
-    } else {
-      customFieldValues = null;
+    _assignmentRules = _parseAssignmentRules(data["assignmentRules"]);
+    _customFieldValues = _parseCustomFieldValues(data["customFieldValues"]);
+  }
+
+  // 2.1 ignored customFieldValues, so a malformed field or entry must not fail
+  // the context: an entry that is not a name/value/type object of strings is
+  // skipped, and a value that is not a list means no custom fields.
+  static List<CustomFieldValue>? _parseCustomFieldValues(dynamic value) {
+    if (value is! List) {
+      return null;
     }
+    final List<CustomFieldValue> fields = [];
+    for (final entry in value) {
+      if (entry is Map<String, dynamic> &&
+          entry['name'] is String &&
+          entry['value'] is String &&
+          entry['type'] is String) {
+        fields.add(CustomFieldValue.fromMap(entry));
+      }
+    }
+    return fields;
   }
 
   // The API sends assignmentRules as a JSON string. An object or array in its
@@ -205,9 +219,66 @@ class Experiment {
       "variants": variants,
       "audienceStrict": audienceStrict,
       "audience": audience,
-      if (assignmentRules != null) "assignmentRules": assignmentRules,
-      if (customFieldValues != null)
-        "customFieldValues": customFieldValues!.map((e) => e.toMap()).toList(),
+      if (_assignmentRules != null) "assignmentRules": _assignmentRules,
+      if (_customFieldValues != null)
+        "customFieldValues": _customFieldValues!.map((e) => e.toMap()).toList(),
     };
+  }
+}
+
+// Experiment is implementable by customers, so the fields added after 2.1 are
+// private: a public member would break `implements Experiment`. Private
+// fields, unlike an Expando, survive copying the object to another isolate
+// (prefetched data decoded in a worker). A class from another library that
+// implements Experiment has no such fields; its values live in an Expando.
+final Expando<String> _implAssignmentRules = Expando<String>();
+final Expando<List<CustomFieldValue>> _implCustomFieldValues =
+    Expando<List<CustomFieldValue>>();
+
+// Objects from another library that implements Experiment, which have no
+// private fields. Remembered per object (a type could be faked through an
+// overridden runtimeType), so each such object throws at most once.
+final Expando<bool> _foreignExperiments = Expando<bool>();
+
+bool _ownsExperimentFields(Experiment experiment) {
+  if (_foreignExperiments[experiment] == true) {
+    return false;
+  }
+  try {
+    experiment._assignmentRules;
+    return true;
+  } on NoSuchMethodError {
+    ContextCounters.modelFieldProbes++;
+    _foreignExperiments[experiment] = true;
+    return false;
+  }
+}
+
+/// The experiment's assignment rules (a JSON string) and custom field values.
+/// An extension rather than fields of [Experiment], so existing
+/// `implements Experiment` classes keep compiling.
+extension ExperimentFields on Experiment {
+  String? get assignmentRules => _ownsExperimentFields(this)
+      ? _assignmentRules
+      : _implAssignmentRules[this];
+
+  set assignmentRules(String? value) {
+    if (_ownsExperimentFields(this)) {
+      _assignmentRules = value;
+    } else {
+      _implAssignmentRules[this] = value;
+    }
+  }
+
+  List<CustomFieldValue>? get customFieldValues => _ownsExperimentFields(this)
+      ? _customFieldValues
+      : _implCustomFieldValues[this];
+
+  set customFieldValues(List<CustomFieldValue>? value) {
+    if (_ownsExperimentFields(this)) {
+      _customFieldValues = value;
+    } else {
+      _implCustomFieldValues[this] = value;
+    }
   }
 }

@@ -13,7 +13,7 @@ import 'package:absmartly_dart/src/json/experiment.dart';
 import 'package:absmartly_dart/src/json/experiment_variant.dart';
 import 'package:absmartly_dart/src/json/publish_event.dart';
 import 'package:absmartly_dart/src/variable_parser.dart';
-import 'package:absmartly_sdk/absmartly_sdk.dart';
+import 'package:absmartly_sdk/absmartly.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -181,7 +181,7 @@ void main() {
         expect(units.length, equals(2));
       });
 
-      test('returned map is unmodifiable', () async {
+      test('returned map is a copy', () async {
         final config = ContextConfig.create(units: {'user_id': 'test123'});
         final data = ContextData()..experiments = [];
         final completer = Completer<ContextData>()..complete(data);
@@ -193,7 +193,8 @@ void main() {
         await ctx.waitUntilReady();
 
         final units = ctx.getUnits();
-        expect(() => units['new_key'] = 'value', throwsUnsupportedError);
+        units['new_key'] = 'value';
+        expect(ctx.getUnits().containsKey('new_key'), isFalse);
       });
     });
 

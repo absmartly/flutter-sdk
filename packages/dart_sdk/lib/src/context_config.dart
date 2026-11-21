@@ -1,4 +1,5 @@
 import 'context_event_logger.dart';
+import 'internal/unit_values.dart';
 
 class ContextConfig {
   ContextConfig();
@@ -13,7 +14,7 @@ class ContextConfig {
     ContextEventLogger? contextEventLogger,
   }) {
     final config = ContextConfig();
-    if (units != null) config.setUnits(units);
+    if (units != null) config.setUnitValues(units);
     if (attributes != null) config.setAttributes(attributes);
     if (overrides != null) config.setOverrides(overrides);
     if (customAssignments != null)
@@ -26,21 +27,27 @@ class ContextConfig {
     return config;
   }
 
-  ContextConfig setUnit(final String unitType, final Object uid) {
-    units_[unitType] = uid;
+  /// Sets the UID of [unitType]: a [String], or a [num] for a numeric UID.
+  /// [getUnit] and [getUnits] return it as a string, as in 2.1;
+  /// [ContextConfigUnitValues.getUnitValue] returns it as set.
+  ContextConfig setUnit(final String unitType, covariant final Object uid) {
+    if (uid is! String && uid is! num) {
+      throw Exception("Unit '$unitType' must be a string or a number.");
+    }
+    setUnitValue(units_, unitType, uid);
     return this;
   }
 
-  ContextConfig setUnits(final Map<String, Object> units) {
+  ContextConfig setUnits(final Map<String, String> units) {
     for (final entry in units.entries) {
       setUnit(entry.key, entry.value);
     }
     return this;
   }
 
-  Object? getUnit(final String unitType) => units_[unitType];
+  String? getUnit(final String unitType) => units_[unitType];
 
-  Map<String, Object> getUnits() => units_;
+  Map<String, String> getUnits() => units_;
 
   ContextConfig setAttribute(final String name, final Object value) {
     attributes_[name] = value;
@@ -71,19 +78,19 @@ class ContextConfig {
   Map<String, int> getOverrides() => overrides_;
 
   ContextConfig setCustomAssignment(String experimentName, int variant) {
-    customAssignments_[experimentName] = variant;
+    cassigmnents_[experimentName] = variant;
     return this;
   }
 
   ContextConfig setCustomAssignments(Map<String, int> customAssignments) {
-    customAssignments_.addAll(customAssignments);
+    cassigmnents_.addAll(customAssignments);
     return this;
   }
 
   dynamic getCustomAssignment(String experimentName) =>
-      customAssignments_[experimentName];
+      cassigmnents_[experimentName];
 
-  Map<String, int> getCustomAssignments() => customAssignments_;
+  Map<String, int> getCustomAssignments() => cassigmnents_;
 
   ContextConfig setPublishDelay(int delayMs) {
     publishDelay = delayMs;
@@ -107,12 +114,47 @@ class ContextConfig {
 
   int getRefreshInterval() => refreshInterval;
 
-  Map<String, Object> units_ = {};
+  /// The units, numeric UIDs in their `toString()` form. The default map
+  /// also keeps the value each UID was set as; a UID written directly to it
+  /// replaces that value. An assigned map is used as given.
+  Map<String, String> units_ = UnitsMap();
+
   Map<String, dynamic> attributes_ = {};
   Map<String, int> overrides_ = {};
-  Map<String, int> customAssignments_ = {};
+  Map<String, int> cassigmnents_ = {};
   int publishDelay = 100;
   int refreshInterval = 0;
 
   ContextEventLogger? logger_;
+}
+
+/// The units of a [ContextConfig] as they were set, numbers included. An
+/// extension rather than members of [ContextConfig], so existing
+/// `implements ContextConfig` classes keep compiling.
+extension ContextConfigUnitValues on ContextConfig {
+  /// Sets several units at once, each a [String] or a [num]. [setUnits]
+  /// keeps its 2.1 `Map<String, String>` parameter.
+  ContextConfig setUnitValues(final Map<String, Object> units) {
+    for (final entry in units.entries) {
+      setUnit(entry.key, entry.value);
+    }
+    return this;
+  }
+
+  /// The UID of [unitType] as set: a [String] or a [num].
+  ///
+  /// The values come from the map [ContextConfig.getUnits] returns, so an
+  /// override that returns a copy reports each UID in its string form.
+  Object? getUnitValue(final String unitType) =>
+      unitValue(getUnits(), unitType);
+
+  /// Every unit as set. A UID written through [ContextConfig.units_] is
+  /// returned as that string; on a map the SDK does not own (an assigned map
+  /// or a subclass override), a rewrite to the same text that the SDK never
+  /// saw missing keeps the number.
+  Map<String, Object> getUnitValues() {
+    final Map<String, String> units = getUnits();
+    return units.map(
+        (unitType, uid) => MapEntry(unitType, unitValue(units, unitType)!));
+  }
 }

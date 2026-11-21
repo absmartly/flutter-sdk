@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:absmartly_dart/absmartly_dart.dart';
+import 'package:absmartly_dart/src/internal/context_counters.dart';
 import 'package:test/test.dart';
 
 import 'client_test.mocks.dart';
@@ -79,9 +80,105 @@ class LegacyClientConfig implements ClientConfig {
   ContextEventSerializer? serializer_;
 }
 
+// Public instance members of the published 2.1.2 models. Avoid noSuchMethod:
+// a new interface member must cause a compile error in this test.
+class LegacyExperiment implements Experiment {
+  @override
+  late int id;
+  @override
+  late String name;
+  @override
+  late String unitType;
+  @override
+  late int iteration;
+  @override
+  late int seedHi;
+  @override
+  late int seedLo;
+  @override
+  late List<double> split;
+  @override
+  late int trafficSeedHi;
+  @override
+  late int trafficSeedLo;
+  @override
+  late List<double> trafficSplit;
+  @override
+  late int fullOnVariant;
+  @override
+  late List<ExperimentApplication> applications;
+  @override
+  late List<ExperimentVariant> variants;
+  @override
+  late bool audienceStrict;
+  @override
+  late String? audience;
+  @override
+  Map<String, dynamic> toMap() => throw UnimplementedError();
+}
+
+class LegacyExposure implements Exposure {
+  @override
+  late int id;
+  @override
+  late String name;
+  @override
+  late String? unit;
+  @override
+  late int variant;
+  @override
+  late int exposedAt;
+  @override
+  late bool assigned;
+  @override
+  late bool eligible;
+  @override
+  late bool overridden;
+  @override
+  late bool fullOn;
+  @override
+  late bool custom;
+  @override
+  late bool audienceMismatch;
+  @override
+  Map<String, dynamic> toMap() => throw UnimplementedError();
+}
+
 class SubclassedClient extends Client {
   SubclassedClient(ClientConfig config) : super(config, MockHTTPClient());
 }
+
+final Map<String, dynamic> experimentMap = {
+  'id': 1,
+  'name': 'exp',
+  'unitType': 'session_id',
+  'iteration': 1,
+  'seedHi': 0,
+  'seedLo': 0,
+  'split': [0.5, 0.5],
+  'trafficSeedHi': 0,
+  'trafficSeedLo': 0,
+  'trafficSplit': [0.0, 1.0],
+  'fullOnVariant': 0,
+  'applications': [],
+  'variants': [],
+  'audienceStrict': false,
+  'audience': null,
+};
+
+final Map<String, dynamic> exposureMap = {
+  'id': 1,
+  'name': 'exp',
+  'unit': 'session_id',
+  'variant': 1,
+  'exposedAt': 1,
+  'assigned': true,
+  'eligible': true,
+  'overridden': false,
+  'fullOn': false,
+  'custom': false,
+  'audienceMismatch': false,
+};
 
 void main() {
   ClientConfig config() => ClientConfig()
@@ -125,4 +222,91 @@ void main() {
     expect(client.getApplicationVersion(), '0');
     expect(client.headers_['X-Agent'], SdkVersion.agent);
   });
+
+  test('a customer Experiment implementation keeps the 2.2 fields', () {
+    final experiment = LegacyExperiment();
+    expect(experiment.assignmentRules, isNull);
+    expect(experiment.customFieldValues, isNull);
+
+    experiment.assignmentRules = '{"rules":[]}';
+    experiment.customFieldValues = [
+      CustomFieldValue(name: 'region', value: 'EU', type: 'string'),
+    ];
+
+    expect(experiment.assignmentRules, '{"rules":[]}');
+    expect(experiment.customFieldValues!.single.name, 'region');
+    expect(LegacyExperiment().assignmentRules, isNull);
+  });
+
+  test('a customer Exposure implementation keeps ruleOverride', () {
+    final exposure = LegacyExposure();
+    expect(exposure.ruleOverride, isFalse);
+
+    exposure.ruleOverride = true;
+
+    expect(exposure.ruleOverride, isTrue);
+    expect(LegacyExposure().ruleOverride, isFalse);
+  });
+
+  test('contexts are created after a 2.1 caller clears client_', () async {
+    final sdk = ABSmartly(ABSmartlyConfig.create(client: LegacyClient()))
+      ..client_ = null;
+    final contextConfig = ContextConfig.create()
+      ..setUnit('session_id', 'abc')
+      ..setPublishDelay(-1)
+      ..setRefreshInterval(0);
+
+    final created = sdk.createContext(contextConfig);
+    await created.waitUntilReady();
+    expect(created.isFailed(), isFalse);
+
+    final prefetched = sdk.createContextWith(contextConfig, ContextData());
+    await prefetched.waitUntilReady();
+    expect(prefetched.isFailed(), isFalse);
+  });
+
+  test('a customer model throws at most once, however often it is read', () {
+    ContextCounters.reset();
+    final exposure = LegacyExposure();
+    exposure.ruleOverride = true;
+    expect(exposure.ruleOverride, isTrue);
+    expect(exposure.ruleOverride, isTrue);
+    final experiment = LegacyExperiment();
+    experiment.assignmentRules = '{}';
+    expect(experiment.assignmentRules, '{}');
+    expect(experiment.customFieldValues, isNull);
+    expect(ContextCounters.modelFieldProbes, 2);
+  });
+
+  test('a model that fakes the SDK runtimeType cannot affect SDK models', () {
+    for (final customerFirst in [true, false]) {
+      final masquerading = _MasqueradingExperiment();
+      final sdk = Experiment.fromMap({
+        ...experimentMap,
+        'assignmentRules': '{"rules":[]}',
+      });
+      if (customerFirst) {
+        expect(masquerading.assignmentRules, isNull);
+        expect(sdk.assignmentRules, '{"rules":[]}');
+      } else {
+        expect(sdk.assignmentRules, '{"rules":[]}');
+        expect(masquerading.assignmentRules, isNull);
+      }
+      final exposure = _MasqueradingExposure();
+      expect(exposure.ruleOverride, isFalse);
+      expect(
+          Exposure.fromMap({...exposureMap, 'ruleOverride': true}).ruleOverride,
+          isTrue);
+    }
+  });
+}
+
+class _MasqueradingExperiment extends LegacyExperiment {
+  @override
+  Type get runtimeType => Experiment;
+}
+
+class _MasqueradingExposure extends LegacyExposure {
+  @override
+  Type get runtimeType => Exposure;
 }

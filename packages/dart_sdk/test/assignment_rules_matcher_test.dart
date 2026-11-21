@@ -170,6 +170,27 @@ void main() {
           RuleAction.assign(2));
     });
 
+    test('rule types are compared exactly', () {
+      expect(
+          evaluate([
+            {...assignRule(1), 'type': 'ASSIGN'},
+            assignRule(2, name: 'valid'),
+          ]),
+          RuleAction.assign(2));
+      expect(
+          evaluate([
+            {
+              'name': 'split',
+              'type': 'Split',
+              'conditions': usCondition,
+              'environments': [],
+              'percentages': '0/100/0',
+            },
+            assignRule(2, name: 'valid'),
+          ]),
+          RuleAction.assign(2));
+    });
+
     test('skips rules with a missing, non-numeric or fractional variant', () {
       final missing = assignRule(1)..remove('variant');
       expect(evaluate([missing]), isNull);
@@ -182,6 +203,20 @@ void main() {
             assignRule(1.5),
             assignRule(2, name: 'valid'),
           ]),
+          RuleAction.assign(2));
+    });
+
+    test('skips an infinite variant', () {
+      // jsonEncode cannot write Infinity, so the JSON is written by hand; on
+      // the VM jsonDecode reads 1e400 as double.infinity.
+      String withVariant(String variant) => '{"rules":['
+          '{"type":"assign","variant":$variant,"environments":[],'
+          '"conditions":{"value":true}},'
+          '{"type":"assign","variant":2,"environments":[],'
+          '"conditions":{"value":true}}]}';
+      expect(matcher.evaluateRules(withVariant('1e400'), 'production', {}),
+          RuleAction.assign(2));
+      expect(matcher.evaluateRules(withVariant('-1e400'), 'production', {}),
           RuleAction.assign(2));
     });
 

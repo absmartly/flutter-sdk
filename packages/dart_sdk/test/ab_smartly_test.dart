@@ -10,7 +10,6 @@ import 'package:absmartly_dart/src/context_event_handler.dart';
 import 'package:absmartly_dart/src/context_event_logger.dart';
 import 'package:absmartly_dart/src/default_context_data_provider.dart';
 import 'package:absmartly_dart/src/default_context_event_handler.dart';
-import 'package:absmartly_dart/src/default_context_publisher.dart';
 import 'package:absmartly_dart/src/json/context_data.dart';
 import 'package:absmartly_dart/src/variable_parser.dart';
 import 'package:absmartly_dart/src/audience_deserializer.dart';
@@ -52,7 +51,7 @@ void main() {
         final _ = ABSmartly(config);
       },
           throwsA(const TypeMatcher<Exception>().having((e) => e.toString(),
-              'message', contains('Client not set in ABSmartlyConfig'))));
+              'message', contains('Missing Client instance'))));
     });
 
     test('createContext', () async {
@@ -79,7 +78,7 @@ void main() {
       verify(mockDataProvider.getContextData()).called(1);
 
       expect(absmartly.contextDataProvider_, isA<DefaultContextDataProvider>());
-      expect(absmartly.contextEventHandler_, isA<DefaultContextPublisher>());
+      expect(absmartly.contextEventHandler_, isA<DefaultContextEventHandler>());
 
       await context.waitUntilReady();
 
@@ -150,7 +149,7 @@ void main() {
         'ABSmartly constructor creates default contextEventHandler when getContextEventHandler() returns null',
         () {
       expect(ABSmartly(config).contextEventHandler_,
-          isA<DefaultContextPublisher>());
+          isA<DefaultContextEventHandler>());
     });
 
     test('ABSmartly createContext returns a valid Context object', () async {

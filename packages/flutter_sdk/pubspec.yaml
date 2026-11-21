@@ -1,21 +1,26 @@
 name: absmartly_sdk
 description: ABsmartly A/B Testing SDK for Flutter - Flutter wrapper with widgets and providers
-version: 3.0.0
+version: 2.2.0
 homepage: https://github.com/absmartly/flutter-sdk
 repository: https://github.com/absmartly/flutter-sdk/tree/main/packages/flutter_sdk
 
 environment:
-  sdk: '>=3.4.0 <4.0.0'
-  flutter: ">=3.22.0"
+  sdk: '>=2.18.6 <4.0.0'
+  flutter: ">=1.17.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  absmartly_dart: ^3.0.0
+  absmartly_dart: ^2.2.0
+  # A runtime dependency in 2.1; kept for 2.x so apps whose analysis options
+  # rely on getting it through this package keep working.
+  flutter_lints: '>=3.0.0 <6.0.0'
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: '>=3.0.0 <6.0.0'
 
 flutter:
+  # Shipped as package assets in 2.1; kept for 2.x.
+  assets:
+    - resources/

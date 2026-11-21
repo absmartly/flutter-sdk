@@ -19,7 +19,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  absmartly_dart: ^3.0.0
+  absmartly_dart: ^2.2.0
 ```
 
 Then run:
@@ -363,7 +363,7 @@ class CustomEventLogger implements ContextEventLogger {
             case EventType.publish:
             case EventType.ready:
             case EventType.refresh:
-            case EventType.finalize:
+            case EventType.close:
                 break;
         }
     }

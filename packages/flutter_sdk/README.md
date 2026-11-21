@@ -16,13 +16,13 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  absmartly_sdk: ^3.0.0
+  absmartly_sdk: ^2.2.0
 ```
 
 ### Import and Initialize the SDK
 
 ```dart
-import 'package:absmartly_sdk/absmartly_sdk.dart';
+import 'package:absmartly_sdk/absmartly.dart';
 
 void main() async {
   final ClientConfig clientConfig = ClientConfig()
@@ -247,7 +247,7 @@ This package is designed for Flutter applications and includes all functionality
 Wrap your app with `ABSmartlyProvider` to make the SDK and context available throughout your widget tree:
 
 ```dart
-import 'package:absmartly_sdk/absmartly_sdk.dart';
+import 'package:absmartly_sdk/absmartly.dart';
 
 void main() async {
   final clientConfig = ClientConfig()
