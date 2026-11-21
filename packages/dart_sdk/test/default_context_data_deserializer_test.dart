@@ -381,6 +381,53 @@ void main() {
       }
     });
 
+    test('customFieldsSurviveTheContextDataJsonRoundTrip', () {
+      final fields = [
+        {'name': 'region', 'value': 'EU', 'type': 'string'},
+        {'name': 'n', 'value': '1.5', 'type': 'number'},
+        {'name': 'enabled', 'value': 'false', 'type': 'boolean'},
+        {'name': 'items', 'value': '[1,2]', 'type': 'json'},
+      ];
+      final original = deserializeJson({
+        'experiments': [
+          {
+            ...experimentJson(split: [0.5, 0.5], trafficSplit: [0, 1]),
+            'customFieldValues': fields,
+          }
+        ]
+      })!;
+      final encoded =
+          jsonDecode(jsonEncode(original.toMap())) as Map<String, dynamic>;
+      expect(
+          (encoded['experiments'] as List).single['customFieldValues'], fields);
+      final restored = ContextData.fromMap(encoded);
+      expect(
+          restored.experiments.single.customFieldValues!
+              .map((field) => field.toMap())
+              .toList(),
+          fields);
+    });
+
+    test('anSdkExposureSetterChangesItsGetterAndSerializedField', () {
+      final exposure = Exposure(
+          id: 1,
+          name: 'exp',
+          unit: 'session_id',
+          variant: 1,
+          exposedAt: 1,
+          assigned: true,
+          eligible: true,
+          overridden: false,
+          fullOn: false,
+          custom: false,
+          audienceMismatch: false);
+      for (final value in [true, false]) {
+        exposure.ruleOverride = value;
+        expect(exposure.ruleOverride, value);
+        expect(exposure.toMap()['ruleOverride'], value);
+      }
+    });
+
     test('modelConstructorsKeepThe22Fields', () {
       final field =
           CustomFieldValue(name: 'region', value: 'EU', type: 'string');
