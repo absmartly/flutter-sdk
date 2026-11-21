@@ -489,10 +489,11 @@ class Context {
       logEvent(EventType.close, null);
     }).catchError((exception) {
       // A failed final publish leaves the context open with its events
-      // queued, so close() can be retried. Automatic refresh stays stopped,
-      // as in 2.1 and JS context.ts _finalize.
+      // queued, so close() can be retried. Automatic refresh stays off for
+      // good, even when data is installed later: 2.1 closed the context here.
       closing_ = false;
       closingFuture_ = null;
+      _closeFailed = true;
       closing.completeError(exception);
     });
 
@@ -930,7 +931,8 @@ class Context {
     if ((refreshInterval_ > 0) &&
         (refreshTimer_ == null) &&
         !closing_ &&
-        !closed_) {
+        !closed_ &&
+        !_closeFailed) {
       refreshTimer_ =
           Timer.periodic(Duration(milliseconds: refreshInterval_), (timer) {
         // Refresh failures are reported through the event logger.
@@ -1071,6 +1073,7 @@ class Context {
   bool closed_ = false;
   bool refreshing_ = false;
   bool _refreshInstalled = false;
+  bool _closeFailed = false;
   Completer<void>? readyFuture_;
   Completer<void>? closingFuture_;
   Completer<void>? refreshFuture_;

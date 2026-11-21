@@ -2785,6 +2785,25 @@ void main() {
       expect(context.isFailed(), isTrue);
     });
 
+    test('aFailedCloseBeforeReadyDoesNotRefreshWhenTheInitialLoadSucceeds',
+        () async {
+      final initial = Completer<ContextData>();
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setPublishDelay(-1)
+        ..setRefreshInterval(5);
+      final context = createContext(config, initial);
+      context.track('goal1', null);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+      initial.complete(data);
+      await context.waitUntilReady();
+      expect(context.isReady(), isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      verifyNever(dataProvider.getContextData());
+    });
+
     test('aFailedCloseStopsAutomaticRefresh', () async {
       final config = ContextConfig.create()
         ..setUnits(units)
@@ -2800,6 +2819,13 @@ void main() {
 
       await Future<void>.delayed(const Duration(milliseconds: 40));
       verifyNever(dataProvider.getContextData());
+
+      // A manual refresh still fetches, but does not restart polling.
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => refreshDataFutureReady);
+      await context.refresh();
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      verify(dataProvider.getContextData()).called(1);
 
       when(eventHandler.publish(any, any))
           .thenAnswer((_) => createCompleteVoidCompleter());
