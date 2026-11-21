@@ -219,9 +219,9 @@ class Experiment {
       "variants": variants,
       "audienceStrict": audienceStrict,
       "audience": audience,
-      if (assignmentRules != null) "assignmentRules": assignmentRules,
-      if (customFieldValues != null)
-        "customFieldValues": customFieldValues!.map((e) => e.toMap()).toList(),
+      if (_assignmentRules != null) "assignmentRules": _assignmentRules,
+      if (_customFieldValues != null)
+        "customFieldValues": _customFieldValues!.map((e) => e.toMap()).toList(),
     };
   }
 }

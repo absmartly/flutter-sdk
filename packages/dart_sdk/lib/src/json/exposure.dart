@@ -84,7 +84,7 @@ class Exposure {
       "fullOn": fullOn,
       "custom": custom,
       "audienceMismatch": audienceMismatch,
-      "ruleOverride": ruleOverride,
+      "ruleOverride": _ruleOverride,
     };
   }
 }

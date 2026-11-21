@@ -93,12 +93,15 @@ class Context {
 
     readyFuture_ = Completer<void>();
     dataFuture.future.then((data) {
-      if (!_refreshInstalled) {
+      // As in 2.1, ready carries the fetched data, even when a setData
+      // override installs something else; a refresh that won carries its own.
+      final bool refreshWon = _refreshInstalled;
+      if (!refreshWon) {
         setData(data);
       }
       _completeReady();
 
-      logEvent(EventType.ready, data_);
+      logEvent(EventType.ready, refreshWon ? data_ : data);
 
       if (!_refreshInstalled && getPendingCount() > 0) {
         setTimeout();

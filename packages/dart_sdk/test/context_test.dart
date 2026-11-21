@@ -269,6 +269,26 @@ void main() {
       verify(eventLogger.handleEvent(context, EventType.ready, data)).called(1);
     });
 
+    test('readyCarriesTheFetchedDataWhenSetDataInstallsOther', () async {
+      final installed = ContextData();
+      final context = _InstallingContext(
+          installed,
+          clock,
+          ContextConfig.create()..setUnits(units),
+          dataFuture,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          eventLogger);
+      dataFuture.complete(data);
+      await context.waitUntilReady();
+
+      expect(context.getData(), same(installed));
+      verify(eventLogger.handleEvent(context, EventType.ready, data)).called(1);
+      verifyNever(eventLogger.handleEvent(context, EventType.ready, installed));
+    });
+
     test('callsEventLoggerWithCompletedFuture', () async {
       final Context context = createReadyContext();
       await context.waitUntilReady();
@@ -1580,12 +1600,12 @@ void main() {
     });
 
     test('malformedCustomFieldEntriesDoNotFailCreationOrRefresh', () async {
-      List<int> payloadWith(dynamic entry) {
+      List<int> payloadWith(dynamic entry, String country) {
         final payload = data.toMap();
         final experiments = payload['experiments'] as List;
         (experiments.first as Map<String, dynamic>)['customFieldValues'] = [
           entry,
-          {'name': 'country', 'value': 'US', 'type': 'string'},
+          {'name': 'country', 'value': country, 'type': 'string'},
         ];
         return utf8.encode(jsonEncode(payload));
       }
@@ -1601,7 +1621,7 @@ void main() {
         final context = Context.create(
             clock,
             ContextConfig.create()..setUnits(units),
-            Completer<ContextData>()..complete(parse(payloadWith(entry))),
+            Completer<ContextData>()..complete(parse(payloadWith(entry, 'US'))),
             dataProvider,
             eventHandler,
             variableParser,
@@ -1614,11 +1634,12 @@ void main() {
         expect(context.getCustomFieldValue(first, 'country'), 'US');
 
         when(dataProvider.getContextData()).thenAnswer((_) =>
-            Completer<ContextData>()..complete(parse(payloadWith(entry))));
+            Completer<ContextData>()
+              ..complete(parse(payloadWith(entry, 'GB'))));
         await context.refresh();
         expect(context.isFailed(), isFalse);
         expect(context.getTreatment('exp_test_abc'), equals(2));
-        expect(context.getCustomFieldValue(first, 'country'), 'US');
+        expect(context.getCustomFieldValue(first, 'country'), 'GB');
       }
     });
 
@@ -2884,7 +2905,6 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 40));
       verifyNever(dataProvider.getContextData());
 
-      // A manual refresh still fetches, but does not restart polling.
       when(dataProvider.getContextData())
           .thenAnswer((_) => refreshDataFutureReady);
       await context.refresh();
@@ -4035,6 +4055,27 @@ class _RewritingUnitsContext extends Context {
   void setUnits(Map<String, String> units) {
     super.setUnits({'session_id': 'p-${units['session_id']}'});
   }
+}
+
+// Installs fixed data instead of what was fetched, as a 2.1 subclass could.
+class _InstallingContext extends Context {
+  _InstallingContext(
+      this.installed,
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher,
+      ContextEventLogger eventLogger)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, eventLogger);
+
+  final ContextData installed;
+
+  @override
+  void setData(ContextData data) => super.setData(installed);
 }
 
 class _StringHashContext extends Context {
