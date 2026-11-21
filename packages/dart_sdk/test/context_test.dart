@@ -1579,6 +1579,49 @@ void main() {
           equals(utf8.decode(Hashing.hashUnit('125.75'))));
     });
 
+    test('malformedCustomFieldEntriesDoNotFailCreationOrRefresh', () async {
+      List<int> payloadWith(dynamic entry) {
+        final payload = data.toMap();
+        final experiments = payload['experiments'] as List;
+        (experiments.first as Map<String, dynamic>)['customFieldValues'] = [
+          entry,
+          {'name': 'country', 'value': 'US', 'type': 'string'},
+        ];
+        return utf8.encode(jsonEncode(payload));
+      }
+
+      ContextData parse(List<int> bytes) =>
+          DefaultContextDataDeserializer().deserialize(bytes, 0, bytes.length)!;
+
+      for (final entry in <dynamic>[
+        {'name': 'noType', 'value': 'x'},
+        {'name': 'nullType', 'value': 'x', 'type': null},
+        null,
+      ]) {
+        final context = Context.create(
+            clock,
+            ContextConfig.create()..setUnits(units),
+            Completer<ContextData>()..complete(parse(payloadWith(entry))),
+            dataProvider,
+            eventHandler,
+            variableParser,
+            audienceMatcher,
+            null);
+        await context.waitUntilReady();
+        expect(context.isFailed(), isFalse);
+        expect(context.getTreatment('exp_test_abc'), equals(2));
+        final first = data.experiments.first.name;
+        expect(context.getCustomFieldValue(first, 'country'), 'US');
+
+        when(dataProvider.getContextData()).thenAnswer((_) =>
+            Completer<ContextData>()..complete(parse(payloadWith(entry))));
+        await context.refresh();
+        expect(context.isFailed(), isFalse);
+        expect(context.getTreatment('exp_test_abc'), equals(2));
+        expect(context.getCustomFieldValue(first, 'country'), 'US');
+      }
+    });
+
     test('unknownCustomFieldMetadataDoesNotFailEitherExperiment', () async {
       final payload = data.toMap();
       final experiments = payload['experiments'] as List;
