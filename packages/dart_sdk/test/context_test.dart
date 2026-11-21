@@ -1615,6 +1615,27 @@ void main() {
       expect(context.getCustomFieldValue('exp_test_abc', 'country'), 'US');
     });
 
+    test('customFieldValuesAreConvertedByType', () async {
+      final parsed = ContextData.fromMap(data.toMap());
+      final experiment =
+          parsed.experiments.firstWhere((e) => e.name == 'exp_test_ab');
+      experiment.customFieldValues = [
+        CustomFieldValue(name: 'n', value: '1.5', type: 'number'),
+        CustomFieldValue(name: 'f', value: 'false', type: 'boolean'),
+        CustomFieldValue(name: 't', value: 'true', type: 'boolean'),
+        CustomFieldValue(name: 'a', value: '[1,2]', type: 'json'),
+        CustomFieldValue(name: 's', value: '7', type: 'json'),
+      ];
+      final context = createReadyContextWithData(parsed);
+      await context.waitUntilReady();
+
+      expect(context.getCustomFieldValue('exp_test_ab', 'n'), 1.5);
+      expect(context.getCustomFieldValue('exp_test_ab', 'f'), isFalse);
+      expect(context.getCustomFieldValue('exp_test_ab', 't'), isTrue);
+      expect(context.getCustomFieldValue('exp_test_ab', 'a'), [1, 2]);
+      expect(context.getCustomFieldValue('exp_test_ab', 's'), 7);
+    });
+
     test('customFieldLookupTakesTheFirstMatchAndKeepsEmptyJson', () async {
       final parsed = ContextData.fromMap(data.toMap());
       final experiment =

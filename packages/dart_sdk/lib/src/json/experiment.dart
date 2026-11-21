@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 
 import 'experiment_variant.dart';
 import 'experiment_application.dart';
+import '../internal/context_counters.dart';
 
 class CustomFieldValue {
   final String name;
@@ -241,6 +242,7 @@ final Map<Type, bool> _hasExperimentFields = {};
 
 bool _ownsExperimentFields(Experiment experiment) =>
     _hasExperimentFields[experiment.runtimeType] ??= () {
+      ContextCounters.modelFieldProbes++;
       try {
         experiment._assignmentRules;
         return true;

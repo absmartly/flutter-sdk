@@ -170,6 +170,27 @@ void main() {
           RuleAction.assign(2));
     });
 
+    test('rule types are compared exactly', () {
+      expect(
+          evaluate([
+            {...assignRule(1), 'type': 'ASSIGN'},
+            assignRule(2, name: 'valid'),
+          ]),
+          RuleAction.assign(2));
+      expect(
+          evaluate([
+            {
+              'name': 'split',
+              'type': 'Split',
+              'conditions': usCondition,
+              'environments': [],
+              'percentages': '0/100/0',
+            },
+            assignRule(2, name: 'valid'),
+          ]),
+          RuleAction.assign(2));
+    });
+
     test('skips rules with a missing, non-numeric or fractional variant', () {
       final missing = assignRule(1)..remove('variant');
       expect(evaluate([missing]), isNull);

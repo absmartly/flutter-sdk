@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:absmartly_dart/absmartly_dart.dart';
+import 'package:absmartly_dart/src/internal/context_counters.dart';
 import 'package:test/test.dart';
 
 import 'client_test.mocks.dart';
@@ -231,4 +232,23 @@ void main() {
     await prefetched.waitUntilReady();
     expect(prefetched.isFailed(), isFalse);
   });
+
+  test('the private-field probe runs once per implementing type', () {
+    ContextCounters.reset();
+    final first = _ProbedExposure();
+    first.ruleOverride = true;
+    expect(first.ruleOverride, isTrue);
+    expect(_ProbedExposure().ruleOverride, isFalse);
+    final experiment = _ProbedExperiment();
+    experiment.assignmentRules = '{}';
+    expect(experiment.assignmentRules, '{}');
+    expect(experiment.customFieldValues, isNull);
+    expect(_ProbedExperiment().assignmentRules, isNull);
+    expect(ContextCounters.modelFieldProbes, 2);
+  });
 }
+
+// Fresh implementing types, so earlier tests have not cached their probe.
+class _ProbedExposure extends LegacyExposure {}
+
+class _ProbedExperiment extends LegacyExperiment {}

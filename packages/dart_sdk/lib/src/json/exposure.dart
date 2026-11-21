@@ -1,3 +1,5 @@
+import '../internal/context_counters.dart';
+
 class Exposure {
   late int id;
   late String name;
@@ -100,6 +102,7 @@ final Map<Type, bool> _hasExposureFields = {};
 
 bool _ownsExposureFields(Exposure exposure) =>
     _hasExposureFields[exposure.runtimeType] ??= () {
+      ContextCounters.modelFieldProbes++;
       try {
         exposure._ruleOverride;
         return true;
