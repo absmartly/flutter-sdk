@@ -16,12 +16,7 @@ abstract class MD5 {
     var result = const Base64Codec.urlSafe()
         .encode(md5.convert(key.sublist(offset, (offset) + len)).bytes);
 
-    for (int i = result.length - 1; i < result.length; i++) {
-      if (result[i] == '=') {
-        result = result.substring(0, i - 1);
-        break;
-      }
-    }
+    result = result.replaceAll('=', '');
 
     return ascii.encoder.convert(result);
   }
