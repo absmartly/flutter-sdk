@@ -1857,6 +1857,73 @@ void main() {
       expect(config.getUnitValue('session_id'), equals('abc'));
     });
 
+    test('aRetryFromTheErrorLoggerDuringASyncPublishFailureIsAwaitedByClose',
+        () async {
+      final retry = Completer<void>();
+      var calls = 0;
+      when(eventHandler.publish(any, any)).thenAnswer((_) {
+        calls++;
+        if (calls == 1) {
+          throw Exception('sync publish failure');
+        }
+        return retry;
+      });
+      late Context context;
+      var retried = false;
+      when(eventLogger.handleEvent(any, EventType.error, any)).thenAnswer((_) {
+        if (!retried) {
+          retried = true;
+          context.publish().catchError((_) {});
+        }
+      });
+      context = createContext(
+          ContextConfig.create()
+            ..setUnits(units)
+            ..setPublishDelay(-1),
+          dataFutureReady);
+      await context.waitUntilReady();
+      context.track('goal1', null);
+
+      await expectLater(context.publish(), throwsException);
+      expect(calls, equals(2));
+
+      var closed = false;
+      final closing = context.close().then((_) => closed = true);
+      await Future<void>.delayed(Duration.zero);
+      expect(closed, isFalse);
+      retry.complete();
+      await closing;
+      expect(context.isClosed(), isTrue);
+      expect(context.getPendingCount(), equals(0));
+    });
+
+    test('aRefreshReportsItsOwnSyncProviderFailureWhenTheLoggerRetries',
+        () async {
+      final retry = Completer<ContextData>();
+      var calls = 0;
+      when(dataProvider.getContextData()).thenAnswer((_) {
+        calls++;
+        if (calls == 1) {
+          throw Exception('sync provider failure');
+        }
+        return retry;
+      });
+      late Context context;
+      Future<void>? retryRefresh;
+      when(eventLogger.handleEvent(any, EventType.error, any)).thenAnswer((_) {
+        retryRefresh ??= context.refresh();
+      });
+      context = createContextWithDefaultConfig(dataFutureReady);
+      await context.waitUntilReady();
+
+      await expectLater(context.refresh(), throwsException);
+      expect(calls, equals(2));
+      retry.complete(refreshData);
+      await retryRefresh;
+      expect(context.getExperiments(),
+          equals(refreshData.experiments.map((e) => e.name).toList()));
+    });
+
     test('aSecondOverlappingRefreshDoesNotRetryAFailedPublish', () async {
       final config = ContextConfig.create()
         ..setUnits(units)
@@ -2698,6 +2765,50 @@ void main() {
       await context.waitUntilReady();
 
       expect(context.peekVariableValue("icon", "square"), equals("circle"));
+    });
+
+    test('aSharedVariableKeyExposesOnlyTheWinnerAndDoesNotFallThrough',
+        () async {
+      // exp_test_ab (id 1) wins over exp_test_abc (id 99). Its assigned
+      // variant defines another key, not "icon"; exp_test_abc's defines it.
+      for (final experiment in data.experiments) {
+        switch (experiment.name) {
+          case "exp_test_ab":
+            experiment.id = 1;
+            experiment.variants[expectedVariants["exp_test_ab"]!].config =
+                "{\"other\":\"x\"}";
+            for (var i = 0; i < experiment.variants.length; i++) {
+              if (i != expectedVariants["exp_test_ab"]!) {
+                experiment.variants[i].config = "{\"icon\":\"square\"}";
+              }
+            }
+            break;
+          case "exp_test_abc":
+            experiment.id = 99;
+            experiment.variants[expectedVariants["exp_test_abc"]!].config =
+                "{\"icon\":\"circle\"}";
+            break;
+          default:
+            break;
+        }
+      }
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      final context = createReadyContextWithData(data);
+      await context.waitUntilReady();
+
+      expect(context.peekVariableValue("icon", "default"), equals("default"));
+      expect(context.getPendingCount(), equals(0));
+      expect(context.getVariableValue("icon", "default"), equals("default"));
+      expect(context.getVariableValue("icon", "default"), equals("default"));
+      expect(context.getPendingCount(), equals(1));
+
+      await context.publish();
+      final event = verify(eventHandler.publish(any, captureAny))
+          .captured
+          .single as PublishEvent;
+      expect(event.exposures.map((e) => e.name), equals(["exp_test_ab"]));
     });
 
     test('getVariableValueConflictingKeyDisjointAudiences', () async {

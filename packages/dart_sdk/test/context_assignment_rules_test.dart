@@ -404,6 +404,18 @@ void main() {
       expect(context.getPendingCount(), 1);
     });
 
+    test('a rule-won assignment ignores an audience that stops matching',
+        () async {
+      final context = await ready(strictData());
+      context.setAttribute('country', 'US');
+      context.setAttribute('age', 30);
+      expect(context.getTreatment(exp), 1);
+      context.setAttribute('age', 10);
+      expect(context.getTreatment(exp), 1);
+      expect(context.getPendingCount(), 1);
+      expect(exposures(context).single.audienceMismatch, isFalse);
+    });
+
     test('invalidates when a rule starts matching', () async {
       final context = await ready(rulesData());
       expect(context.getTreatment(exp), normalVariant);

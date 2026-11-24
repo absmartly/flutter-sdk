@@ -466,6 +466,8 @@ class Context {
       } catch (error) {
         fail(error);
       }
+      // This call's own refresh, even if the error logger started another.
+      return refreshing.future;
     }
 
     if (refreshFuture_ != null) {
@@ -553,6 +555,15 @@ class Context {
     pendingCount_ = 0;
 
     final Completer<void> result = Completer<void>();
+    // Recorded before the publisher runs: an error logger that retries from
+    // restore() then waits for this flush, and close() waits for the retry.
+    final Future<void> future = result.future;
+    _flushFuture = future;
+    future.then((_) {}, onError: (_) {}).whenComplete(() {
+      if (identical(_flushFuture, future)) {
+        _flushFuture = null;
+      }
+    });
 
     void restore(dynamic error) {
       exposures_.insertAll(0, exposures);
@@ -588,13 +599,6 @@ class Context {
       restore(error);
     }
 
-    final Future<void> future = result.future;
-    _flushFuture = future;
-    future.then((_) {}, onError: (_) {}).whenComplete(() {
-      if (identical(_flushFuture, future)) {
-        _flushFuture = null;
-      }
-    });
     return future;
   }
 
