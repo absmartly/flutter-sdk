@@ -70,14 +70,6 @@ jobs:
         run: dart test
         working-directory: packages/dart_sdk
 
-      # Every number is a double in JavaScript, so the numeric UID hash input
-      # and assign-rule variants are also tested compiled to JS. Only these
-      # platform tests run there; the variant assigner's murmur3 is not
-      # JS-safe yet (as in 2.1.2), so assignment itself is not checked on JS.
-      - name: Test dart_sdk number handling compiled to JavaScript
-        run: dart test -p node test/internal/hashing/hashing_platform_test.dart test/assignment_rules_platform_test.dart
-        working-directory: packages/dart_sdk
-
       - name: Validate dart_sdk package
         run: dart pub publish --dry-run
         working-directory: packages/dart_sdk
@@ -99,6 +91,43 @@ jobs:
       - name: 2.1.2 source compatibility
         run: flutter pub get && dart format --output=none --set-exit-if-changed lib test && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test
         working-directory: packages/compat_2_1
+
+  test_web:
+    name: Test dart_sdk compiled to JavaScript (Flutter Web)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies (dart_sdk)
+        run: dart pub get
+        working-directory: packages/dart_sdk
+
+      # Flutter Web runs the SDK compiled to JavaScript, where every number is
+      # a double. These tests check that hashing and assignment give the same
+      # result there as on the VM and in the JavaScript SDK (reference vectors),
+      # plus the numeric UID hash input and assign-rule variants.
+      - name: Test hashing and assignment compiled to JavaScript
+        run: >-
+          dart test -p node
+          test/internal/hashing/hashing_platform_test.dart
+          test/internal/hashing/cross_platform_assignment_test.dart
+          test/internal/hashing/md5_test.dart
+          test/internal/hashing/murmur3_32_test.dart
+          test/internal/variant_assigner_test.dart
+          test/cross_platform_context_test.dart
+          test/assignment_rules_platform_test.dart
+        working-directory: packages/dart_sdk
 
   test_min_sdk:
     name: Test dart_sdk on the minimum Dart SDK

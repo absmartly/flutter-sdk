@@ -52,6 +52,8 @@ dart pub get
 
 2.2.0 keeps the 2.1 API: code written for `absmartly_sdk` 2.1 compiles unchanged, including deep imports such as `package:absmartly_sdk/context.dart`; `absmartly_sdk.dart` exports the same names as in 2.1. New code imports `package:absmartly_sdk/absmartly.dart`, which exports the whole API (`ClientConfig`, `ContextConfig`, `Treatment`, …). A few observable behaviours follow the cross-SDK contract now; see the [CHANGELOG](CHANGELOG.md) under **Changed** for who is affected (the versioned `X-Agent`, `ruleOverride` in exposures, `application`/`environment` in audiences, headers on the context fetch, audience re-evaluation after `setAttribute`).
 
+**Flutter Web:** 2.2.0 assigns web units the same variants as native apps and the other ABsmartly SDKs. 2.1 computed a different variant for most units on the web, so most existing web users move to a new variant once and are exposed again. See **Breaking for Flutter Web** in the [CHANGELOG](CHANGELOG.md).
+
 To use a numeric unit UID, pass the number to `setUnit`; `getUnit`/`getUnits` still return strings, and `getUnitValue`/`getUnitValues` return the value as set (a `ContextConfig.getUnits` override that returns a copy reports it as a string).
 
 ## Getting Started

@@ -54,8 +54,13 @@ abstract class Murmur3_32 {
     return h;
   }
 
+  // Exact 32-bit multiply (JS Math.imul) on every platform. Compiled to JS an
+  // int is a double, so a * b loses its low bits once the product passes
+  // 2^53; each partial product here stays below 2^48.
   static int imul32(int a, int b) {
-    return (a * b) & 0xffffffff;
+    final int aLo = a & 0xffff;
+    final int aHi = (a >>> 16) & 0xffff;
+    return (aLo * b + (((aHi * b) & 0xffff) << 16)) & 0xffffffff;
   }
 
   static int rotl32(int n, int d) {

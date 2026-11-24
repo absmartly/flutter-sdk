@@ -1,6 +1,9 @@
 ## 2.2.0
 
-Applies to `absmartly_sdk` and to the new `absmartly_dart` package. Code written for `absmartly_sdk` 2.1.x keeps compiling and behaves as before apart from the items under Changed and Fixed. Breaking API changes are kept for the next major version.
+Applies to `absmartly_sdk` and to the new `absmartly_dart` package. Code written for `absmartly_sdk` 2.1.x keeps compiling and behaves as before apart from the items under Breaking for Flutter Web, Changed and Fixed. Breaking API changes are kept for the next major version.
+
+### Breaking for Flutter Web
+- **Flutter Web now assigns the variant every other ABsmartly SDK assigns.** Compiled to JavaScript, 2.1 lost precision in murmur3's 32-bit multiply, so most units got a different variant on the web than on iOS, Android, desktop and in the Java, JavaScript and other SDKs; split assignment rules and traffic eligibility were affected the same way. The multiply is now exact on every platform. **Most existing web units move to a new variant once, on their first 2.2.0 session, and are exposed again**, so a running experiment that already has web traffic mixes the two assignments. If that matters, restart the experiment or start a new iteration when you ship 2.2.0 to the web. Native (VM/AOT) apps are not affected.
 
 ### Added
 - **`absmartly_dart`**, a pure Dart package with the SDK core and no Flutter dependency, for Dart CLI and server apps. `absmartly_sdk` depends on it and re-exports it, so `import 'package:absmartly_sdk/absmartly_sdk.dart'` and every 2.1 deep import (`package:absmartly_sdk/context.dart`, `.../client_config.dart`, `.../jsonexpr/operators/greater_then_operator.dart`, …) still resolve, and the 2.1 class names still work (`GreaterThenOperator` and the other `*Then*` operators are type aliases of the renamed `*Than*` classes, so `runtimeType` reports the new name). `absmartly_sdk.dart` exports exactly the names it exported in 2.1, so an app with its own class named like a newer SDK type (for example `Treatment` or `EventType`) keeps compiling. The new **`package:absmartly_sdk/absmartly.dart`** exports the whole API (`ContextConfig`, `ClientConfig`, `ABSmartly`, `EventType`, the widgets below and the other public types), so the README example needs only that one import; an app that defines a class with one of those names and imports it without a prefix gets an ambiguous-import error, so hide the name or import with a prefix. Members added to existing types (`Context`, `Exposure`, `Experiment`, `ABSmartlyConfig`, `ClientConfig`, `ContextConfig`, `Client`, `AudienceMatcher`) are extension members, so classes that implement those types keep compiling; an app extension on one of them that declares a member of the same name (for example its own `getUnitValue` or `ruleOverride`) gets an ambiguity error, so rename it or call it with an explicit extension override. `Response` stays out of both, as in 2.1, because `package:http` has a class of the same name; import it from `package:absmartly_sdk/http_client.dart`.
@@ -46,9 +49,6 @@ These follow the cross-SDK contract all ABsmartly SDKs implement in this release
 - The Flutter dependency is gone from the core models, so `absmartly_dart` runs on the Dart VM.
 
 `absmartly_dart` caps `intl` at `<1.0.0` (2.1 left it open-ended), because pub.dev requires an upper bound; every released `intl` (latest 0.20.3) still resolves.
-
-### Known issues
-- **Flutter Web assigns differently from native and the other SDKs.** Compiled to JavaScript, the variant assigner's 32-bit multiply loses precision, so most units get a different variant on the web than on iOS, Android, desktop or the other ABsmartly SDKs. This is unchanged from 2.1; split assignment rules are affected the same way. Web-only apps are internally consistent. Fixing it would move existing web users to new variants once.
 
 ## 1.0.0
 
