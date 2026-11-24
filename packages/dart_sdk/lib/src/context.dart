@@ -408,6 +408,13 @@ class Context {
       return;
     }
 
+    // After a failed close(), only a successful explicit refresh re-arms
+    // automatic refresh (Java setData, JS _init). Joining an automatic refresh
+    // in flight counts as explicit.
+    if (!_automaticRefresh) {
+      _explicitRefresh = true;
+    }
+
     if (!refreshing_) {
       refreshing_ = true;
       final Completer<void> refreshing = Completer<void>();
@@ -415,6 +422,7 @@ class Context {
 
       void fail(dynamic error) {
         refreshing_ = false;
+        _explicitRefresh = false;
         refreshing.completeError(error);
         logError(error);
       }
@@ -426,6 +434,7 @@ class Context {
           // failure would (2.1 kept it failed too).
           if (failed_) {
             refreshing_ = false;
+            _explicitRefresh = false;
             refreshing.complete();
             return;
           }
@@ -439,6 +448,11 @@ class Context {
             return;
           }
           refreshing_ = false;
+          if (_explicitRefresh && _closeFailed && _refreshInstalled) {
+            _closeFailed = false;
+            setRefreshTimer();
+          }
+          _explicitRefresh = false;
           refreshing.complete();
           logEvent(EventType.refresh, data);
           // This refresh made the context ready before the initial fetch
@@ -493,8 +507,9 @@ class Context {
       logEvent(EventType.close, null);
     }).catchError((exception) {
       // A failed final publish leaves the context open with its events
-      // queued, so close() can be retried. Automatic refresh stays off for
-      // good, even when data is installed later: 2.1 closed the context here.
+      // queued, so close() can be retried. Automatic refresh stays off, even
+      // when data is installed later (2.1 closed the context here), until a
+      // successful explicit refresh().
       closing_ = false;
       closingFuture_ = null;
       _closeFailed = true;
@@ -940,7 +955,12 @@ class Context {
       refreshTimer_ =
           Timer.periodic(Duration(milliseconds: refreshInterval_), (timer) {
         // Refresh failures are reported through the event logger.
-        refresh().catchError((_) {});
+        _automaticRefresh = true;
+        try {
+          refresh().catchError((_) {});
+        } finally {
+          _automaticRefresh = false;
+        }
       });
     }
   }
@@ -1078,6 +1098,8 @@ class Context {
   bool refreshing_ = false;
   bool _refreshInstalled = false;
   bool _closeFailed = false;
+  bool _automaticRefresh = false;
+  bool _explicitRefresh = false;
   Completer<void>? readyFuture_;
   Completer<void>? closingFuture_;
   Completer<void>? refreshFuture_;
