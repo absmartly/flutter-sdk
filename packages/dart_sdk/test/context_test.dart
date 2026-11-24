@@ -3068,6 +3068,117 @@ void main() {
       verifyNever(dataProvider.getContextData());
     });
 
+    test('anIgnoredExplicitRefreshAfterAFailedCloseDoesNotRearm', () async {
+      final context = _IgnoringDataContext(
+          refreshData,
+          clock,
+          ContextConfig.create()
+            ..setUnits(units)
+            ..setPublishDelay(-1)
+            ..setRefreshInterval(5),
+          dataFuture,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          eventLogger);
+      context.track('goal1', null);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => refreshDataFutureReady);
+      await context.refresh();
+      expect(context.isReady(), isFalse);
+      expect(context.refreshTimer_, isNull);
+    });
+
+    for (final explicitFails in [false, true]) {
+      test(
+          'anEarlierExplicitRefresh${explicitFails ? 'Failure' : 'Success'}'
+          'DoesNotMakeALaterAutomaticRefreshRearm', () async {
+        final config = ContextConfig.create()
+          ..setUnits(units)
+          ..setRefreshInterval(5);
+        final context = createContext(config, dataFutureReady);
+        await context.waitUntilReady();
+
+        when(dataProvider.getContextData()).thenAnswer((_) => explicitFails
+            ? (Completer<ContextData>()..completeError(Exception('down')))
+            : refreshDataFutureReady);
+        if (explicitFails) {
+          await expectLater(context.refresh(), throwsException);
+        } else {
+          await context.refresh();
+        }
+
+        final inFlight = Completer<ContextData>();
+        when(dataProvider.getContextData()).thenAnswer((_) => inFlight);
+        clearInteractions(dataProvider);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        verify(dataProvider.getContextData()).called(1);
+
+        context.track('goal1', null);
+        when(eventHandler.publish(any, any))
+            .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+        await expectLater(context.close(), throwsException);
+
+        inFlight.complete(refreshData);
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+        expect(context.refreshTimer_, isNull);
+      });
+    }
+
+    test('anExplicitRefreshAfterAutomaticTicksAndAFailedCloseRearms', () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setRefreshInterval(5);
+      final context = createContext(config, dataFutureReady);
+      await context.waitUntilReady();
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => refreshDataFutureReady);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      verify(dataProvider.getContextData()).called(greaterThanOrEqualTo(1));
+
+      context.track('goal1', null);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+      expect(context.refreshTimer_, isNull);
+
+      await context.refresh();
+      expect(context.refreshTimer_, isNotNull);
+      context.clearRefreshTimer();
+    });
+
+    test('anExplicitRefreshJoiningAnAutomaticOneAfterAFailedCloseRearms',
+        () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setRefreshInterval(5);
+      final context = createContext(config, dataFutureReady);
+      await context.waitUntilReady();
+
+      final inFlight = Completer<ContextData>();
+      when(dataProvider.getContextData()).thenAnswer((_) => inFlight);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      verify(dataProvider.getContextData()).called(1);
+
+      context.track('goal1', null);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+
+      final joined = context.refresh();
+      inFlight.complete(refreshData);
+      await joined;
+      verifyNever(dataProvider.getContextData());
+      expect(context.refreshTimer_, isNotNull);
+      context.clearRefreshTimer();
+    });
+
     test('refreshKeepsAssignmentCacheWhenNotChanged', () async {
       final context = createReadyContext();
       await context.waitUntilReady();
