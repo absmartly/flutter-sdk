@@ -2811,6 +2811,19 @@ void main() {
       expect(event.exposures.map((e) => e.name), equals(["exp_test_ab"]));
     });
 
+    test('anOverrideWinsASharedVariableKeyForAnUnassignedUnit', () async {
+      final context = createContext(
+          ContextConfig.create()
+            ..setUnit('session_id', units['session_id']!)
+            ..setOverride('exp_test_not_eligible', 2),
+          dataFutureReady);
+      await context.waitUntilReady();
+
+      expect(context.peekVariableValue('card.width', 'd'), equals('75%'));
+      expect(context.getVariableValue('card.width', 'd'), equals('75%'));
+      expect(context.getPendingCount(), equals(1));
+    });
+
     test('getVariableValueConflictingKeyDisjointAudiences', () async {
       for (final experiment in data.experiments) {
         switch (experiment.name) {
