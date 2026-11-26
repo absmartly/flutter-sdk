@@ -3263,6 +3263,45 @@ void main() {
       expect(context.refreshTimer_, isNull);
     });
 
+    test(
+        'anIgnoredExplicitRefreshAfterAnEarlierInstallAndFailedCloseDoesNotRearm',
+        () async {
+      final ignored = ContextData(experiments: []);
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setPublishDelay(-1)
+        ..setRefreshInterval(5);
+      final context = _IgnoringDataContext(
+          ignored,
+          clock,
+          config,
+          dataFutureReady,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          eventLogger);
+      await context.waitUntilReady();
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => refreshDataFutureReady);
+      await context.refresh();
+      expect(context.getData(), same(refreshData));
+      context.clearRefreshTimer();
+
+      context.track('goal1', null);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+      expect(context.refreshTimer_, isNull);
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => Completer<ContextData>()..complete(ignored));
+      await context.refresh();
+      expect(context.getData(), same(refreshData));
+      expect(context.refreshTimer_, isNull);
+    });
+
     for (final explicitFails in [false, true]) {
       test(
           'anEarlierExplicitRefresh${explicitFails ? 'Failure' : 'Success'}'
