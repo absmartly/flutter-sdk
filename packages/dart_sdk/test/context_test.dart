@@ -527,6 +527,46 @@ void main() {
       verifyNoMoreInteractions(eventLogger);
     });
 
+    for (final initialFails in [false, true]) {
+      test(
+          'anIgnoredRefreshDoesNotUndoAnEarlierInstalledRefresh'
+          '${initialFails ? 'OnInitialFailure' : 'OnInitialSuccess'}',
+          () async {
+        final ignored = ContextData(experiments: []);
+        final context = _IgnoringDataContext(
+            ignored,
+            clock,
+            ContextConfig.create()..setUnits(units),
+            dataFuture,
+            dataProvider,
+            eventHandler,
+            variableParser,
+            audienceMatcher,
+            eventLogger);
+        final ready = context.waitUntilReady();
+        final installedRefresh = Completer<ContextData>()
+          ..complete(refreshData);
+        final ignoredRefresh = Completer<ContextData>()..complete(ignored);
+
+        when(dataProvider.getContextData()).thenAnswer((_) => installedRefresh);
+        await context.refresh();
+        expect(context.getData(), same(refreshData));
+
+        when(dataProvider.getContextData()).thenAnswer((_) => ignoredRefresh);
+        await context.refresh();
+        expect(context.getData(), same(refreshData));
+
+        if (initialFails) {
+          dataFuture.completeError(Exception('initial load failed'));
+        } else {
+          dataFuture.complete(data);
+        }
+        expect(await ready, same(context));
+        expect(context.isFailed(), isFalse);
+        expect(context.getData(), same(refreshData));
+      });
+    }
+
     test('initialFailureAfterOverlappingRefreshKeepsRefresh', () async {
       final context = createContextWithDefaultConfig(dataFuture);
       final ready = context.waitUntilReady();

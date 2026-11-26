@@ -442,14 +442,17 @@ class Context {
           final int dataGeneration = _dataGeneration;
           try {
             setData(data);
-            // An override may ignore the payload without installing data.
-            _refreshInstalled = _dataGeneration != dataGeneration;
           } catch (error) {
             fail(error);
             return;
           }
           refreshing_ = false;
-          if (_explicitRefresh && _closeFailed && _refreshInstalled) {
+          // An override may ignore the payload without installing data.
+          final bool installed = _dataGeneration != dataGeneration;
+          if (installed) {
+            _refreshInstalled = true;
+          }
+          if (_explicitRefresh && _closeFailed && installed) {
             _closeFailed = false;
             setRefreshTimer();
           }
