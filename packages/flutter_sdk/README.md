@@ -8,7 +8,7 @@ The ABsmartly Flutter SDK is compatible with:
 - Dart 3.4.0 and later
 - Flutter 3.22.0 and later
 
-**Flutter Web:** 2.2.0 assigns web units the same variants as native apps and the other ABsmartly SDKs (the one exception is a UID with an unpaired UTF-16 surrogate; see the CHANGELOG). 2.1 computed a different variant for most units on the web, so most existing web users move to a new variant once and are exposed again. See **Breaking for Flutter Web** in the [CHANGELOG](CHANGELOG.md).
+**Flutter Web:** 2.2.0 assigns web units the same variants as native apps and the other ABsmartly SDKs (two exceptions, both in the CHANGELOG: a UID with an unpaired UTF-16 surrogate, and a numeric UID above 2^53, which the web rounds through a double). 2.1 computed a different variant for most units on the web, so most existing web users move to a new variant once and are exposed again. See **Breaking for Flutter Web** in the [CHANGELOG](CHANGELOG.md).
 
 ## Getting Started
 

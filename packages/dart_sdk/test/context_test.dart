@@ -2809,8 +2809,6 @@ void main() {
 
     test('aSharedVariableKeyExposesOnlyTheWinnerAndDoesNotFallThrough',
         () async {
-      // exp_test_ab (id 1) wins over exp_test_abc (id 99). Its assigned
-      // variant defines another key, not "icon"; exp_test_abc's defines it.
       for (final experiment in data.experiments) {
         switch (experiment.name) {
           case "exp_test_ab":
