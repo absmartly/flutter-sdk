@@ -3192,29 +3192,34 @@ void main() {
       verifyNever(dataProvider.getContextData());
     });
 
-    test('anIgnoredExplicitRefreshAfterAFailedCloseDoesNotRearm', () async {
+    test('anIgnoredExplicitRefreshAfterAFailedCloseDoesNotRearmWhenReady',
+        () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setPublishDelay(-1)
+        ..setRefreshInterval(5);
       final context = _IgnoringDataContext(
           refreshData,
           clock,
-          ContextConfig.create()
-            ..setUnits(units)
-            ..setPublishDelay(-1)
-            ..setRefreshInterval(5),
-          dataFuture,
+          config,
+          dataFutureReady,
           dataProvider,
           eventHandler,
           variableParser,
           audienceMatcher,
           eventLogger);
+      await context.waitUntilReady();
+      expect(context.isReady(), isTrue);
       context.track('goal1', null);
       when(eventHandler.publish(any, any))
           .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
       await expectLater(context.close(), throwsException);
+      expect(context.refreshTimer_, isNull);
 
       when(dataProvider.getContextData())
           .thenAnswer((_) => refreshDataFutureReady);
       await context.refresh();
-      expect(context.isReady(), isFalse);
+      expect(context.getData(), same(data));
       expect(context.refreshTimer_, isNull);
     });
 

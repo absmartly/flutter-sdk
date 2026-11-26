@@ -439,10 +439,11 @@ class Context {
             return;
           }
           final bool wasReady = isReady();
+          final int dataGeneration = _dataGeneration;
           try {
             setData(data);
             // An override may ignore the payload without installing data.
-            _refreshInstalled = isReady();
+            _refreshInstalled = _dataGeneration != dataGeneration;
           } catch (error) {
             fail(error);
             return;
@@ -1030,6 +1031,7 @@ class Context {
     index_ = index;
     indexVariables_ = indexVariables;
     data_ = data;
+    _dataGeneration++;
 
     assignmentCache_.removeWhere((experimentName, assignment) {
       if (assignment.overridden) {
@@ -1104,6 +1106,7 @@ class Context {
   bool _closeFailed = false;
   bool _automaticRefresh = false;
   bool _explicitRefresh = false;
+  int _dataGeneration = 0;
   Completer<void>? readyFuture_;
   Completer<void>? closingFuture_;
   Completer<void>? refreshFuture_;
