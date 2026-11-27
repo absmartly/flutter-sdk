@@ -1,6 +1,11 @@
 import 'dart:async';
+import 'dart:collection';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:absmartly_dart/src/internal/hashing/hashing.dart';
+import 'package:absmartly_dart/src/internal/variant_assigner.dart';
+import 'package:absmartly_dart/src/internal/unit_values.dart';
 import 'package:absmartly_dart/src/audience_matcher.dart';
 import 'package:absmartly_dart/src/context.dart';
 import 'package:absmartly_dart/src/context_config.dart';
@@ -12,6 +17,7 @@ import 'package:absmartly_dart/src/default_context_data_serializer.dart';
 import 'package:absmartly_dart/src/default_variable_parser.dart';
 import 'package:absmartly_dart/src/java/time/clock.dart';
 import 'package:absmartly_dart/src/json/context_data.dart';
+import 'package:absmartly_dart/src/json/experiment.dart';
 import 'package:absmartly_dart/src/json/exposure.dart';
 import 'package:absmartly_dart/src/json/goal_achievement.dart';
 import 'package:absmartly_dart/src/json/publish_event.dart';
@@ -263,6 +269,26 @@ void main() {
       verify(eventLogger.handleEvent(context, EventType.ready, data)).called(1);
     });
 
+    test('readyCarriesTheFetchedDataWhenSetDataInstallsOther', () async {
+      final installed = ContextData();
+      final context = _InstallingContext(
+          installed,
+          clock,
+          ContextConfig.create()..setUnits(units),
+          dataFuture,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          eventLogger);
+      dataFuture.complete(data);
+      await context.waitUntilReady();
+
+      expect(context.getData(), same(installed));
+      verify(eventLogger.handleEvent(context, EventType.ready, data)).called(1);
+      verifyNever(eventLogger.handleEvent(context, EventType.ready, installed));
+    });
+
     test('callsEventLoggerWithCompletedFuture', () async {
       final Context context = createReadyContext();
       await context.waitUntilReady();
@@ -314,7 +340,7 @@ void main() {
 
       final notReady = throwsA(predicate((e) =>
           e is Exception &&
-          e.toString().contains('ABsmartly Context is not yet ready.')));
+          e.toString().contains('ABSmartly Context is not yet ready')));
       expect(() => context.peekTreatment('exp_test_ab'), notReady);
       expect(() => context.getTreatment('exp_test_ab'), notReady);
       expect(() => context.getData(), notReady);
@@ -326,8 +352,333 @@ void main() {
       expect(() => context.getCustomFieldValue('exp_test_ab', 'x'), notReady);
       expect(
           () => context.getCustomFieldValueType('exp_test_ab', 'x'), notReady);
-      expect(() => context.publish(), notReady);
-      expect(() => context.refresh(), notReady);
+      expect(() => context.publish(), returnsNormally);
+    });
+
+    test('refreshBeforeReadyFetchesAsIn21', () async {
+      final Context context = createContextWithDefaultConfig(dataFuture);
+      expect(context.isReady(), isFalse);
+
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+      final Future<void> refreshing = context.refresh();
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+
+      verify(dataProvider.getContextData()).called(1);
+    });
+
+    test('initialFailureBeforeOverlappingRefreshKeepsTheContextFailed',
+        () async {
+      final context = createContextWithDefaultConfig(dataFuture);
+      final ready = context.waitUntilReady();
+      final error = Exception('initial load failed');
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      final refreshing = context.refresh();
+      dataFuture.completeError(error);
+      expect(await ready, same(context));
+      expect(context.isFailed(), isTrue);
+      expect(context.getTreatment('exp_test_ab'), equals(0));
+      context.track('goal1', null);
+
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+      expect(context.isFailed(), isTrue);
+      expect(context.readyError(), same(error));
+      expect(context.getExperiments(), isEmpty);
+      verifyNever(
+          eventLogger.handleEvent(context, EventType.refresh, refreshData));
+
+      await context.publish();
+      verifyNever(eventHandler.publish(any, any));
+      expect(context.getPendingCount(), equals(0));
+    });
+
+    test('refreshFailureThenInitialSuccessUsesTheInitialData', () async {
+      final context = createContextWithDefaultConfig(dataFuture);
+      final ready = context.waitUntilReady();
+      final refreshError = Exception('refresh failed');
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+
+      final refreshing = context.refresh();
+      refreshDataFuture.completeError(refreshError);
+      await expectLater(refreshing, throwsA(same(refreshError)));
+      dataFuture.complete(data);
+      expect(await ready, same(context));
+      expect(context.isReady(), isTrue);
+      expect(context.isFailed(), isFalse);
+      expect(context.getData(), same(data));
+      expect(context.getTreatment('exp_test_ab'), equals(1));
+    });
+
+    test('refreshFailureThenInitialFailureReportsTheInitialError', () async {
+      final context = createContextWithDefaultConfig(dataFuture);
+      final ready = context.waitUntilReady();
+      final refreshError = Exception('refresh failed');
+      final initialError = Exception('initial load failed');
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+
+      final refreshing = context.refresh();
+      refreshDataFuture.completeError(refreshError);
+      await expectLater(refreshing, throwsA(same(refreshError)));
+      dataFuture.completeError(initialError);
+      expect(await ready, same(context));
+      expect(context.isFailed(), isTrue);
+      expect(context.readyError(), same(initialError));
+    });
+
+    test('refreshWhoseDataFailsToInstallDoesNotBlockTheInitialData', () async {
+      final throwingParser = _FailOnceVariableParser();
+      final config = ContextConfig.create()..setUnits(units);
+      final context = Context.create(clock, config, dataFuture, dataProvider,
+          eventHandler, throwingParser, audienceMatcher, eventLogger);
+      final ready = context.waitUntilReady();
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+
+      final refreshing = context.refresh();
+      refreshDataFuture.complete(refreshData);
+      await expectLater(refreshing, throwsA(isA<StateError>()));
+      dataFuture.complete(data);
+      expect(await ready, same(context));
+      expect(context.isFailed(), isFalse);
+      expect(context.getData(), same(data));
+    });
+
+    test('ignoredEarlyRefreshDoesNotSuppressInitialSuccess', () async {
+      final context = _IgnoringDataContext(
+          refreshData,
+          clock,
+          ContextConfig.create()..setUnits(units),
+          dataFuture,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          eventLogger);
+      final ready = context.waitUntilReady();
+      var readyCompleted = false;
+      ready.then((_) => readyCompleted = true);
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+
+      final refreshing = context.refresh();
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+      expect(context.isReady(), isFalse);
+      expect(context.isFailed(), isFalse);
+      expect(readyCompleted, isFalse);
+      verifyNever(eventLogger.handleEvent(context, EventType.ready, any));
+      verifyNever(eventLogger.handleEvent(context, EventType.error, any));
+
+      dataFuture.complete(data);
+      expect(await ready, same(context));
+      expect(context.isReady(), isTrue);
+      expect(context.isFailed(), isFalse);
+      expect(context.readyError(), isNull);
+      expect(context.getData(), same(data));
+      expect(context.peekTreatment('exp_test_ab'), equals(1));
+      verifyInOrder([
+        eventLogger.handleEvent(context, EventType.refresh, refreshData),
+        eventLogger.handleEvent(context, EventType.ready, data),
+      ]);
+      verifyNever(eventLogger.handleEvent(context, EventType.error, any));
+      verifyNoMoreInteractions(eventLogger);
+    });
+
+    test('ignoredEarlyRefreshDoesNotSuppressInitialFailure', () async {
+      final context = _IgnoringDataContext(
+          refreshData,
+          clock,
+          ContextConfig.create()..setUnits(units),
+          dataFuture,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          eventLogger);
+      final ready = context.waitUntilReady();
+      var readyCompleted = false;
+      ready.then((_) => readyCompleted = true);
+      final error = Exception('initial load failed');
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+
+      final refreshing = context.refresh();
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+      expect(context.isReady(), isFalse);
+      expect(context.isFailed(), isFalse);
+      expect(readyCompleted, isFalse);
+      verifyNever(eventLogger.handleEvent(context, EventType.ready, any));
+      verifyNever(eventLogger.handleEvent(context, EventType.error, any));
+
+      dataFuture.completeError(error);
+      expect(await ready, same(context));
+      expect(context.isReady(), isTrue);
+      expect(context.isFailed(), isTrue);
+      expect(context.readyError(), same(error));
+      expect(context.getExperiments(), isEmpty);
+      expect(context.peekTreatment('exp_test_ab'), equals(0));
+      verifyInOrder([
+        eventLogger.handleEvent(context, EventType.refresh, refreshData),
+        eventLogger.handleEvent(context, EventType.error, error),
+      ]);
+      verifyNever(eventLogger.handleEvent(context, EventType.ready, any));
+      verifyNoMoreInteractions(eventLogger);
+    });
+
+    for (final initialFails in [false, true]) {
+      test(
+          'anIgnoredRefreshDoesNotUndoAnEarlierInstalledRefresh'
+          '${initialFails ? 'OnInitialFailure' : 'OnInitialSuccess'}',
+          () async {
+        final ignored = ContextData(experiments: []);
+        final context = _IgnoringDataContext(
+            ignored,
+            clock,
+            ContextConfig.create()..setUnits(units),
+            dataFuture,
+            dataProvider,
+            eventHandler,
+            variableParser,
+            audienceMatcher,
+            eventLogger);
+        final ready = context.waitUntilReady();
+        final installedRefresh = Completer<ContextData>()
+          ..complete(refreshData);
+        final ignoredRefresh = Completer<ContextData>()..complete(ignored);
+
+        when(dataProvider.getContextData()).thenAnswer((_) => installedRefresh);
+        await context.refresh();
+        expect(context.getData(), same(refreshData));
+
+        when(dataProvider.getContextData()).thenAnswer((_) => ignoredRefresh);
+        await context.refresh();
+        expect(context.getData(), same(refreshData));
+
+        if (initialFails) {
+          dataFuture.completeError(Exception('initial load failed'));
+        } else {
+          dataFuture.complete(data);
+        }
+        expect(await ready, same(context));
+        expect(context.isFailed(), isFalse);
+        expect(context.getData(), same(refreshData));
+      });
+    }
+
+    test('initialFailureAfterOverlappingRefreshKeepsRefresh', () async {
+      final context = createContextWithDefaultConfig(dataFuture);
+      final ready = context.waitUntilReady();
+      var readyCompleted = false;
+      ready.then((_) => readyCompleted = true);
+      final error = Exception('initial load failed');
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      final refreshing = context.refresh();
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+      expect(readyCompleted, isFalse);
+      dataFuture.completeError(error);
+      expect(await ready, same(context));
+      expect(context.isReady(), isTrue);
+      expect(context.isFailed(), isFalse);
+      expect(context.readyError(), isNull);
+      expect(context.getData(), same(refreshData));
+      verifyInOrder([
+        eventLogger.handleEvent(context, EventType.refresh, refreshData),
+        eventLogger.handleEvent(context, EventType.error, error),
+      ]);
+      verifyNever(eventLogger.handleEvent(context, EventType.ready, any));
+
+      context.getTreatment(refreshData.experiments.first.name);
+      await context.publish();
+      final published = verify(eventHandler.publish(any, captureAny)).captured;
+      expect((published.single as PublishEvent).exposures, hasLength(1));
+    });
+
+    test('initialSuccessAfterOverlappingRefreshKeepsRefresh', () async {
+      final context = createContextWithDefaultConfig(dataFuture);
+      final ready = context.waitUntilReady();
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+
+      final refreshing = context.refresh();
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+      dataFuture.complete(data);
+      expect(await ready, same(context));
+      expect(context.isFailed(), isFalse);
+      expect(context.readyError(), isNull);
+      expect(context.getData(), same(refreshData));
+      verifyInOrder([
+        eventLogger.handleEvent(context, EventType.refresh, refreshData),
+        eventLogger.handleEvent(context, EventType.ready, refreshData),
+      ]);
+    });
+
+    test('eventsQueuedBeforeReadyPublishAfterAnOverlappingRefreshWins',
+        () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setPublishDelay(10);
+      final context = Context.create(clock, config, dataFuture, dataProvider,
+          eventHandler, variableParser, audienceMatcher, eventLogger);
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      context.track('goal1', null);
+      final refreshing = context.refresh();
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+      dataFuture.completeError(Exception('initial load failed'));
+      await context.waitUntilReady();
+      expect(context.isFailed(), isFalse);
+
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(context.getPendingCount(), equals(0));
+      final published = verify(eventHandler.publish(any, captureAny)).captured;
+      expect((published.single as PublishEvent).goals.single.name,
+          equals('goal1'));
+    });
+
+    test('waitUntilReadyCompletesWhenTheInitialFetchSettlesAfterRefresh',
+        () async {
+      final context = createContextWithDefaultConfig(dataFuture);
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+      var waiterDone = false;
+      final waiter = context.waitUntilReady().then((_) => waiterDone = true);
+
+      final refreshing = context.refresh();
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+      await Future<void>.delayed(Duration.zero);
+      expect(context.isReady(), isTrue);
+      expect(waiterDone, isFalse);
+      expect(await context.waitUntilReady(), same(context));
+      dataFuture.complete(data);
+      await waiter;
+      expect(waiterDone, isTrue);
+    });
+
+    test('initialSuccessBeforeOverlappingRefreshInstallsBoth', () async {
+      final context = createContextWithDefaultConfig(dataFuture);
+      final ready = context.waitUntilReady();
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+
+      final refreshing = context.refresh();
+      dataFuture.complete(data);
+      expect(await ready, same(context));
+      expect(context.getData(), same(data));
+      refreshDataFuture.complete(refreshData);
+      await refreshing;
+      expect(context.getData(), same(refreshData));
+      verifyInOrder([
+        eventLogger.handleEvent(context, EventType.ready, data),
+        eventLogger.handleEvent(context, EventType.refresh, refreshData),
+      ]);
     });
 
     test('throwsWhenClosed', () async {
@@ -359,7 +710,7 @@ void main() {
           throwsA(isA<Exception>()));
       final finalized = throwsA(predicate((e) =>
           e is Exception &&
-          e.toString().contains('ABsmartly Context is finalized.')));
+          e.toString().contains('ABSmartly Context is closed')));
       expect(() => context.peekTreatment('exp_test_ab'), finalized);
       expect(() => context.getTreatment('exp_test_ab'), finalized);
       expect(() => context.track('goal1', null), finalized);
@@ -369,9 +720,8 @@ void main() {
       expect(() => context.peekVariableValue('banner.border', 17), finalized);
       expect(() => context.getVariableKeys(), finalized);
       expect(() => context.getCustomFieldKeys(), finalized);
-      // data() and experiments() only require readiness (JS context.ts).
-      expect(context.getData(), equals(data));
-      expect(context.getExperiments(), isNotEmpty);
+      expect(() => context.getData(), finalized);
+      expect(() => context.getExperiments(), finalized);
     });
 
     test('getExperiments', () async {
@@ -1040,16 +1390,21 @@ void main() {
       context.setUnit('float_id', 125.75);
       context.setUnit('text_id', ' 007 ');
 
-      expect(context.getUnit('int_id'), equals(125));
-      expect(context.getUnit('int_id'), isA<int>());
-      expect(context.getUnit('float_id'), equals(125.75));
+      expect(context.getUnit('int_id'), equals('125'));
+      expect(context.getUnitValue('int_id'), isA<int>());
+      expect(context.getUnitValue('int_id'), equals(125));
+      expect(context.getUnitValue('float_id'), equals(125.75));
       expect(context.getUnit('text_id'), equals('007'));
-      expect(context.getUnits()['int_id'], isA<int>());
+      expect(context.getUnitValue('text_id'), equals('007'));
+      expect(context.getUnits()['int_id'], equals('125'));
+      expect(context.getUnitValues()['int_id'], isA<int>());
+      expect(
+          context.getUnitValues()['session_id'], equals(units['session_id']));
 
       expect(
           () => context.setUnit('int_id', '125'),
           throwsA(predicate(
-              (e) => e.toString().contains("Unit 'int_id' UID already set."))));
+              (e) => e.toString() == 'Exception: Unit int_id already set.')));
       context.setUnit('int_id', 125);
 
       expect(
@@ -1057,6 +1412,831 @@ void main() {
           throwsA(predicate((e) => e
               .toString()
               .contains("Unit 'bad' must be a string or a number."))));
+    });
+
+    test('contextConfigUnitValuesKeepTheirType', () {
+      final config = ContextConfig.create()
+        ..setUnit('user_id', 42)
+        ..setUnit('session_id', 'abc');
+      final String? uid = config.getUnit('user_id');
+      final Map<String, String> units = config.getUnits();
+      expect(uid, equals('42'));
+      expect(units, equals({'user_id': '42', 'session_id': 'abc'}));
+      expect(config.getUnitValue('user_id'), equals(42));
+      expect(
+          config.getUnitValues(), equals({'user_id': 42, 'session_id': 'abc'}));
+
+      config.units_['user_id'] = '43';
+      expect(config.getUnitValue('user_id'), equals('43'));
+
+      final Context context = Context.create(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher, null);
+      expect(context.getUnitValue('user_id'), equals('43'));
+      expect(context.getUnitValue('session_id'), equals('abc'));
+    });
+
+    test('unitValueFollowsAUidChangedThroughUnitsField', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.setUnit('u', 7);
+      expect(context.getUnitValue('u'), equals(7));
+      context.units_['u'] = '8';
+      expect(context.getUnitValue('u'), equals('8'));
+      expect(context.getUnitValues()['u'], equals('8'));
+      expect(() => context.setUnit('u', '8'), returnsNormally);
+    });
+
+    test('aUidRewrittenThroughUnitsFieldDropsTheNumberItWasSetAs', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.setUnit('u', 125.75);
+      context.units_.remove('u');
+      context.units_['u'] = '125.75';
+      expect(context.getUnitValue('u'), equals('125.75'));
+      expect(context.getUnitHash('u', context.getUnitValue('u')!),
+          equals(Hashing.hashUnit('125.75')));
+
+      final config = ContextConfig.create()..setUnit('c', 125.75);
+      config.units_['c'] = '125.75';
+      expect(config.getUnitValue('c'), equals('125.75'));
+      config.setUnit('m', 8);
+      expect(config.getUnitValue('m'), equals(8));
+      config.units_.remove('m');
+      expect(config.getUnitValue('m'), isNull);
+      expect(config.units_, isA<LinkedHashMap<String, String>>());
+
+      // An assigned map is kept as given, as in 2.1: setUnit writes the
+      // string form into it, and later writes to it are seen.
+      final assigned = <String, String>{'n': '7'};
+      config.units_ = assigned;
+      expect(identical(config.units_, assigned), isTrue);
+      config.setUnit('o', 9);
+      expect(assigned['o'], equals('9'));
+      expect(config.getUnitValue('o'), equals(9));
+      expect(config.getUnitValue('absent'), isNull);
+      expect(config.getUnitValue('o'), equals(9));
+      assigned['o'] = '10';
+      expect(config.getUnitValue('o'), equals('10'));
+
+      config.setUnit('q', 125.75);
+      assigned.clear();
+      expect(config.getUnitValue('q'), isNull);
+      assigned['q'] = '125.75';
+      expect(config.getUnitValue('q'), equals('125.75'));
+      final fresh = Context.create(clock, config, dataFutureReady, dataProvider,
+          eventHandler, variableParser, audienceMatcher, null);
+      expect(fresh.getUnitHash('q', fresh.getUnitValue('q')!),
+          equals(Hashing.hashUnit('125.75')));
+      assigned['p'] = 'x';
+      expect(config.getUnit('p'), equals('x'));
+    });
+
+    test('aPlainMapMissingLookupTouchesOnlyTheQueriedKey', () {
+      final map = _CountingMap();
+      for (int i = 0; i < 100; i++) {
+        setUnitValue(map, 'u$i', i);
+      }
+      map.containsCalls = 0;
+      expect(unitValue(map, 'absent'), isNull);
+      expect(map.containsCalls, equals(0));
+    });
+
+    test('aPlainMapStringSetUnitReplacesTheStoredNumber', () {
+      final config = ContextConfig.create();
+      config.units_ = <String, String>{};
+      config.setUnit('u', 125.75);
+      config.setUnit('u', '125.75');
+      expect(config.getUnitValue('u'), equals('125.75'));
+    });
+
+    test('contextSetUnitValuesPreservesNumericUid', () {
+      final context = Context.create(
+          clock,
+          ContextConfig.create(),
+          dataFutureReady,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          null);
+      context.setUnitValues({'u': 125.75});
+      expect(context.getUnitValue('u'), equals(125.75));
+    });
+
+    test('contextConfigFactoryUnitsPreservesNumericUid', () {
+      final config = ContextConfig.create(units: {'u': 125.75});
+      expect(config.getUnitValue('u'), equals(125.75));
+    });
+
+    test('aSetUnitsOverrideThatRewritesUnitsIsNotUndone', () async {
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      final config = ContextConfig.create()
+        ..setUnit('session_id', 125)
+        ..setUnit('user_id', 125);
+      final context = _RewritingUnitsContext(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher);
+      await context.waitUntilReady();
+
+      expect(context.getUnits(), equals({'session_id': 'p-125'}));
+      context.track('goal1', null);
+      await context.publish();
+      final PublishEvent event =
+          verify(eventHandler.publish(context, captureAny)).captured.single
+              as PublishEvent;
+      expect(event.units.map((u) => u.uid),
+          equals([utf8.decode(Hashing.hashUnit('p-125'))]));
+    });
+
+    test('aLegacyStringGetUnitHashOverrideWorksWithNumericUids', () async {
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      final config = ContextConfig.create()..setUnit('session_id', 125.75);
+      final context = _StringHashContext(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher);
+      await context.waitUntilReady();
+
+      final int treatment = context.getTreatment('exp_test_ab');
+      context.track('goal1', null);
+      final callsBeforePublish = context.hashedUids.length;
+      await context.publish();
+      expect(context.getPendingCount(), equals(0));
+      expect(context.hashedUids.length, greaterThan(callsBeforePublish));
+      expect(context.hashedUids, everyElement('126'));
+      final PublishEvent event =
+          verify(eventHandler.publish(context, captureAny)).captured.single
+              as PublishEvent;
+      expect(
+          event.units.single.uid, equals(utf8.decode(Hashing.hashUnit('126'))));
+      final ExperimentVariables ab = context.getExperiment('exp_test_ab')!;
+      expect(
+          treatment,
+          equals(VariantAssigner(Hashing.hashUnit('126'))
+              .assign(ab.data.split, ab.data.seedHi, ab.data.seedLo)));
+    });
+
+    test('aCaseInsensitiveUnitsMapKeepsOneValuePerEntry', () {
+      final config = ContextConfig.create();
+      config.units_ = SplayTreeMap<String, String>(
+          (a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      config.setUnit('User', 125.75);
+      expect(config.getUnitValue('user'), equals(125.75));
+      config.setUnit('user', '125.75');
+      expect(config.getUnitValue('User'), equals('125.75'));
+      expect(config.getUnitValue('user'), equals('125.75'));
+      expect(config.getUnitValues().values.single, equals('125.75'));
+      final context = Context.create(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher, null);
+      final String key = context.getUnits().keys.single;
+      expect(context.getUnitHash(key, context.getUnitValue(key)!),
+          equals(Hashing.hashUnit('125.75')));
+    });
+
+    test('unitValuesHonourAContextThatOverridesTheUnitGetters', () async {
+      final context = _GetterUnitsContext(
+          clock,
+          ContextConfig.create(),
+          dataFutureReady,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher);
+      expect(context.getUnitValue('session_id'), equals('abc'));
+      expect(context.getUnitValues(), equals({'session_id': 'abc'}));
+    });
+
+    test('aContextUnitSeenMissingDropsItsNumber', () async {
+      final config = ContextConfig.create();
+      final context = _SortedUnitsContext(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher);
+      context.setUnit('k', 5.0);
+      expect(context.getUnitValue('k'), equals(5.0));
+      context.units_.remove('k');
+      expect(context.getUnitValue('k'), isNull);
+      context.units_['k'] = '5.0';
+      expect(context.getUnitValue('k'), equals('5.0'));
+      expect(context.getUnitValues(), equals({'k': '5.0'}));
+    });
+
+    test('unitValuesFollowTheGettersWhenTheyDisagreeWithUnits', () async {
+      final config = ContextConfig.create();
+      final context = _OtherUnitContext(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher);
+      context.setUnit('k', 5.0);
+      expect(context.getUnitValue('k'), equals('other'));
+      expect(context.getUnitValues(), equals({'k': 'other'}));
+    });
+
+    test('aCaseInsensitiveMissDropsTheNumberOfAnEqualKey', () {
+      final config = ContextConfig.create();
+      config.units_ = SplayTreeMap<String, String>(
+          (a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      config.setUnit('User', 5.0);
+      config.units_.remove('user');
+      expect(config.getUnitValue('user'), isNull);
+      config.units_['user'] = '5.0';
+      expect(config.getUnitValue('user'), equals('5.0'));
+    });
+
+    test('aNumberOfARemovedKeyDoesNotLeakOntoAnotherUnit', () {
+      final config = ContextConfig.create();
+      config.units_ = SplayTreeMap<String, String>(
+          (a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      config.setUnit('User', 5.0);
+      config.units_.remove('User');
+      config.units_['x'] = '5.0';
+      expect(config.getUnitValue('x'), equals('5.0'));
+    });
+
+    test('aStaleKeyIsNotMatchedToANeighbouringUnit', () {
+      final config = ContextConfig.create();
+      final units = SplayTreeMap<String, String>(
+          (a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      config.units_ = units;
+      config.setUnit('b', 5.0);
+      // Removed without a lookup, so its number is still stored under 'b'.
+      units.remove('b');
+      units['c'] = '5.0';
+      // 'a' and 'c' sit next to where 'b' was: neither inherits its number.
+      expect(config.getUnitValue('c'), equals('5.0'));
+      units['a'] = '5.0';
+      expect(config.getUnitValue('a'), equals('5.0'));
+    });
+
+    test('stringLiteralSetUnitsCallsReachA21Override', () async {
+      final config = _StringUnitsConfig();
+      final ContextConfig asConfig = config;
+      asConfig.setUnits({'session_id': 'abc'});
+      asConfig.setUnits({});
+      expect(
+          config.seen,
+          equals([
+            {'session_id': 'abc'},
+            {}
+          ]));
+
+      final context = _StringUnitsContext(
+          clock,
+          ContextConfig.create(),
+          dataFutureReady,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher);
+      final Context asContext = context;
+      asContext.setUnits({'user_id': '42'});
+      asContext.setUnits({});
+      expect(context.seen, equals({}));
+      expect(context.getUnit('user_id'), equals('42'));
+
+      final numeric = ContextConfig.create()
+        ..setUnitValues({'session_id': 5.0, 'user_id': 'u'});
+      expect(
+          numeric.getUnitValues(), equals({'session_id': 5.0, 'user_id': 'u'}));
+    });
+
+    test('aNumberSeenReplacedIsNotRevivedByTheSameText', () async {
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      final assigned = <String, String>{};
+      final config = ContextConfig.create()..units_ = assigned;
+      config.setUnit('k', 125.75);
+      assigned['k'] = 'other';
+      expect(config.getUnitValue('k'), equals('other'));
+      assigned['k'] = '125.75';
+      expect(config.getUnitValue('k'), equals('125.75'));
+
+      final context = Context.create(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher, null);
+      await context.waitUntilReady();
+      context.track('goal1', null);
+      await context.publish();
+      final PublishEvent event =
+          verify(eventHandler.publish(context, captureAny)).captured.single
+              as PublishEvent;
+      expect(event.units.single.uid,
+          equals(utf8.decode(Hashing.hashUnit('125.75'))));
+    });
+
+    test('malformedCustomFieldEntriesDoNotFailCreationOrRefresh', () async {
+      List<int> payloadWith(dynamic entry, String country) {
+        final payload = data.toMap();
+        final experiments = payload['experiments'] as List;
+        (experiments.first as Map<String, dynamic>)['customFieldValues'] = [
+          entry,
+          {'name': 'country', 'value': country, 'type': 'string'},
+        ];
+        return utf8.encode(jsonEncode(payload));
+      }
+
+      ContextData parse(List<int> bytes) =>
+          DefaultContextDataDeserializer().deserialize(bytes, 0, bytes.length)!;
+
+      for (final entry in <dynamic>[
+        {'name': 'noType', 'value': 'x'},
+        {'name': 'nullType', 'value': 'x', 'type': null},
+        null,
+      ]) {
+        final context = Context.create(
+            clock,
+            ContextConfig.create()..setUnits(units),
+            Completer<ContextData>()..complete(parse(payloadWith(entry, 'US'))),
+            dataProvider,
+            eventHandler,
+            variableParser,
+            audienceMatcher,
+            null);
+        await context.waitUntilReady();
+        expect(context.isFailed(), isFalse);
+        expect(context.getTreatment('exp_test_abc'), equals(2));
+        final first = data.experiments.first.name;
+        expect(context.getCustomFieldValue(first, 'country'), 'US');
+
+        when(dataProvider.getContextData()).thenAnswer((_) =>
+            Completer<ContextData>()
+              ..complete(parse(payloadWith(entry, 'GB'))));
+        await context.refresh();
+        expect(context.isFailed(), isFalse);
+        expect(context.getTreatment('exp_test_abc'), equals(2));
+        expect(context.getCustomFieldValue(first, 'country'), 'GB');
+      }
+    });
+
+    test('unknownCustomFieldMetadataDoesNotFailEitherExperiment', () async {
+      final payload = data.toMap();
+      final experiments = payload['experiments'] as List;
+      for (final experiment in experiments) {
+        (experiment as Map<String, dynamic>)['customFieldValues'] = [
+          {
+            'name': 'country',
+            'value': 'US',
+            'type': 'string',
+            'futureScalar': 42,
+            'futureObject': {'enabled': true},
+            'futureArray': [1, 'two'],
+          }
+        ];
+      }
+      final bytes = utf8.encode(jsonEncode(payload));
+      final parsed =
+          DefaultContextDataDeserializer().deserialize(bytes, 0, bytes.length)!;
+      final context = Context.create(
+          clock,
+          ContextConfig.create()..setUnits(units),
+          Completer<ContextData>()..complete(parsed),
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          null);
+      await context.waitUntilReady();
+      expect(context.isReady(), isTrue);
+      expect(context.isFailed(), isFalse);
+      expect(context.getTreatment('exp_test_ab'), equals(1));
+      expect(context.getTreatment('exp_test_abc'), equals(2));
+      expect(context.getCustomFieldValue('exp_test_ab', 'country'), 'US');
+      expect(context.getCustomFieldValue('exp_test_abc', 'country'), 'US');
+    });
+
+    test('customFieldValuesAreConvertedByType', () async {
+      final parsed = ContextData.fromMap(data.toMap());
+      final experiment =
+          parsed.experiments.firstWhere((e) => e.name == 'exp_test_ab');
+      experiment.customFieldValues = [
+        CustomFieldValue(name: 'n', value: '1.5', type: 'number'),
+        CustomFieldValue(name: 'f', value: 'false', type: 'boolean'),
+        CustomFieldValue(name: 't', value: 'true', type: 'boolean'),
+        CustomFieldValue(name: 'a', value: '[1,2]', type: 'json'),
+        CustomFieldValue(name: 's', value: '7', type: 'json'),
+      ];
+      final context = createReadyContextWithData(parsed);
+      await context.waitUntilReady();
+
+      expect(context.getCustomFieldValue('exp_test_ab', 'n'), 1.5);
+      expect(context.getCustomFieldValue('exp_test_ab', 'f'), isFalse);
+      expect(context.getCustomFieldValue('exp_test_ab', 't'), isTrue);
+      expect(context.getCustomFieldValue('exp_test_ab', 'a'), [1, 2]);
+      expect(context.getCustomFieldValue('exp_test_ab', 's'), 7);
+    });
+
+    test('customFieldLookupTakesTheFirstMatchAndKeepsEmptyJson', () async {
+      final parsed = ContextData.fromMap(data.toMap());
+      final experiment =
+          parsed.experiments.firstWhere((e) => e.name == 'exp_test_ab');
+      experiment.customFieldValues = [
+        CustomFieldValue(name: 'k', value: 'first', type: 'string'),
+        CustomFieldValue(name: 'k', value: '42', type: 'number'),
+        CustomFieldValue(name: 'j', value: '', type: 'json'),
+      ];
+      final context = createReadyContextWithData(parsed);
+      await context.waitUntilReady();
+
+      expect(context.getCustomFieldValue('exp_test_ab', 'k'), 'first');
+      expect(context.getCustomFieldValueType('exp_test_ab', 'k'), 'string');
+      expect(context.getCustomFieldValue('exp_test_ab', 'j'), '');
+    });
+
+    test('creatingAContextReadsTheConfigUnitsOnce', () {
+      final config = _CountingUnitsConfig()..setUnit('session_id', 'abc');
+      Context.create(clock, config, dataFutureReady, dataProvider, eventHandler,
+          variableParser, audienceMatcher, null);
+      expect(config.getUnitsCalls, equals(1));
+    });
+
+    test('plainUnitsMapsFromSubclassesAreUsedAsIn21', () async {
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      final config = _SortedUnitsConfig()
+        ..setUnit('session_id', 'e791e240fcd3df7d238cfc285f475e8152fcc0ec');
+      expect(config.getUnit('session_id'),
+          equals('e791e240fcd3df7d238cfc285f475e8152fcc0ec'));
+      expect(config.units_, isA<SplayTreeMap<String, String>>());
+
+      final context = _SortedUnitsContext(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher);
+      await context.waitUntilReady();
+      expect(context.getUnitValue('session_id'),
+          equals('e791e240fcd3df7d238cfc285f475e8152fcc0ec'));
+      expect(context.getTreatment('exp_test_ab'), equals(1));
+
+      await context.publish();
+      final PublishEvent event =
+          verify(eventHandler.publish(context, captureAny)).captured.single
+              as PublishEvent;
+      expect(
+          event.units.single.uid,
+          equals(utf8.decode(
+              Hashing.hashUnit('e791e240fcd3df7d238cfc285f475e8152fcc0ec'))));
+    });
+
+    test('numericUidsKeepTheirHashWithPlainUnitsMaps', () async {
+      final config = _SortedUnitsConfig()
+        ..setUnit('session_id', 5.0)
+        ..setUnit('user_id', 125.75);
+      expect(config.getUnit('session_id'), equals('5.0'));
+      expect(config.getUnitValue('session_id'), equals(5.0));
+
+      final context = _SortedUnitsContext(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher);
+      await context.waitUntilReady();
+      expect(context.getUnitValue('session_id'), equals(5.0));
+      expect(context.getUnitValues(),
+          equals({'session_id': 5.0, 'user_id': 125.75}));
+      expect(context.getUnitHash('session_id', 5.0),
+          equals(Hashing.hashUnit('5')));
+    });
+
+    test('aConfigThatImplementsGetUnitsOnlyStillCreatesAContext', () async {
+      final config = _GetUnitsOnlyConfig();
+      final context = Context.create(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher, null);
+      await context.waitUntilReady();
+      expect(context.getUnit('session_id'), equals('abc'));
+      expect(config.getUnitValue('session_id'), equals('abc'));
+    });
+
+    test('aRetryFromTheErrorLoggerDuringASyncPublishFailureIsAwaitedByClose',
+        () async {
+      final retry = Completer<void>();
+      var calls = 0;
+      when(eventHandler.publish(any, any)).thenAnswer((_) {
+        calls++;
+        if (calls == 1) {
+          throw Exception('sync publish failure');
+        }
+        return retry;
+      });
+      late Context context;
+      var retried = false;
+      when(eventLogger.handleEvent(any, EventType.error, any)).thenAnswer((_) {
+        if (!retried) {
+          retried = true;
+          context.publish().catchError((_) {});
+        }
+      });
+      context = createContext(
+          ContextConfig.create()
+            ..setUnits(units)
+            ..setPublishDelay(-1),
+          dataFutureReady);
+      await context.waitUntilReady();
+      context.track('goal1', null);
+
+      await expectLater(context.publish(), throwsException);
+      expect(calls, equals(2));
+
+      var closed = false;
+      final closing = context.close().then((_) => closed = true);
+      await Future<void>.delayed(Duration.zero);
+      expect(closed, isFalse);
+      retry.complete();
+      await closing;
+      expect(context.isClosed(), isTrue);
+      expect(context.getPendingCount(), equals(0));
+    });
+
+    test('aRefreshReportsItsOwnSyncProviderFailureWhenTheLoggerRetries',
+        () async {
+      final retry = Completer<ContextData>();
+      var calls = 0;
+      when(dataProvider.getContextData()).thenAnswer((_) {
+        calls++;
+        if (calls == 1) {
+          throw Exception('sync provider failure');
+        }
+        return retry;
+      });
+      late Context context;
+      Future<void>? retryRefresh;
+      when(eventLogger.handleEvent(any, EventType.error, any)).thenAnswer((_) {
+        retryRefresh ??= context.refresh();
+      });
+      context = createContextWithDefaultConfig(dataFutureReady);
+      await context.waitUntilReady();
+
+      await expectLater(context.refresh(), throwsException);
+      expect(calls, equals(2));
+      retry.complete(refreshData);
+      await retryRefresh;
+      expect(context.getExperiments(),
+          equals(refreshData.experiments.map((e) => e.name).toList()));
+    });
+
+    test('aSecondOverlappingRefreshDoesNotRetryAFailedPublish', () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setPublishDelay(0);
+      final context = Context.create(clock, config, dataFuture, dataProvider,
+          eventHandler, variableParser, audienceMatcher, null);
+      when(eventHandler.publish(any, any)).thenAnswer(
+          (_) => Completer<void>()..completeError(Exception('publish failed')));
+      context.track('goal1', null);
+
+      var refreshFuture = Completer<ContextData>();
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshFuture);
+      final first = context.refresh();
+      refreshFuture.complete(refreshData);
+      await first;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      verify(eventHandler.publish(any, any)).called(1);
+
+      refreshFuture = Completer<ContextData>();
+      final second = context.refresh();
+      refreshFuture.complete(refreshData);
+      await second;
+      dataFuture.complete(data);
+      await context.waitUntilReady();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      verifyNever(eventHandler.publish(any, any));
+      expect(context.getPendingCount(), equals(1));
+    });
+
+    test('aRefreshOfAReadyContextDoesNotRetryAFailedPublish', () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setPublishDelay(0);
+      final context = Context.create(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher, null);
+      await context.waitUntilReady();
+      when(eventHandler.publish(any, any)).thenAnswer(
+          (_) => Completer<void>()..completeError(Exception('publish failed')));
+      context.track('goal1', null);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      verify(eventHandler.publish(any, any)).called(1);
+      expect(context.getPendingCount(), equals(1));
+
+      when(dataProvider.getContextData()).thenAnswer((_) => refreshDataFuture);
+      refreshDataFuture.complete(refreshData);
+      await context.refresh();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      verifyNever(eventHandler.publish(any, any));
+      expect(context.getPendingCount(), equals(1));
+    });
+
+    test('aUidRewrittenAfterHashingKeepsTheFirstHashAsIn21', () async {
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      final config = ContextConfig.create()..setUnit('session_id', 'A');
+      final context = Context.create(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher, null);
+      await context.waitUntilReady();
+
+      final int ab = context.getTreatment('exp_test_ab');
+      context.units_['session_id'] = 'B';
+      final int abc = context.getTreatment('exp_test_abc');
+      await context.publish();
+
+      final assigner = VariantAssigner(Hashing.hashUnit('A'));
+      final ExperimentVariables abData = context.getExperiment('exp_test_ab')!;
+      final ExperimentVariables abcData =
+          context.getExperiment('exp_test_abc')!;
+      expect(
+          ab,
+          equals(assigner.assign(
+              abData.data.split, abData.data.seedHi, abData.data.seedLo)));
+      expect(
+          abc,
+          equals(assigner.assign(
+              abcData.data.split, abcData.data.seedHi, abcData.data.seedLo)));
+      final PublishEvent event =
+          verify(eventHandler.publish(context, captureAny)).captured.single
+              as PublishEvent;
+      expect(
+          event.units.single.uid, equals(utf8.decode(Hashing.hashUnit('A'))));
+      expect(
+          identical(context.getUnitHash('session_id', 'B'),
+              context.getUnitHash('session_id', 'A')),
+          isTrue);
+    });
+
+    test('paddedUidSetAgainThrowsAsIn21', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      context.setUnit('padded', ' abc ');
+      expect(context.getUnit('padded'), equals('abc'));
+      expect(() => context.setUnit('padded', 'abc'), returnsNormally);
+      expect(
+          () => context.setUnit('padded', ' abc '),
+          throwsA(predicate(
+              (e) => e.toString() == 'Exception: Unit padded already set.')));
+    });
+
+    test('acceptedStringRepeatTrimsWithoutReplacingACachedHash', () async {
+      for (final cacheFirst in [false, true]) {
+        when(eventHandler.publish(any, any))
+            .thenAnswer((_) => createCompleteVoidCompleter());
+        final config = ContextConfig.create();
+        final context = _StringHashContext(clock, config, dataFutureReady,
+            dataProvider, eventHandler, variableParser, audienceMatcher);
+        await context.waitUntilReady();
+        context.units_['session_id'] = ' abc ';
+        if (cacheFirst) {
+          context.getUnitHash('session_id', ' abc ');
+        }
+        context.setUnit('session_id', ' abc ');
+        expect(context.getUnit('session_id'), 'abc');
+        expect(context.getUnitValue('session_id'), 'abc');
+        expect(() => context.setUnit('session_id', ' abc '), throwsException);
+        context.track('goal', null);
+        await context.close();
+        final event = verify(eventHandler.publish(context, captureAny))
+            .captured
+            .single as PublishEvent;
+        expect(event.units.single.uid,
+            utf8.decode(Hashing.hashUnit(cacheFirst ? ' abc ' : 'abc')));
+      }
+    });
+
+    test('numericRepeatKeepsFirstIdentityThroughClose', () async {
+      for (final pair in <List<num>>[
+        [9007199254740993, 9007199254740992.0],
+        [9007199254740992.0, 9007199254740993],
+        [125, 125.0],
+        [125.0, 125],
+      ]) {
+        when(eventHandler.publish(any, any))
+            .thenAnswer((_) => createCompleteVoidCompleter());
+        final config = ContextConfig.create()..setUnit('numeric_id', pair[0]);
+        final context = _StringHashContext(clock, config, dataFutureReady,
+            dataProvider, eventHandler, variableParser, audienceMatcher);
+        await context.waitUntilReady();
+        context.setUnit('numeric_id', pair[1]);
+        context.track('goal', null);
+        await context.close();
+        final event = verify(eventHandler.publish(context, captureAny))
+            .captured
+            .single as PublishEvent;
+        final expected = Hashing.hashInput(pair[0]);
+        expect(event.units.single.uid, utf8.decode(Hashing.hashUnit(expected)));
+        expect(context.hashedUids, contains(expected));
+        expect(context.getUnitValue('numeric_id').runtimeType,
+            pair[0].runtimeType);
+      }
+    });
+
+    test('numericUnitIsPublishedWithItsNumericHash', () async {
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      final config = ContextConfig.create()..setUnit('float_id', 125.75);
+      final Context context = Context.create(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher, null);
+      await context.waitUntilReady();
+
+      context.track('goal1', null);
+      await context.publish();
+
+      final PublishEvent event =
+          verify(eventHandler.publish(context, captureAny)).captured.single
+              as PublishEvent;
+      expect(event.units.single.type, equals('float_id'));
+      expect(
+          event.units.single.uid, equals(utf8.decode(Hashing.hashUnit('126'))));
+    });
+
+    test('subclassOverridingSetUnitsWithStringsStillWorks', () async {
+      final config = ContextConfig.create()
+        ..setUnit('session_id', 'abc')
+        ..setUnit('user_id', 42);
+      final context = _StringUnitsContext(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher);
+      await context.waitUntilReady();
+
+      expect(context.seen, equals({'session_id': 'abc', 'user_id': '42'}));
+      expect(context.getUnitValue('user_id'), equals(42));
+      expect(
+          context.getUnitHash('user_id', 42), equals(Hashing.hashUnit('42')));
+    });
+
+    test('numericUnitsAssignLikeTheirJavaScriptToFixedForm', () async {
+      final Experiment ruleFree =
+          data.experiments.firstWhere((e) => e.name == 'exp_test_abc');
+      final ContextData splitRule = ContextData(experiments: [
+        Experiment(
+            id: ruleFree.id,
+            name: 'exp_split_rule',
+            unitType: 'u',
+            iteration: 1,
+            seedHi: 123,
+            seedLo: 456,
+            split: ruleFree.split,
+            trafficSeedHi: ruleFree.trafficSeedHi,
+            trafficSeedLo: ruleFree.trafficSeedLo,
+            trafficSplit: ruleFree.trafficSplit,
+            fullOnVariant: 0,
+            applications: ruleFree.applications,
+            variants: ruleFree.variants,
+            audienceStrict: false,
+            audience: null,
+            assignmentRules:
+                '{"rules":[{"type":"split","percentages":"20/30/50"}]}'),
+        Experiment(
+            id: ruleFree.id + 1000,
+            name: 'exp_no_rule',
+            unitType: 'u',
+            iteration: 1,
+            seedHi: ruleFree.seedHi,
+            seedLo: ruleFree.seedLo,
+            split: ruleFree.split,
+            trafficSeedHi: ruleFree.trafficSeedHi,
+            trafficSeedLo: ruleFree.trafficSeedLo,
+            trafficSplit: ruleFree.trafficSplit,
+            fullOnVariant: 0,
+            applications: ruleFree.applications,
+            variants: ruleFree.variants,
+            audienceStrict: false,
+            audience: null),
+      ]);
+
+      // One context per experiment: the unit hash is cached per unit type,
+      // so each assignment path must hash the UID itself.
+      Future<int> treatment(Object uid, String experiment,
+          {bool legacy = false}) async {
+        final config = ContextConfig.create()..setUnit('u', uid);
+        final completer = Completer<ContextData>()..complete(splitRule);
+        final context = legacy
+            ? _StringHashContext(clock, config, completer, dataProvider,
+                eventHandler, variableParser, audienceMatcher)
+            : Context.create(clock, config, completer, dataProvider,
+                eventHandler, variableParser, audienceMatcher, null);
+        await context.waitUntilReady();
+        return context.peekTreatment(experiment);
+      }
+
+      for (final name in ['exp_split_rule', 'exp_no_rule']) {
+        int discriminating = 0;
+        for (int i = 0; i < 40; i++) {
+          final int expected = await treatment('${i + 1}', name);
+          expect(await treatment(i + 0.75, name), equals(expected),
+              reason: '$name uid ${i + 0.75}');
+          expect(
+              await treatment(i + 0.75, name, legacy: true), equals(expected),
+              reason: 'legacy $name uid ${i + 0.75}');
+          if (await treatment('${i + 0.75}', name) != expected) {
+            discriminating++;
+          }
+        }
+        // Hashing "i.75" instead of "i+1" would change some assignments.
+        expect(discriminating, greaterThan(0), reason: name);
+      }
+    });
+
+    test('negativeZeroUnitHashesLikeZero', () {
+      expect(Hashing.hashUnitValue(-0.0), equals(Hashing.hashUnit('0')));
+      expect(Hashing.hashUnitValue(-0.4), equals(Hashing.hashUnit('-0')));
+      expect(Hashing.hashUnitValue(0), equals(Hashing.hashUnit('0')));
+    });
+
+    test('numericUnitFromConfigIsHashedAsANumber', () async {
+      final config = ContextConfig.create()..setUnit('float_id', 125.75);
+      final Context context = Context.create(clock, config, dataFutureReady,
+          dataProvider, eventHandler, variableParser, audienceMatcher, null);
+      await context.waitUntilReady();
+      expect(context.getUnitValue('float_id'), equals(125.75));
+      expect(context.getUnitHash('float_id', 125.75),
+          equals(Hashing.hashUnit('126')));
     });
 
     test('numericUnitHashesLikeJavaScript', () async {
@@ -1627,6 +2807,61 @@ void main() {
       expect(context.peekVariableValue("icon", "square"), equals("circle"));
     });
 
+    test('aSharedVariableKeyExposesOnlyTheWinnerAndDoesNotFallThrough',
+        () async {
+      for (final experiment in data.experiments) {
+        switch (experiment.name) {
+          case "exp_test_ab":
+            experiment.id = 1;
+            experiment.variants[expectedVariants["exp_test_ab"]!].config =
+                "{\"other\":\"x\"}";
+            for (var i = 0; i < experiment.variants.length; i++) {
+              if (i != expectedVariants["exp_test_ab"]!) {
+                experiment.variants[i].config = "{\"icon\":\"square\"}";
+              }
+            }
+            break;
+          case "exp_test_abc":
+            experiment.id = 99;
+            experiment.variants[expectedVariants["exp_test_abc"]!].config =
+                "{\"icon\":\"circle\"}";
+            break;
+          default:
+            break;
+        }
+      }
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+
+      final context = createReadyContextWithData(data);
+      await context.waitUntilReady();
+
+      expect(context.peekVariableValue("icon", "default"), equals("default"));
+      expect(context.getPendingCount(), equals(0));
+      expect(context.getVariableValue("icon", "default"), equals("default"));
+      expect(context.getVariableValue("icon", "default"), equals("default"));
+      expect(context.getPendingCount(), equals(1));
+
+      await context.publish();
+      final event = verify(eventHandler.publish(any, captureAny))
+          .captured
+          .single as PublishEvent;
+      expect(event.exposures.map((e) => e.name), equals(["exp_test_ab"]));
+    });
+
+    test('anOverrideWinsASharedVariableKeyForAnUnassignedUnit', () async {
+      final context = createContext(
+          ContextConfig.create()
+            ..setUnit('session_id', units['session_id']!)
+            ..setOverride('exp_test_not_eligible', 2),
+          dataFutureReady);
+      await context.waitUntilReady();
+
+      expect(context.peekVariableValue('card.width', 'd'), equals('75%'));
+      expect(context.getVariableValue('card.width', 'd'), equals('75%'));
+      expect(context.getPendingCount(), equals(1));
+    });
+
     test('getVariableValueConflictingKeyDisjointAudiences', () async {
       for (final experiment in data.experiments) {
         switch (experiment.name) {
@@ -1858,10 +3093,49 @@ void main() {
           equals(refreshData.experiments.map((e) => e.name).toList()));
     });
 
-    test('restoresRefreshTimerWhenCloseFails', () async {
+    test('aFailedCloseBeforeReadyDoesNotRefreshWhenTheInitialLoadFails',
+        () async {
+      final initial = Completer<ContextData>();
       final config = ContextConfig.create()
         ..setUnits(units)
-        ..setRefreshInterval(50);
+        ..setPublishDelay(-1)
+        ..setRefreshInterval(5);
+      final context = createContext(config, initial);
+      context.track('goal1', null);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      verifyNever(dataProvider.getContextData());
+      expect(context.isReady(), isFalse);
+      initial.completeError(Exception('initial load failed'));
+      await context.waitUntilReady();
+      expect(context.isFailed(), isTrue);
+    });
+
+    test('aFailedCloseBeforeReadyDoesNotRefreshWhenTheInitialLoadSucceeds',
+        () async {
+      final initial = Completer<ContextData>();
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setPublishDelay(-1)
+        ..setRefreshInterval(5);
+      final context = createContext(config, initial);
+      context.track('goal1', null);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+      initial.complete(data);
+      await context.waitUntilReady();
+      expect(context.isReady(), isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      verifyNever(dataProvider.getContextData());
+    });
+
+    test('aFailedCloseStopsAutomaticRefresh', () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setRefreshInterval(5);
       final context = createContext(config, dataFutureReady);
       await context.waitUntilReady();
 
@@ -1871,13 +3145,244 @@ void main() {
       await expectLater(context.close(), throwsException);
       expect(context.isClosed(), isFalse);
 
-      final refreshed = Completer<void>();
-      when(dataProvider.getContextData()).thenAnswer((_) {
-        if (!refreshed.isCompleted) refreshed.complete();
-        return refreshDataFutureReady;
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      verifyNever(dataProvider.getContextData());
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      await context.close();
+      expect(context.isClosed(), isTrue);
+    });
+
+    test('aSuccessfulExplicitRefreshAfterAFailedCloseRearmsAutomaticRefresh',
+        () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setRefreshInterval(5);
+      final context = createContext(config, dataFutureReady);
+      await context.waitUntilReady();
+
+      context.track('goal1', {'amount': 125});
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+      expect(context.refreshTimer_, isNull);
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => refreshDataFutureReady);
+      await context.refresh();
+      expect(context.refreshTimer_, isNotNull);
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(verify(dataProvider.getContextData()).callCount,
+          greaterThanOrEqualTo(2));
+
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createCompleteVoidCompleter());
+      await context.close();
+      expect(context.isClosed(), isTrue);
+      expect(context.refreshTimer_, isNull);
+    });
+
+    test('aFailedExplicitRefreshAfterAFailedCloseKeepsAutomaticRefreshOff',
+        () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setRefreshInterval(5);
+      final context = createContext(config, dataFutureReady);
+      await context.waitUntilReady();
+
+      context.track('goal1', null);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+
+      when(dataProvider.getContextData()).thenAnswer(
+          (_) => Completer<ContextData>()..completeError(Exception('down')));
+      await expectLater(context.refresh(), throwsException);
+      expect(context.refreshTimer_, isNull);
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      verify(dataProvider.getContextData()).called(1);
+    });
+
+    test('anAutomaticRefreshLandingAfterAFailedCloseDoesNotRearm', () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setRefreshInterval(5);
+      final context = createContext(config, dataFutureReady);
+      await context.waitUntilReady();
+
+      final inFlight = Completer<ContextData>();
+      when(dataProvider.getContextData()).thenAnswer((_) => inFlight);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      verify(dataProvider.getContextData()).called(1);
+
+      context.track('goal1', null);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+
+      inFlight.complete(refreshData);
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+      expect(context.getExperiments(),
+          equals(refreshData.experiments.map((e) => e.name).toList()));
+      expect(context.refreshTimer_, isNull);
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      verifyNever(dataProvider.getContextData());
+    });
+
+    test('anIgnoredExplicitRefreshAfterAFailedCloseDoesNotRearmWhenReady',
+        () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setPublishDelay(-1)
+        ..setRefreshInterval(5);
+      final context = _IgnoringDataContext(
+          refreshData,
+          clock,
+          config,
+          dataFutureReady,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          eventLogger);
+      await context.waitUntilReady();
+      expect(context.isReady(), isTrue);
+      context.track('goal1', null);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+      expect(context.refreshTimer_, isNull);
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => refreshDataFutureReady);
+      await context.refresh();
+      expect(context.getData(), same(data));
+      expect(context.refreshTimer_, isNull);
+    });
+
+    test(
+        'anIgnoredExplicitRefreshAfterAnEarlierInstallAndFailedCloseDoesNotRearm',
+        () async {
+      final ignored = ContextData(experiments: []);
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setPublishDelay(-1)
+        ..setRefreshInterval(5);
+      final context = _IgnoringDataContext(
+          ignored,
+          clock,
+          config,
+          dataFutureReady,
+          dataProvider,
+          eventHandler,
+          variableParser,
+          audienceMatcher,
+          eventLogger);
+      await context.waitUntilReady();
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => refreshDataFutureReady);
+      await context.refresh();
+      expect(context.getData(), same(refreshData));
+      context.clearRefreshTimer();
+
+      context.track('goal1', null);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+      expect(context.refreshTimer_, isNull);
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => Completer<ContextData>()..complete(ignored));
+      await context.refresh();
+      expect(context.getData(), same(refreshData));
+      expect(context.refreshTimer_, isNull);
+    });
+
+    for (final explicitFails in [false, true]) {
+      test(
+          'anEarlierExplicitRefresh${explicitFails ? 'Failure' : 'Success'}'
+          'DoesNotMakeALaterAutomaticRefreshRearm', () async {
+        final config = ContextConfig.create()
+          ..setUnits(units)
+          ..setRefreshInterval(5);
+        final context = createContext(config, dataFutureReady);
+        await context.waitUntilReady();
+
+        when(dataProvider.getContextData()).thenAnswer((_) => explicitFails
+            ? (Completer<ContextData>()..completeError(Exception('down')))
+            : refreshDataFutureReady);
+        if (explicitFails) {
+          await expectLater(context.refresh(), throwsException);
+        } else {
+          await context.refresh();
+        }
+
+        final inFlight = Completer<ContextData>();
+        when(dataProvider.getContextData()).thenAnswer((_) => inFlight);
+        clearInteractions(dataProvider);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        verify(dataProvider.getContextData()).called(1);
+
+        context.track('goal1', null);
+        when(eventHandler.publish(any, any))
+            .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+        await expectLater(context.close(), throwsException);
+
+        inFlight.complete(refreshData);
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+        expect(context.refreshTimer_, isNull);
       });
-      await refreshed.future.timeout(const Duration(seconds: 2));
-      verify(dataProvider.getContextData()).called(greaterThan(0));
+    }
+
+    test('anExplicitRefreshAfterAutomaticTicksAndAFailedCloseRearms', () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setRefreshInterval(5);
+      final context = createContext(config, dataFutureReady);
+      await context.waitUntilReady();
+
+      when(dataProvider.getContextData())
+          .thenAnswer((_) => refreshDataFutureReady);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      verify(dataProvider.getContextData()).called(greaterThanOrEqualTo(1));
+
+      context.track('goal1', null);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+      expect(context.refreshTimer_, isNull);
+
+      await context.refresh();
+      expect(context.refreshTimer_, isNotNull);
+      context.clearRefreshTimer();
+    });
+
+    test('anExplicitRefreshJoiningAnAutomaticOneAfterAFailedCloseRearms',
+        () async {
+      final config = ContextConfig.create()
+        ..setUnits(units)
+        ..setRefreshInterval(5);
+      final context = createContext(config, dataFutureReady);
+      await context.waitUntilReady();
+
+      final inFlight = Completer<ContextData>();
+      when(dataProvider.getContextData()).thenAnswer((_) => inFlight);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      verify(dataProvider.getContextData()).called(1);
+
+      context.track('goal1', null);
+      when(eventHandler.publish(any, any))
+          .thenAnswer((_) => createErrorVoidCompleter(Exception('FAILED')));
+      await expectLater(context.close(), throwsException);
+
+      final joined = context.refresh();
+      inFlight.complete(refreshData);
+      await joined;
+      verifyNever(dataProvider.getContextData());
+      expect(context.refreshTimer_, isNotNull);
+      context.clearRefreshTimer();
     });
 
     test('refreshKeepsAssignmentCacheWhenNotChanged', () async {
@@ -2453,12 +3958,30 @@ void main() {
       expect(returnedUnits['email'], equals('bleh@absmartly.com'));
     });
 
-    test('getUnitsReturnsUnmodifiableMap', () async {
+    test('getUnitsReturnsACopy', () async {
       final Context context = createReadyContext();
       await context.waitUntilReady();
 
       final returnedUnits = context.getUnits();
-      expect(() => returnedUnits['new_key'] = 'value', throwsUnsupportedError);
+      returnedUnits['new_key'] = 'value';
+      expect(context.getUnit('new_key'), isNull);
+      expect(context.getUnits().containsKey('new_key'), isFalse);
+    });
+
+    test('getUnitsKeepsTheReleasedStringMapType', () async {
+      final Context context = createReadyContext();
+      await context.waitUntilReady();
+
+      final Map<String, String> released = context.getUnits();
+      expect(released, equals(units));
+      final String? uid = context.getUnit('session_id');
+      expect(uid, equals('e791e240fcd3df7d238cfc285f475e8152fcc0ec'));
+
+      context.setUnit('org_id', 42);
+      final Map<String, String> after = context.getUnits();
+      expect(after['org_id'], equals('42'));
+      final Map<String, String> field = context.units_;
+      expect(field['org_id'], equals('42'));
     });
 
     test('trackPassesPropertiesToGoalAchievement', () async {
@@ -2666,7 +4189,7 @@ void main() {
 
       // The second publish waits for the in-flight one instead of resending.
       expect(sent.length, equals(1));
-      expect(sent[0].goals!.map((g) => g.name), equals(['goal1', 'goal2']));
+      expect(sent[0].goals.map((g) => g.name), equals(['goal1', 'goal2']));
       expect(context.getPendingCount(), equals(0));
 
       context.track('goal3', {'amount': 3});
@@ -2675,7 +4198,7 @@ void main() {
       await Future.delayed(Duration.zero);
 
       expect(sent.length, equals(2));
-      expect(sent[1].goals!.map((g) => g.name), equals(['goal3']));
+      expect(sent[1].goals.map((g) => g.name), equals(['goal3']));
       pending[1].complete();
       await second;
 
@@ -2708,7 +4231,7 @@ void main() {
       pending[1].complete();
       await retry;
 
-      expect(sent[1].goals!.map((g) => g.name), equals(['goal1', 'goal2']));
+      expect(sent[1].goals.map((g) => g.name), equals(['goal1', 'goal2']));
       expect(context.getPendingCount(), equals(0));
     });
 
@@ -2891,5 +4414,250 @@ class _ThrowingVariableParser implements VariableParser {
   Map<String, dynamic>? parse(Context context, String experimentName,
       String variantName, String variableValue) {
     throw error;
+  }
+}
+
+class _StringUnitsContext extends Context {
+  _StringUnitsContext(
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, null);
+
+  Map<String, String>? seen;
+
+  @override
+  void setUnits(Map<String, String> units) {
+    seen = Map.of(units);
+    super.setUnits(units);
+  }
+}
+
+class _FailOnceVariableParser extends DefaultVariableParser {
+  bool _failed = false;
+
+  @override
+  Map<String, dynamic>? parse(Context context, String experimentName,
+      String variantName, String config) {
+    if (!_failed) {
+      _failed = true;
+      throw StateError('bad config');
+    }
+    return super.parse(context, experimentName, variantName, config);
+  }
+}
+
+class _SortedUnitsConfig extends ContextConfig {
+  @override
+  Map<String, String> units_ = SplayTreeMap<String, String>();
+}
+
+class _SortedUnitsContext extends Context {
+  _SortedUnitsContext(
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, null);
+
+  @override
+  final Map<String, String> units_ = SplayTreeMap<String, String>();
+}
+
+class _GetUnitsOnlyConfig implements ContextConfig {
+  @override
+  Map<String, String> getUnits() => {'session_id': 'abc'};
+
+  @override
+  Map<String, dynamic> getAttributes() => {};
+
+  @override
+  Map<String, int> getOverrides() => {};
+
+  @override
+  Map<String, int> getCustomAssignments() => {};
+
+  @override
+  int getPublishDelay() => -1;
+
+  @override
+  int getRefreshInterval() => 0;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnsupportedError('${invocation.memberName}');
+}
+
+class _CountingUnitsConfig extends ContextConfig {
+  int getUnitsCalls = 0;
+
+  @override
+  Map<String, String> getUnits() {
+    getUnitsCalls++;
+    return super.getUnits();
+  }
+}
+
+class _RewritingUnitsContext extends Context {
+  _RewritingUnitsContext(
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, null);
+
+  @override
+  void setUnits(Map<String, String> units) {
+    super.setUnits({'session_id': 'p-${units['session_id']}'});
+  }
+}
+
+class _IgnoringDataContext extends Context {
+  _IgnoringDataContext(
+      this.ignored,
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher,
+      ContextEventLogger eventLogger)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, eventLogger);
+
+  final ContextData ignored;
+
+  @override
+  void setData(ContextData data) {
+    if (!identical(data, ignored)) {
+      super.setData(data);
+    }
+  }
+}
+
+class _InstallingContext extends Context {
+  _InstallingContext(
+      this.installed,
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher,
+      ContextEventLogger eventLogger)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, eventLogger);
+
+  final ContextData installed;
+
+  @override
+  void setData(ContextData data) => super.setData(installed);
+}
+
+class _StringHashContext extends Context {
+  _StringHashContext(
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, null);
+
+  final List<String> hashedUids = [];
+
+  @override
+  Uint8List getUnitHash(final String unitType, final String unitUID) {
+    hashedUids.add(unitUID);
+    return super.getUnitHash(unitType, unitUID);
+  }
+}
+
+class _GetterUnitsContext extends Context {
+  _GetterUnitsContext(
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, null);
+
+  @override
+  String? getUnit(final String unitType) =>
+      unitType == 'session_id' ? 'abc' : null;
+
+  @override
+  Map<String, String> getUnits() => {'session_id': 'abc'};
+}
+
+class _OtherUnitContext extends Context {
+  _OtherUnitContext(
+      Clock clock,
+      ContextConfig config,
+      Completer<ContextData> dataFuture,
+      ContextDataProvider dataProvider,
+      ContextEventHandler eventHandler,
+      VariableParser variableParser,
+      AudienceMatcher audienceMatcher)
+      : super(clock, config, dataFuture, dataProvider, eventHandler,
+            variableParser, audienceMatcher, null);
+
+  @override
+  String? getUnit(final String unitType) =>
+      super.getUnit(unitType) == null ? null : 'other';
+
+  @override
+  Map<String, String> getUnits() =>
+      super.getUnits().map((key, _) => MapEntry(key, 'other'));
+}
+
+class _StringUnitsConfig extends ContextConfig {
+  final List<Map<String, String>> seen = [];
+
+  @override
+  ContextConfig setUnits(Map<String, String> units) {
+    seen.add(Map.of(units));
+    return super.setUnits(units);
+  }
+}
+
+class _CountingMap extends MapBase<String, String> {
+  final Map<String, String> _map = {};
+  int containsCalls = 0;
+
+  @override
+  String? operator [](Object? key) => _map[key];
+  @override
+  void operator []=(String key, String value) => _map[key] = value;
+  @override
+  void clear() => _map.clear();
+  @override
+  Iterable<String> get keys => _map.keys;
+  @override
+  String? remove(Object? key) => _map.remove(key);
+  @override
+  bool containsKey(Object? key) {
+    containsCalls++;
+    return _map.containsKey(key);
   }
 }

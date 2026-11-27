@@ -277,21 +277,36 @@ void main() {
   // End-to-end: the application and environment names flow from the client
   // config through ABSmartly.createContext into the evaluation map.
   group('System Attributes end-to-end through ABSmartly', () {
-    test('client application and environment reach the evaluation map',
-        () async {
+    Future<ABSmartly> sdkFor(String environment) async {
       final dataBytes =
           await getResourceBytes('system_attributes_context.json');
       final clientConfig = ClientConfig()
           .setEndpoint('https://localhost/v1')
           .setAPIKey('test-api-key')
           .setApplication('website')
-          .setEnvironment('production');
+          .setEnvironment(environment);
       final client =
           Client.create(clientConfig, httpClient: _StubHttpClient(dataBytes));
+      return ABSmartly(ABSmartlyConfig.create().setClient(client));
+    }
 
-      final sdk = ABSmartly(ABSmartlyConfig.create().setClient(client));
+    test('client application and environment reach the evaluation map',
+        () async {
+      final sdk = await sdkFor('production');
       final context = sdk
           .createContext(ContextConfig.create()..setUnit('session_id', 'abc'));
+      await context.waitUntilReady();
+
+      expect(context.peekTreatment('exp_env'), equals(1));
+      expect(context.peekTreatment('exp_app'), equals(1));
+      expect(context.peekTreatment('exp_env_staging'), equals(0));
+    });
+
+    test('they also reach contexts created from prefetched data', () async {
+      final sdk = await sdkFor('production');
+      final data = await sdk.getContextData();
+      final context = sdk.createContextWith(
+          ContextConfig.create()..setUnit('session_id', 'abc'), data);
       await context.waitUntilReady();
 
       expect(context.peekTreatment('exp_env'), equals(1));

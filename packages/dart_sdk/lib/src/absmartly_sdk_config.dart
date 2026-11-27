@@ -6,7 +6,7 @@ import 'client.dart';
 import 'context_data_provider.dart';
 import 'context_publisher.dart';
 import 'default_context_data_provider.dart';
-import 'default_context_publisher.dart';
+import 'default_context_event_handler.dart';
 import 'variable_parser.dart';
 import 'audience_deserializer.dart';
 
@@ -56,12 +56,6 @@ class ABSmartlyConfig {
     return this;
   }
 
-  ABSmartlyConfig setContextPublisher(ContextPublisher publisher) {
-    _contextEventHandler = publisher;
-    return this;
-  }
-
-  @Deprecated("Use setContextPublisher instead")
   ABSmartlyConfig setContextEventHandler(ContextPublisher handler) {
     _contextEventHandler = handler;
     return this;
@@ -106,7 +100,7 @@ class ABSmartlyConfig {
     if (_client == null) {
       throw Exception("Missing Client instance");
     }
-    return DefaultContextPublisher(_client!);
+    return DefaultContextEventHandler(_client!);
   }
 
   ContextEventLogger? getContextEventLogger() {
@@ -125,5 +119,15 @@ class ABSmartlyConfig {
       return _audienceDeserializer!;
     }
     return DefaultAudienceDeserializer();
+  }
+}
+
+/// [ContextPublisher] naming for [ABSmartlyConfig]. An extension rather than a
+/// member of [ABSmartlyConfig], so existing `implements ABSmartlyConfig`
+/// classes keep compiling.
+extension ABSmartlyConfigContextPublisher on ABSmartlyConfig {
+  /// Same as [ABSmartlyConfig.setContextEventHandler].
+  ABSmartlyConfig setContextPublisher(ContextPublisher publisher) {
+    return setContextEventHandler(publisher);
   }
 }

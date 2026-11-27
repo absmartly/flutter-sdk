@@ -7,6 +7,7 @@ import 'package:absmartly_dart/src/json/context_data.dart';
 import 'package:absmartly_dart/src/json/experiment.dart';
 import 'package:absmartly_dart/src/json/experiment_variant.dart';
 import 'package:absmartly_dart/src/json/experiment_application.dart';
+import 'package:absmartly_dart/src/json/exposure.dart';
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
@@ -248,6 +249,73 @@ void main() {
       expect(data!.experiments.single.assignmentRules, rules);
     });
 
+    test('malformedCustomFieldValuesDoNotFailTheContext', () {
+      Map<String, dynamic> withFields(dynamic fields) => {
+            'experiments': [
+              {
+                ...experimentJson(split: [0.5, 0.5], trafficSplit: [0, 1]),
+                'customFieldValues': fields,
+              }
+            ]
+          };
+
+      final mixed = deserializeJson(withFields([
+        {'name': 'country', 'value': 'US', 'type': 'string'},
+        {'name': 'noValue', 'value': null, 'type': 'string'},
+        {'name': 'noType', 'value': 'x'},
+        {'name': null, 'value': 'x', 'type': 'string'},
+        {'value': 'x', 'type': 'string'},
+        'not an object',
+      ]));
+      expect(mixed, isNotNull);
+      final fields = mixed!.experiments.single.customFieldValues!;
+      expect(fields.map((f) => f.name), equals(['country']));
+
+      final notAList = deserializeJson(withFields({'name': 'x'}));
+      expect(notAList, isNotNull);
+      expect(notAList!.experiments.single.customFieldValues, isNull);
+    });
+
+    test('unknownCustomFieldEntryKeysAreIgnored', () {
+      final data = deserializeJson({
+        'experiments': [
+          {
+            ...experimentJson(split: [0.5, 0.5], trafficSplit: [0, 1]),
+            'customFieldValues': [
+              {
+                'name': 'country',
+                'value': 'US',
+                'type': 'string',
+                'futureScalar': 1,
+                'futureObject': {'nested': true},
+                'futureArray': [1, 'two'],
+              }
+            ],
+          },
+          {
+            ...experimentJson(split: [0.5, 0.5], trafficSplit: [0, 1]),
+            'id': 2,
+            'name': 'other',
+            'customFieldValues': [
+              {
+                'name': 'enabled',
+                'value': 'true',
+                'type': 'boolean',
+                'future': ['ignored'],
+              }
+            ],
+          },
+        ]
+      });
+
+      expect(data, isNotNull);
+      expect(data!.experiments, hasLength(2));
+      expect(data.experiments[0].customFieldValues!.single.name,
+          equals('country'));
+      expect(data.experiments[1].customFieldValues!.single.name,
+          equals('enabled'));
+    });
+
     test('deserializeMissingOrNullAssignmentRules', () {
       final missing = deserializeJson({
         'experiments': [
@@ -293,6 +361,113 @@ void main() {
           jsonDecode(jsonEncode(experiment.toMap())) as Map<String, dynamic>)
         ..assignmentRules = '{"rules":[{"type":"assign","variant":0}]}';
       expect(other, isNot(experiment));
+    });
+
+    test('emptyOrAllMalformedCustomFieldValuesGiveAnEmptyList', () {
+      for (final fields in <dynamic>[
+        [],
+        ['bad']
+      ]) {
+        final data = deserializeJson({
+          'experiments': [
+            {
+              ...experimentJson(split: [0.5, 0.5], trafficSplit: [0, 1]),
+              'customFieldValues': fields,
+            }
+          ]
+        });
+        expect(data!.experiments.single.customFieldValues, isEmpty);
+        expect(data.experiments.single.customFieldValues, isNotNull);
+      }
+    });
+
+    test('customFieldsSurviveTheContextDataJsonRoundTrip', () {
+      final fields = [
+        {'name': 'region', 'value': 'EU', 'type': 'string'},
+        {'name': 'n', 'value': '1.5', 'type': 'number'},
+        {'name': 'enabled', 'value': 'false', 'type': 'boolean'},
+        {'name': 'items', 'value': '[1,2]', 'type': 'json'},
+      ];
+      final original = deserializeJson({
+        'experiments': [
+          {
+            ...experimentJson(split: [0.5, 0.5], trafficSplit: [0, 1]),
+            'customFieldValues': fields,
+          }
+        ]
+      })!;
+      final encoded =
+          jsonDecode(jsonEncode(original.toMap())) as Map<String, dynamic>;
+      expect(
+          (encoded['experiments'] as List).single['customFieldValues'], fields);
+      final restored = ContextData.fromMap(encoded);
+      expect(
+          restored.experiments.single.customFieldValues!
+              .map((field) => field.toMap())
+              .toList(),
+          fields);
+    });
+
+    test('anSdkExposureSetterChangesItsGetterAndSerializedField', () {
+      final exposure = Exposure(
+          id: 1,
+          name: 'exp',
+          unit: 'session_id',
+          variant: 1,
+          exposedAt: 1,
+          assigned: true,
+          eligible: true,
+          overridden: false,
+          fullOn: false,
+          custom: false,
+          audienceMismatch: false);
+      for (final value in [true, false]) {
+        exposure.ruleOverride = value;
+        expect(exposure.ruleOverride, value);
+        expect(exposure.toMap()['ruleOverride'], value);
+      }
+    });
+
+    test('modelConstructorsKeepThe22Fields', () {
+      final field =
+          CustomFieldValue(name: 'region', value: 'EU', type: 'string');
+      final experiment = Experiment(
+        id: 1,
+        name: 'exp',
+        unitType: 'session_id',
+        iteration: 1,
+        seedHi: 0,
+        seedLo: 0,
+        split: [0.5, 0.5],
+        trafficSeedHi: 0,
+        trafficSeedLo: 0,
+        trafficSplit: [0.0, 1.0],
+        fullOnVariant: 0,
+        applications: [],
+        variants: [],
+        audienceStrict: false,
+        audience: null,
+        assignmentRules: '{"rules":[]}',
+        customFieldValues: [field],
+      );
+      expect(experiment.assignmentRules, '{"rules":[]}');
+      expect(experiment.customFieldValues, [field]);
+
+      final exposure = Exposure.fromMap({
+        'id': 1,
+        'name': 'exp',
+        'unit': 'session_id',
+        'variant': 1,
+        'exposedAt': 1,
+        'assigned': false,
+        'eligible': true,
+        'overridden': false,
+        'fullOn': false,
+        'custom': false,
+        'audienceMismatch': false,
+        'ruleOverride': true,
+      });
+      expect(exposure.ruleOverride, isTrue);
     });
   });
 }

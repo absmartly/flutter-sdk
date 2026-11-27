@@ -8,6 +8,8 @@ The ABsmartly Flutter SDK is compatible with:
 - Dart 3.4.0 and later
 - Flutter 3.22.0 and later
 
+**Flutter Web:** 2.2.0 assigns web units the same variants as native apps and the other ABsmartly SDKs (numeric UIDs above 2^53 can still differ because the web rounds them through a double; see the CHANGELOG). 2.1 computed a different variant for most units on the web, so most existing web users move to a new variant once and are exposed again. See **Breaking for Flutter Web** in the [CHANGELOG](CHANGELOG.md).
+
 ## Getting Started
 
 ### Install the SDK
@@ -16,13 +18,13 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  absmartly_sdk: ^3.0.0
+  absmartly_sdk: ^2.2.0
 ```
 
 ### Import and Initialize the SDK
 
 ```dart
-import 'package:absmartly_sdk/absmartly_sdk.dart';
+import 'package:absmartly_sdk/absmartly.dart';
 
 void main() async {
   final ClientConfig clientConfig = ClientConfig()
@@ -247,7 +249,7 @@ This package is designed for Flutter applications and includes all functionality
 Wrap your app with `ABSmartlyProvider` to make the SDK and context available throughout your widget tree:
 
 ```dart
-import 'package:absmartly_sdk/absmartly_sdk.dart';
+import 'package:absmartly_sdk/absmartly.dart';
 
 void main() async {
   final clientConfig = ClientConfig()

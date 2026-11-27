@@ -1,5 +1,4 @@
 import 'dart:core';
-import 'dart:convert';
 import 'dart:typed_data';
 
 abstract class Buffers {
@@ -32,14 +31,34 @@ abstract class Buffers {
   }
 
   static int encodeUTF8(Uint8List buf, int offset, String value) {
-    // Delegate to the platform UTF-8 encoder so characters outside the Basic
-    // Multilingual Plane (e.g. emoji, stored as UTF-16 surrogate pairs) produce
-    // correct 4-byte UTF-8 sequences. The previous hand-rolled loop processed
-    // each UTF-16 code unit independently and emitted invalid CESU-8 for
-    // surrogate pairs, yielding a different unit hash than the other SDKs and
-    // the collector.
-    final List<int> bytes = utf8.encode(value);
-    buf.setRange(offset, offset + bytes.length, bytes);
-    return bytes.length;
+    // Combine valid pairs, but retain 2.1's three-byte encoding for an
+    // unpaired surrogate, as released JavaScript and Java do for unit IDs.
+    int k = offset;
+    for (int i = 0; i < value.length; i++) {
+      int c = value.codeUnitAt(i);
+      if (c >= 0xd800 && c <= 0xdbff && i + 1 < value.length) {
+        final int next = value.codeUnitAt(i + 1);
+        if (next >= 0xdc00 && next <= 0xdfff) {
+          c = ((c - 0xd800) << 10) + (next - 0xdc00) + 0x10000;
+          i++;
+        }
+      }
+      if (c < 0x80) {
+        buf[k++] = c;
+      } else if (c < 0x800) {
+        buf[k++] = 0xc0 | (c >> 6);
+        buf[k++] = 0x80 | (c & 0x3f);
+      } else if (c < 0x10000) {
+        buf[k++] = 0xe0 | (c >> 12);
+        buf[k++] = 0x80 | ((c >> 6) & 0x3f);
+        buf[k++] = 0x80 | (c & 0x3f);
+      } else {
+        buf[k++] = 0xf0 | (c >> 18);
+        buf[k++] = 0x80 | ((c >> 12) & 0x3f);
+        buf[k++] = 0x80 | ((c >> 6) & 0x3f);
+        buf[k++] = 0x80 | (c & 0x3f);
+      }
+    }
+    return k - offset;
   }
 }

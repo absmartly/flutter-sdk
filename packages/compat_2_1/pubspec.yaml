@@ -1,0 +1,21 @@
+name: absmartly_sdk_compat_2_1
+description: Compiles and runs code written against the absmartly_sdk 2.1.2 API.
+publish_to: none
+
+environment:
+  sdk: '>=2.18.6 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: '>=0.13.0 <2.0.0'
+  absmartly_sdk:
+    path: ../flutter_sdk
+
+dependency_overrides:
+  absmartly_dart:
+    path: ../dart_sdk
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

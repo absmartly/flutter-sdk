@@ -1,3 +1,7 @@
+// Native-only: 2^53+1 and 19-digit int literals cannot be compiled to JS.
+@TestOn('vm')
+library hashing_test;
+
 import 'dart:typed_data';
 import 'dart:convert';
 
@@ -69,7 +73,7 @@ void main() {
   group('cross-SDK UTF-8 vectors', () {
     // Shared vectors validated against the JS SDK's stringToUint8Array and
     // hashUnit: standard 4-byte UTF-8 for non-BMP characters (never CESU-8)
-    // and U+FFFD for a lone surrogate.
+    // and the released three-byte encoding for a lone surrogate.
     final vectors = <String, List<Object>>{
       'user\u{1F600}id': [
         [117, 115, 101, 114, 240, 159, 152, 128, 105, 100],
@@ -92,8 +96,8 @@ void main() {
         '1RRpVphazpblARsm5DaSkg'
       ],
       'ab\uD83Dcd': [
-        [97, 98, 239, 191, 189, 99, 100],
-        'jvDxBUzS9Tdsml3QQStWSg'
+        [97, 98, 237, 160, 189, 99, 100],
+        'cxcYMfzbeuuTbsQtntSfPQ'
       ],
     };
 
@@ -122,5 +126,18 @@ void main() {
             reason: unit);
       });
     });
+  });
+
+  test('hashes an int above 2^53 from its exact decimal string', () {
+    expect(Hashing.hashInput(9007199254740993), '9007199254740993');
+    expect(Hashing.hashInput(1234567890123456781), '1234567890123456781');
+    expect(Hashing.hashInput(1234567890123456782), '1234567890123456782');
+    expect(Hashing.hashUnitValue(1234567890123456781),
+        Hashing.hashUnit('1234567890123456781'));
+    expect(Hashing.hashUnitValue(1234567890123456781),
+        isNot(Hashing.hashUnitValue(1234567890123456782)));
+    expect(Hashing.hashInput(-0), '0');
+    expect(Hashing.hashInput(-0.0), '0');
+    expect(Hashing.hashInput(125.75), '126');
   });
 }

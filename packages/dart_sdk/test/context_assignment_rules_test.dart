@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
 
 import 'package:absmartly_dart/src/audience_matcher.dart';
 import 'package:absmartly_dart/src/context.dart';
@@ -10,6 +11,7 @@ import 'package:absmartly_dart/src/default_variable_parser.dart';
 import 'package:absmartly_dart/src/internal/context_counters.dart';
 import 'package:absmartly_dart/src/java/time/clock.dart';
 import 'package:absmartly_dart/src/json/context_data.dart';
+import 'package:absmartly_dart/src/json/experiment.dart';
 import 'package:absmartly_dart/src/json/exposure.dart';
 import 'package:absmartly_dart/src/jsonexpr/json_expr.dart';
 import 'package:mockito/mockito.dart';
@@ -171,6 +173,84 @@ void main() {
       audience: '{"filter":[{"gte":[{"var":"age"},{"value":20}]}]}',
       audienceStrict: true);
 
+  // Isolate.spawn rather than Isolate.run, which needs Dart 2.19.
+  Future<T> inIsolate<T>(T Function() compute) async {
+    final port = ReceivePort();
+    final errors = ReceivePort();
+    try {
+      await Isolate.spawn(
+          (SendPort reply) => reply.send(compute()), port.sendPort,
+          onError: errors.sendPort);
+      return await Future.any<T>([
+        port.first.then((value) => value as T),
+        errors.first.then((error) {
+          final details = error as List<dynamic>;
+          throw RemoteError(details[0] as String, details[1] as String);
+        }),
+      ]);
+    } finally {
+      port.close();
+      errors.close();
+    }
+  }
+
+  group('data from another isolate', () {
+    test('worker errors are reported directly', () async {
+      await expectLater(
+          inIsolate<int>(() => throw StateError('worker failed')),
+          throwsA(isA<RemoteError>().having((error) => error.toString(),
+              'message', contains('worker failed'))));
+    });
+
+    test('keeps assignment rules and custom fields', () async {
+      final bytes = contextBytes;
+      const fieldsJson = '[{"name":"region","value":"EU","type":"string"}]';
+      final ContextData local = rulesData();
+      final ContextData copied = await inIsolate(() {
+        final data = DefaultContextDataDeserializer()
+            .deserialize(bytes, 0, bytes.length)!;
+        for (final experiment in data.experiments) {
+          if (experiment.name == exp) {
+            experiment.assignmentRules =
+                rules([assign('US Internal Users', us, 1)]);
+            experiment.customFieldValues = [
+              for (final field in jsonDecode(fieldsJson) as List)
+                CustomFieldValue.fromMap(field as Map<String, dynamic>)
+            ];
+          }
+        }
+        return data;
+      });
+
+      final experiment = copied.experiments.firstWhere((e) => e.name == exp);
+      expect(experiment.assignmentRules,
+          local.experiments.firstWhere((e) => e.name == exp).assignmentRules);
+      expect(experiment.customFieldValues!.single.name, 'region');
+
+      final context = await ready(copied);
+      context.setAttribute('country', 'US');
+      expect(context.getTreatment(exp), 1);
+      expect(context.getCustomFieldValue(exp, 'region'), 'EU');
+    });
+
+    test('keeps the exposure ruleOverride flag', () async {
+      final Exposure exposure = await inIsolate(() => Exposure(
+          id: 1,
+          name: exp,
+          unit: 'session_id',
+          variant: 1,
+          exposedAt: 1,
+          assigned: false,
+          eligible: true,
+          overridden: false,
+          fullOn: false,
+          custom: false,
+          audienceMismatch: false,
+          ruleOverride: true));
+      expect(exposure.ruleOverride, isTrue);
+    });
+  });
+
   group('assign rules', () {
     test('rule variant when rule matches', () async {
       final context = await ready(rulesData());
@@ -322,6 +402,18 @@ void main() {
       context.setAttribute('age', 30);
       expect(context.getTreatment(exp), 1);
       expect(context.getPendingCount(), 1);
+    });
+
+    test('a rule-won assignment ignores an audience that stops matching',
+        () async {
+      final context = await ready(strictData());
+      context.setAttribute('country', 'US');
+      context.setAttribute('age', 30);
+      expect(context.getTreatment(exp), 1);
+      context.setAttribute('age', 10);
+      expect(context.getTreatment(exp), 1);
+      expect(context.getPendingCount(), 1);
+      expect(exposures(context).single.audienceMismatch, isFalse);
     });
 
     test('invalidates when a rule starts matching', () async {

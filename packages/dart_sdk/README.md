@@ -13,13 +13,15 @@ The ABsmartly Dart SDK is compatible with Dart 3.4.0 and later.
 | Web         | Yes     |
 | Server-side | Yes     |
 
+**Flutter Web:** 2.2.0 assigns web units the same variants as native apps and the other ABsmartly SDKs (numeric UIDs above 2^53 can still differ because the web rounds them through a double; see the CHANGELOG). 2.1 computed a different variant for most units on the web, so most existing web users move to a new variant once and are exposed again. See **Breaking for Flutter Web** in the [CHANGELOG](CHANGELOG.md).
+
 ## Installation
 
 Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  absmartly_dart: ^3.0.0
+  absmartly_dart: ^2.2.0
 ```
 
 Then run:
@@ -363,7 +365,7 @@ class CustomEventLogger implements ContextEventLogger {
             case EventType.publish:
             case EventType.ready:
             case EventType.refresh:
-            case EventType.finalize:
+            case EventType.close:
                 break;
         }
     }
