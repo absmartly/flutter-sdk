@@ -73,7 +73,7 @@ void main() {
   group('cross-SDK UTF-8 vectors', () {
     // Shared vectors validated against the JS SDK's stringToUint8Array and
     // hashUnit: standard 4-byte UTF-8 for non-BMP characters (never CESU-8)
-    // and U+FFFD for a lone surrogate.
+    // and the released three-byte encoding for a lone surrogate.
     final vectors = <String, List<Object>>{
       'user\u{1F600}id': [
         [117, 115, 101, 114, 240, 159, 152, 128, 105, 100],
@@ -96,8 +96,8 @@ void main() {
         '1RRpVphazpblARsm5DaSkg'
       ],
       'ab\uD83Dcd': [
-        [97, 98, 239, 191, 189, 99, 100],
-        'jvDxBUzS9Tdsml3QQStWSg'
+        [97, 98, 237, 160, 189, 99, 100],
+        'cxcYMfzbeuuTbsQtntSfPQ'
       ],
     };
 
